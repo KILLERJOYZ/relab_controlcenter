@@ -1,0 +1,54 @@
+[
+	{"id": "0xc05", "name": "Cortex-A5"},
+	{"id": "0xc07", "name": "Cortex-A7"},
+	{"id": "0xc08", "name": "Cortex-A8"},
+	{"id": "0xc09", "name": "Cortex-A9"},
+	
+	{"id": "0xc0d", "name": "Cortex-A17(ex-A12)"},
+	{"id": "0xc0e", "name": "Cortex-A17"},
+	{"id": "0xc0f", "name": "Cortex-A15"},
+	
+	{"id": "0xd01", "name": "Cortex-A32"},
+	{"id": "0xd03", "name": "Cortex-A53"},
+	{"id": "0xd04", "name": "Cortex-A35"},
+	{"id": "0xd05", "name": "Cortex-A55"},
+	{"id": "0xd06", "name": "Cortex-A65"},
+	{"id": "0xd07", "name": "Cortex-A57"},
+	{"id": "0xd08", "name": "Cortex-A72"},
+	{"id": "0xd09", "name": "Cortex-A73"},
+
+	{"id": "0xd0a", "name": "Cortex-A75"},
+	{"id": "0xd0b", "name": "Cortex-A76"},
+	{"id": "0xd0d", "name": "Cortex-A77"},
+
+	{"id": "0xd0c", "name": "Neoverse-N1"},
+	{"id": "0xd40", "name": "Neoverse-V1"},
+	
+	{"id": "0xd41", "name": "Cortex-A78"},
+	{"id": "0xd42", "name": "Cortex-A78AE"},
+	{"id": "0xd44", "name": "Cortex-X1"},
+	
+	{"id": "0xd46", "name": "Cortex-A510"},
+	{"id": "0xd47", "name": "Cortex-A710"},
+	
+	{"id": "0xd48", "name": "Cortex-X2"},
+
+	{"id": "0xd49", "name": "Neoverse-N2"},
+	{"id": "0xd4a", "name": "Neoverse-E1"},
+
+	{"id": "0xd4b", "name": "Cortex-A78C"},
+	{"id": "0xd4c", "name": "Cortex-X1C"},
+	{"id": "0xd4d", "name": "Cortex-A715"},
+	{"id": "0xd4e", "name": "Cortex-X3"},
+
+	{"id": "0xd80", "name": "Cortex-A520"},
+	{"id": "0xd81", "name": "Cortex-A720"},
+	{"id": "0xd82", "name": "Cortex-X4"},
+
+	{"id": "0xd85", "name": "Cortex-X925"},
+	{"id": "0xd87", "name": "Cortex-A725"},
+
+	{"id": "0xd8c", "name": "C1-Ultra"},
+	{"id": "0xd90", "name": "C1-Premier"},
+	{"id": "0xd8b", "name": "C1-Pro"}
+]

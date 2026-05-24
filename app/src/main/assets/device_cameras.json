@@ -1,0 +1,83 @@
+[
+  {
+    "match": ["xiaomi 17 ultra", "25012pn24"],
+    "cameras": [
+      {"focal_min": 8.0, "focal_max": 9.5, "facing": "back", "res": "50", "sensor": "Light Fusion 1050L"},
+      {"focal_min": 2.5, "focal_max": 4.0, "facing": "back", "res": "50", "sensor": "Samsung JN5"},
+      {"focal_min": 10.0, "focal_max": 15.0, "facing": "back", "res": "200", "sensor": "Samsung HPE"}
+    ]
+  },
+  {
+    "match": ["xiaomi 15 ultra", "24129pn74"],
+    "cameras": [
+      {"focal_min": 6.0, "focal_max": 7.5, "facing": "back", "res": "50", "sensor": "Sony LYT-900"},
+      {"focal_min": 2.5, "focal_max": 4.0, "facing": "back", "res": "50", "sensor": "Samsung JN1"},
+      {"focal_min": 10.0, "focal_max": 15.0, "facing": "back", "res": "200", "sensor": "Samsung HP9"}
+    ]
+  },
+  {
+    "match": ["xiaomi 14 ultra", "24030pn60"],
+    "cameras": [
+      {"focal_min": 6.0, "focal_max": 7.5, "facing": "back", "res": "50", "sensor": "Sony LYT-900"},
+      {"focal_min": 2.5, "focal_max": 4.0, "facing": "back", "res": "50", "sensor": "Samsung JN1"},
+      {"focal_min": 9.0, "focal_max": 14.0, "facing": "back", "res": "50", "sensor": "Sony IMX858"}
+    ]
+  },
+  {
+    "match": ["sm-s928", "samsung galaxy s24 ultra", "e3q"],
+    "cameras": [
+      {"focal_min": 6.0, "focal_max": 7.5, "facing": "back", "res": "200", "sensor": "Samsung HP2"},
+      {"focal_min": 2.0, "focal_max": 3.5, "facing": "back", "res": "12", "sensor": "Sony IMX564"},
+      {"focal_min": 9.0, "focal_max": 12.0, "facing": "back", "res": "50", "sensor": "Sony IMX754"},
+      {"focal_min": 12.0, "focal_max": 20.0, "facing": "back", "res": "50", "sensor": "Sony IMX854"}
+    ]
+  },
+  {
+    "match": ["sm-s938", "samsung galaxy s25 ultra", "e4q"],
+    "cameras": [
+      {"focal_min": 6.0, "focal_max": 7.5, "facing": "back", "res": "200", "sensor": "Samsung HP5"},
+      {"focal_min": 2.0, "focal_max": 3.5, "facing": "back", "res": "50", "sensor": "Sony IMX882"},
+      {"focal_min": 9.0, "focal_max": 12.0, "facing": "back", "res": "50", "sensor": "Sony IMX754"},
+      {"focal_min": 12.0, "focal_max": 20.0, "facing": "back", "res": "50", "sensor": "Sony IMX854"}
+    ]
+  },
+  {
+    "match": ["pixel 9 pro", "caiman", "komodo", "comet"],
+    "cameras": [
+      {"focal_min": 6.0, "focal_max": 7.5, "facing": "back", "res": "50", "sensor": "Samsung GNK"},
+      {"focal_min": 2.0, "focal_max": 3.5, "facing": "back", "res": "48", "sensor": "Sony IMX858"},
+      {"focal_min": 10.0, "focal_max": 15.0, "facing": "back", "res": "48", "sensor": "Sony IMX858"}
+    ]
+  },
+  {
+    "match": ["oppo find x8 ultra"],
+    "cameras": [
+      {"focal_min": 6.0, "focal_max": 7.5, "facing": "back", "res": "50", "sensor": "Sony LYT-900"},
+      {"focal_min": 2.0, "focal_max": 4.0, "facing": "back", "res": "50", "sensor": "Sony IMX882"},
+      {"focal_min": 9.0, "focal_max": 14.0, "facing": "back", "res": "50", "sensor": "Sony LYT-600"},
+      {"focal_min": 14.0, "focal_max": 22.0, "facing": "back", "res": "50", "sensor": "Sony LYT-600"}
+    ]
+  },
+  {
+    "match": ["vivo x200 pro"],
+    "cameras": [
+      {"focal_min": 5.5, "focal_max": 7.5, "facing": "back", "res": "200", "sensor": "Samsung HP9"},
+      {"focal_min": 2.0, "focal_max": 4.0, "facing": "back", "res": "50", "sensor": "Samsung JN1"},
+      {"focal_min": 9.0, "focal_max": 14.0, "facing": "back", "res": "200", "sensor": "Samsung HP9"}
+    ]
+  },
+  {
+    "match": ["oneplus 13"],
+    "cameras": [
+      {"focal_min": 5.5, "focal_max": 7.5, "facing": "back", "res": "50", "sensor": "Sony LYT-808"},
+      {"focal_min": 2.0, "focal_max": 4.0, "facing": "back", "res": "50", "sensor": "Samsung JN1"},
+      {"focal_min": 9.0, "focal_max": 14.0, "facing": "back", "res": "50", "sensor": "Sony LYT-600"}
+    ]
+  },
+  {
+    "match": ["oppo find n6", "phv110", "find n6"],
+    "cameras": [
+      {"focal_min": 4.8, "focal_max": 5.2, "facing": "back", "res": "50", "sensor": "Sony IMX890", "equiv": 23.0}
+    ]
+  }
+]

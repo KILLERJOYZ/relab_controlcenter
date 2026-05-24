@@ -1,0 +1,68 @@
+[
+	{"id": "mt6755", "name": "P10 series", "tp": "28"},
+	{"id": "mt6757", "name": "P20 series", "tp": "16", "rel":"q3_16"},
+
+	{"id": "mt6758", "name": "P30 series"},
+	{"id": "mt6759", "name": "P30 series"},
+
+	{"id": "mt6795", "name": "X10 series", "tp": "28", "rel":"q4_14"},
+	{"id": "mt6797", "name": "X20 series", "tp": "20", "rel":"q4_15"},
+	{"id": "mt6799", "name": "X30 series", "tp": "10", "rel":"q2_17"},
+
+	{"id": "mt6763", "name": "P23", "ddr": "", "tp": "16", "tm": "t16ff+", "sddr": "3_1x933|4X_2x1500","rel":"q3_17"},
+
+	{"id": "mt6761",  "name": "A22", "tp": "12", "rel":"q2_18"},
+	{"id": "mt6762m", "name": "A22", "tp": "12", "rel":"q2_18"},
+	{"id": "mt6762",  "name": "P22", "tp": "12", "rel":"q2_18"},
+
+	{"id": "mt6765", "name": "P35", "tp": "12", "tm": "t12ffc", "sddr": "3_2x933|4X_2x1600", "rel":"q4_18"},
+
+	{"id": "mt6768", "name": "P65", "tp": "12", "tm": "t12ffc", "sddr": "4X_2x1800", "rel":"q3_19"},
+	{"id": "mt6769", "name": "G70", "tp": "12", "tm": "t12ffc", "sddr": "4X_2x1800", "rel":"q1_20" },
+
+	{"id": "mt6771", "name": "P60 series", "ddr": "", "tp": "12", "tm": "t12ffc", "sddr": "3_2x933|4X_2x1800", "rel":"q1_18"},
+	{"id": "mt6779", "name": "P90", "ddr": "4X", "tp": "12", "tm": "t12ffc", "sddr": "_2x1866", "rel":"q1_19"},
+
+	{"id": "mt6785", "name": "G90", "ddr": "4X", "tp": "12", "tm": "t12ffc", "sddr": "_2x2133", "rel":"q3_19" },
+	{"id": "mt6781", "name": "G96", "ddr": "4X", "tp": "12", "tm": "t12ffc", "sddr": "_2x2133", "rel":"q3_21" },
+	{"id": "mt6789|mt8781", "name": "G99", "ddr": "4X", "tp": "6", "tm": "tn6", "sddr": "_2x2133", "rel":"q2_22"},
+	
+	{"id": "mt6883", "name": "D1000C", "ddr": "4X", "tp": "7", "tm": "tn7", "sddr": "_2x1866", "rel":"q3_20"},
+	{"id": "mt6885", "name": "D1000",  "ddr": "4X", "tp": "7", "tm": "tn7", "sddr": "_2x1866", "rel":"q1_20"},
+	{"id": "mt6889", "name": "D1000+", "ddr": "4X", "tp": "7", "tm": "tn7", "sddr": "_2x1866", "rel":"q2_20"},
+	
+	{"id": "mt6833", "name": "D700", "ddr": "4X", "tp": "7", "tm": "tn7", "sddr": "_2x2133", "rel":"q1_21"},
+	{"id": "mt6833p", "name": "D810", "ddr": "4X", "tp": "6", "tm": "tn6", "sddr": "_2x2133", "rel":"q3_21"},
+	{"id": "mt6853", "name": "D720", "ddr": "4X", "tp": "7", "tm": "tn7", "sddr": "_2x2133", "rel":"q3_20"},
+	{"id": "mt6873", "name": "D800", "ddr": "4X", "tp": "7", "tm": "tn7", "sddr": "_2x2133", "rel":"q2_20"},
+	{"id": "mt6875", "name": "D820", "ddr": "4X", "tp": "7", "tm": "tn7", "sddr": "_2x2133", "rel":"q2_20"},
+
+	{"id": "mt6877", "name": "D900", "ddr": "", "sddr": "4X_2x2133|5_2x2750", "tp": "6", "tm": "tn6", "rel":"q2_21"},
+	{"id": "mt6879", "name": "D1050", "sddr": "4X_2x2133|5_2x2750", "tp": "6", "tm": "tn6", "rel":"q3_22"},
+	{"id": "mt6855", "name": "D930", "ddr": "4X/5", "sddr": "4X_2x2133|5_2x2750", "tp": "6", "tm": "tn6", "rel":"q2_22"},
+	
+	{"id": "mt6893", "name": "D1200", "ddr": "4X", "tp": "6", "tm": "tn6", "sddr": "_4x2133", "rel":"q1_21"},
+	{"id": "mt6891", "name": "D1100", "ddr": "4X", "tp": "6", "tm": "tn6", "sddr": "_4x2133", "rel":"q1_21"},
+
+	{"id": "mt8797", "name": "K1300T", "ddr": "4X", "tp": "6", "tm": "t"},
+	{"id": "mt8195", "name": "K1200", "ddr": "4X", "tp": "6", "tm": "t"},
+
+	{"id": "mt6895", "name": "D8000/8100", "ddr": "5", "tp": "5", "tm": "tn5p", "sddr":"5_4x3200", "rel":"q1_22" },
+	{"id": "mt6983|mt8798", "name": "D9000", "ddr": "5/5X", "tp": "4", "tm": "tn4", "sddr":"5_4x3200|5X_4x3750", "rel":"q4_21"},
+
+	{"id": "mt6835|mt8755", "name": "D6100+", "ddr": "4X", "tp": "6", "tm": "tn6", "sddr": "_2x2133", "rel":"q3_23"},
+
+	{"id": "mt6886", "name": "D7200", "ddr": "4X/5", "tp": "4", "tm": "tn4p", "sddr":"5_4x3200|4X_4x2133",  "rel":"q1_23" },
+	{"id": "mt6896", "name": "D8200", "ddr": "5", "tp": "4", "tm": "tn4", "sddr":"5_4x3200", "rel":"q4_22"},
+	{"id": "mt6985", "name": "D9200", "ddr": "5/5X", "tp": "4", "tm": "tn4p", "sddr":"5X_4x4266", "rel":"q4_22"},
+	{"id": "mt6897|mt8792", "name": "D8300", "ddr": "5/5X", "tp": "4", "tm": "tn4p", "sddr":"5X_4x4266",  "rel":"q4_23"},
+	{"id": "mt6899", "name": "D8400", "ddr": "5X", "tp": "4", "tm": "tn4p", "sddr":"5X_4x4266",  "rel":"q4_24"},
+
+	{"id": "mt6989|mt8796", "name": "D9300", "ddr": "5X/5T", "tp": "4", "tm": "tn4x", "sddr": "_4x4800",  "rel":"q4_23"},
+	{"id": "mt6878", "name": "D7300", "ddr": "4X/5", "tp": "4", "tm": "tn4p", "sddr":"5_4x3200|4X_4x2133",  "rel":"q2_24"},
+	{"id": "mt6858", "name": "D7100", "ddr": "4X/5", "tp": "4", "tm": "tn4p", "sddr":"5_4x3200|4X_4x2133",  "rel":"q4_24"},
+	{"id": "mt6991|mt8799", "name": "D9400", "ddr": "5X/5T", "tp": "3", "tm": "tn3e", "sddr": "_4x4800",  "rel":"q4_24"},
+
+	{"id": "mt6995|mt8800", "name": "D9500", "ddr": "5X/5T", "tp": "3", "tm": "tn3", "sddr": "_4x5333",  "rel":"q3_25"}
+
+]

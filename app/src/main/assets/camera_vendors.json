@@ -1,0 +1,21 @@
+[
+	{"id": "ovx",    "name": "OmniVision"},
+	{"id": "ov",     "name": "OmniVision"},
+	{"id": "i[ms]x", "name": "Sony"},
+	{"id": "lyt",    "name": "Sony"},
+	{"id": "s5[kc]", "name": "Samsung"},
+	{"id": "gc",     "name": "GalaxyCore"},
+	{"id": "sp",     "name": "SuperPix"},
+	{"id": "hi",     "name": "Hynix"},
+	{"id": "sl",     "name": "Hynix"},
+	{"id": "hm",     "name": "Himax"},
+	{"id": "siv",    "name": "Seti"},
+	{"id": "t4k",    "name": "Toshiba"},
+	{"id": "mn",     "name": "Panasonic"},
+	{"id": "jx",     "name": "SiliconOptronics"},
+	{"id": "ar",     "name": "OnSemi"},
+	{"id": "sr",     "name": "Siliconfile"},
+	{"id": "m\\d+",  "name": "Fujitsu"},
+	{"id": "bf",  	 "name": "BYD"},
+	{"id": "sc\\d+", "name": "SmartSens"}
+]

@@ -1,0 +1,53 @@
+[
+	{"vid": "0x41", "id": "0xb36", "name": "arm1136"},
+
+	{"vid": "0x42", "id": "0x100", "name": "Brahma-B53"},
+
+	{"vid": "0x48", "id": "0xd40", "name": "Cortex-A76H"},
+	
+	{"vid": "0x48", "id": "0xd01", "name": "Kunpeng-920"},
+	
+	{"vid": "0x48", "id": "0xd02", "name": "HiSi-Main"},
+	{"vid": "0x48", "id": "0xd03", "name": "HiSi-Main-II"},
+	{"vid": "0x48", "id": "0xd05", "name": "HiSi-Main-III"},
+	{"vid": "0x48", "id": "0xd06", "name": "HiSi-Main-IV"},
+	
+	{"vid": "0x48", "id": "0xd42", "name": "HiSi-Middle"},
+	{"vid": "0x48", "id": "0xd46", "name": "HiSi-Middle-II"},
+	{"vid": "0x48", "id": "0xd47", "name": "HiSi-Middle-III"},
+	
+	{"vid": "0x48", "id": "0xd23", "name": "HiSi-Little-I"},
+	{"vid": "0x48", "id": "0xd24", "name": "HiSi-Little-II"},
+
+	{"vid": "0x4e", "id": "0", "name": "Denver"},
+
+	{"vid": "0x51", "id": "0xf",  "name": "Scorpion"},	
+	{"vid": "0x51", "id": "0x2d", "name": "Scorpion"},
+	{"vid": "0x51", "id": "0x4d", "name": "Krait"},
+	{"vid": "0x51", "id": "0x6f", "name": "Krait"},
+
+	{"vid": "0x51", "id": "0x201", "name": "Kryo"},
+	{"vid": "0x51", "id": "0x205", "name": "Kryo"},
+	{"vid": "0x51", "id": "0x211", "name": "Kryo"},
+
+	{"vid": "0x51", "id": "0x800", "name": "Kryo-2xx-a73"},
+	{"vid": "0x51", "id": "0x801", "name": "Kryo-2xx-a53"},
+
+	{"vid": "0x51", "id": "0x802", "name": "Kryo-3xx-a75"},
+	{"vid": "0x51", "id": "0x803", "name": "Kryo-3xx-a55"},
+
+	{"vid": "0x51", "id": "0x804", "name": "Kryo-4xx-a76"},
+	{"vid": "0x51", "id": "0x805", "name": "Kryo-4xx-a55"},
+
+	{"vid": "0x51", "id": "0x1",  "name": "Oryon-V2"},
+	{"vid": "0x51", "id": "0x2",  "name": "Oryon-V3"},
+	{"vid": "0x51", "id": "0x001", "name": "Oryon-Prime"},
+	{"vid": "0x51", "id": "0x002", "name": "Oryon-Performance"},
+
+	{"vid": "0x53", "id": "1", "name": "Mongoose"},
+	{"vid": "0x53", "id": "2", "name": "Mongoose-M3"},
+	{"vid": "0x53", "id": "3", "name": "Mongoose-M4"},
+	{"vid": "0x53", "id": "4", "name": "Mongoose-M5"},
+
+	{"vid": "0x69", "id": "1", "name": "Intel"}
+]

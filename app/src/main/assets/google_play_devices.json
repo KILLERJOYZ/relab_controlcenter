@@ -1,0 +1,44 @@
+[
+  {
+    "brand": "vivo",
+    "name": "V30",
+    "device": "V2318",
+    "model": "V2318"
+  },
+  {
+    "brand": "vivo",
+    "name": "V30 Pro",
+    "device": "V2319",
+    "model": "V2319"
+  },
+  {
+    "brand": "vivo",
+    "name": "X100",
+    "device": "V2309",
+    "model": "V2309"
+  },
+  {
+    "brand": "vivo",
+    "name": "V2538",
+    "device": "V2538",
+    "model": "V2538"
+  },
+  {
+    "brand": "Samsung",
+    "name": "Galaxy Tab S9",
+    "device": "gts9",
+    "model": "SM-X710"
+  },
+  {
+    "brand": "Xiaomi",
+    "name": "Xiaomi 11T Pro",
+    "device": "vili",
+    "model": "2109119DG"
+  },
+  {
+    "brand": "Google",
+    "name": "Pixel 8 Pro",
+    "device": "husky",
+    "model": "GC3VE"
+  }
+]

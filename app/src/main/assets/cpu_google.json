@@ -1,0 +1,7 @@
+[
+	{"id": "Tensor", "ddr": "5", "tp": "5", "tm": "s", "rel":"q4_21"},
+	{"id": "gs201", "name":"G2","ddr": "5", "tp": "5", "tm": "s", "rel":"q4_22"},
+	{"id": "Tensor G3", "name":"G3","ddr": "5X", "tp": "4", "tm": "s", "rel":"q4_23"},
+	{"id": "Tensor G4", "name":"G4","ddr": "5X", "tp": "4", "tm": "s", "rel":"q4_24"},
+	{"id": "Tensor G5", "name":"G5","ddr": "5X", "tp": "3", "tm": "tn3p", "rel":"q3_25"}
+]

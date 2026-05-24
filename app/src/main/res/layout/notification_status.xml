@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <!-- CPU -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="4dp">
+        <TextView
+            android:layout_width="65dp"
+            android:layout_height="wrap_content"
+            android:text="@string/notif_cpu"
+            android:textSize="12sp"/>
+        <ProgressBar
+            android:id="@+id/cpu_progress"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="0dp"
+            android:layout_height="8dp"
+            android:layout_weight="1"
+            android:max="100"
+            android:layout_marginHorizontal="8dp"/>
+        <TextView
+            android:id="@+id/cpu_value"
+            android:layout_width="45dp"
+            android:layout_height="wrap_content"
+            tools:text="0%"
+            android:textSize="12sp"
+            android:gravity="end"/>
+    </LinearLayout>
+
+    <!-- RAM -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="4dp">
+        <TextView
+            android:layout_width="65dp"
+            android:layout_height="wrap_content"
+            android:text="@string/notif_ram"
+            android:textSize="12sp"/>
+        <ProgressBar
+            android:id="@+id/ram_progress"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="0dp"
+            android:layout_height="8dp"
+            android:layout_weight="1"
+            android:max="100"
+            android:layout_marginHorizontal="8dp"/>
+        <TextView
+            android:id="@+id/ram_value"
+            android:layout_width="45dp"
+            android:layout_height="wrap_content"
+            tools:text="0%"
+            android:textSize="12sp"
+            android:gravity="end"/>
+    </LinearLayout>
+
+    <!-- Disk -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="4dp">
+        <TextView
+            android:layout_width="65dp"
+            android:layout_height="wrap_content"
+            android:text="@string/notif_disk"
+            android:textSize="12sp"/>
+        <ProgressBar
+            android:id="@+id/disk_progress"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="0dp"
+            android:layout_height="8dp"
+            android:layout_weight="1"
+            android:max="100"
+            android:layout_marginHorizontal="8dp"/>
+        <TextView
+            android:id="@+id/disk_value"
+            android:layout_width="45dp"
+            android:layout_height="wrap_content"
+            tools:text="0%"
+            android:textSize="12sp"
+            android:gravity="end"/>
+    </LinearLayout>
+
+    <!-- Battery -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="4dp">
+        <TextView
+            android:layout_width="65dp"
+            android:layout_height="wrap_content"
+            android:text="@string/notif_bat"
+            android:textSize="12sp"/>
+        <ProgressBar
+            android:id="@+id/bat_progress"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="0dp"
+            android:layout_height="8dp"
+            android:layout_weight="1"
+            android:max="100"
+            android:layout_marginHorizontal="8dp"/>
+        <TextView
+            android:id="@+id/bat_value"
+            android:layout_width="45dp"
+            android:layout_height="wrap_content"
+            tools:text="0%"
+            android:textSize="12sp"
+            android:gravity="end"/>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/net_value"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        tools:text="🌐 ↓ 0 B/s  ↑ 0 B/s"
+        android:textSize="12sp"
+        android:layout_marginTop="4dp"/>
+
+</LinearLayout>
