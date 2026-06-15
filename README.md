@@ -1,4 +1,4 @@
-# Relab Control Center (rlcc) - v0.3
+# Relab Control Center (rlcc) - v0.4 beta
 
 **Relab Control Center** is a professional-grade utility and diagnostic suite built for Android enthusiasts, developers, and power users. It combines deep hardware intelligence with real-time performance telemetry and a specialized installer hub to provide total transparency into the Android ecosystem.
 
@@ -62,20 +62,18 @@ A professional-grade **Common Interaction Toolkit** for verifying hardware funct
 
 ---
 
-## 🏁 v0.3 Highlights
+## 🏁 v0.4 Beta Highlights
 
-This release significantly expands the tool's capabilities:
-*   **Gemini AI Integration**: New "Identify Device" feature using generative AI for precise marketing name resolution.
-*   **Expressive UI Update**: Completely redesigned navigation with floating bars, search overlays, and dynamic Material You themes.
-*   **Advanced Display Specs**: Support for detecting 10-bit color depth and variable refresh rate (VRR) modes.
-*   **Root Toolkit**: Introduced battery charging limits and CPU performance profiles for power users.
-*   **Enhanced CIT**: Added Biometric (Fingerprint) and Microphone diagnostic tests.
+This release focuses on detailed hardware spec explanations and deep internationalization:
+*   **Spec-Specific Explanations**: Added 171 custom explanation entries for all 57 specs cards (Explanation, How it works, Why it matters) to replace generic templated text.
+*   **Global Localization (17 Languages)**: Full localization in English, Vietnamese, Simplified Chinese, Spanish, French, German, Russian, Portuguese, Italian, Japanese, Korean, Arabic, Hindi, Indonesian, Thai, Turkish, and Dutch.
+*   **Interactive Specs & Settings Navigation**: Top-right ⓘ buttons opening localized bottom sheets, and long-press shortcuts to relevant Android Settings categories with haptic feedback.
 
 ---
 
 ## 📥 Getting Started
 
-1.  **Download**: Obtain the latest `rlcc_v0.3.apk`.
+1.  **Download**: Obtain the latest `rlcc_beta_v0.4.apk` from the [Releases](https://github.com/KILLERJOYZ/relab_controlcenter/releases) page.
 2.  **Permissions**: Grant Camera, Location, and Phone permissions to enable physical sensor detection and network identification.
 3.  **Installation**: Enable "Install from Unknown Sources" for the App Hub to function as an alternative installer.
 
