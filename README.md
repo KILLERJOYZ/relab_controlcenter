@@ -71,6 +71,18 @@ This release focuses on detailed hardware spec explanations and deep internation
 
 ---
 
+## 📊 Changelog: v0.4 Beta vs v0.3
+
+| Feature | Version 0.3 | Version 0.4 Beta (New) |
+| :--- | :--- | :--- |
+| **Spec Explanations** | Shared generic category explanations for all specification cards. | **Spec-Specific Explanations**: 171 custom entries (Explanation, How it works, Why it matters) unique for every card (57 total cards). |
+| **Language Support** | Bilingual (English & Vietnamese). | **17 Languages**: Multi-language translation support across 15 additional languages (Chinese, Spanish, French, German, Russian, Portuguese, Italian, Japanese, Korean, Arabic, Hindi, Indonesian, Thai, Turkish, Dutch). |
+| **Info Button (ⓘ)** | Not available. | Interactive top-right ⓘ info button on each card opening a fully localized bottom sheet. |
+| **Long Press Shortcut** | Not available. | Deep linking settings redirect (e.g. Battery info, Display settings, About Phone) with haptic feedback. |
+| **Build Configuration** | Version Name: `0.3`, Code: `3` | Version Name: `0.4`, Code: `4`. Release tag `v0.4` and standalone release asset. |
+
+---
+
 ## 📥 Getting Started
 
 1.  **Download**: Obtain the latest `rlcc_beta_v0.4.apk` from the [Releases](https://github.com/KILLERJOYZ/relab_controlcenter/releases) page.
