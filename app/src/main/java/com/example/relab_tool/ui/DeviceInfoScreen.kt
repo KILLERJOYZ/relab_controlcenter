@@ -47,6 +47,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import android.view.MotionEvent
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import com.example.relab_tool.R
 import com.example.relab_tool.model.*
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -69,10 +71,12 @@ import androidx.compose.foundation.verticalScroll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.relab_tool.utils.SoCUtils
+import com.example.relab_tool.ui.theme.*
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.ui.window.Popup
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -98,6 +102,17 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import kotlin.math.roundToInt
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 
 // --- Models & Utils ---
 data class TabItem(val title: String, val icon: ImageVector)
@@ -115,23 +130,33 @@ data class TabItem(val title: String, val icon: ImageVector)
 }
 
 @Composable
-fun BatteryHistoryCard(
-    batteryHistory: List<Triple<Long, Int, Boolean>>,
-    lastFullChargeTs: Long,
-    lastStoppedChargingTs: Long
-) {
+fun BatteryHistoryCard(batteryHistory: List<Triple<Long, Int, Boolean>>, lastFullChargeTs: Long, lastStoppedChargingTs: Long) {
+    val chargingColor = MaterialTheme.colorScheme.primary
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
-    val chargingColor = Color(0xFF4CAF50)
-    val dischargingColor = Color(0xFF607D8B)
+    val dischargingColor = MaterialTheme.colorScheme.outline
+
+    // Pre-allocated drawing objects to avoid object allocations in draw scope
+    val calendar = remember { Calendar.getInstance() }
+    val textPaint = remember(onSurfaceColor) {
+        android.graphics.Paint().apply {
+            color = onSurfaceColor.copy(alpha = 0.4f).toArgb()
+            textAlign = android.graphics.Paint.Align.CENTER
+        }
+    }
+    val trianglePath = remember { Path() }
+    val sortedPoints = remember(batteryHistory) {
+        batteryHistory.sortedBy { it.first }
+    }
+    val dashPathEffect = remember { androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(15f, 15f)) }
 
     InfoGroupCard(
         title = stringResource(R.string.battery_history_title),
         icon = Icons.Default.History,
-        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        cardId = "group_battery_history"
     ) {
         Box(modifier = Modifier.fillMaxWidth().height(150.dp).padding(vertical = 16.dp)) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val calendar = Calendar.getInstance()
                 calendar.set(Calendar.HOUR_OF_DAY, 0)
                 calendar.set(Calendar.MINUTE, 0)
                 calendar.set(Calendar.SECOND, 0)
@@ -140,11 +165,9 @@ fun BatteryHistoryCard(
                 val gridColor = onSurfaceColor.copy(alpha = 0.1f)
                 drawLine(gridColor, Offset(0f, 0f), Offset(0f, size.height))
                 drawLine(gridColor, androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height))
-                val textPaint = android.graphics.Paint().apply {
-                    color = onSurfaceColor.copy(alpha = 0.4f).toArgb()
-                    textSize = 10.dp.toPx()
-                    textAlign = android.graphics.Paint.Align.CENTER
-                }
+                
+                textPaint.textSize = 10.dp.toPx()
+                textPaint.textAlign = android.graphics.Paint.Align.CENTER
                 listOf(0, 12, 24).forEach { h ->
                     val x = (h / 24f) * size.width
                     drawContext.canvas.nativeCanvas.drawText(h.toString(), x, size.height + 14.dp.toPx(), textPaint)
@@ -152,8 +175,7 @@ fun BatteryHistoryCard(
                 textPaint.textAlign = android.graphics.Paint.Align.LEFT
                 drawContext.canvas.nativeCanvas.drawText("100%", size.width + 4.dp.toPx(), 10.dp.toPx(), textPaint)
                 drawContext.canvas.nativeCanvas.drawText("0%", size.width + 4.dp.toPx(), size.height, textPaint)
-                if (batteryHistory.isNotEmpty()) {
-                    val sortedPoints = batteryHistory.sortedBy { it.first }
+                if (sortedPoints.isNotEmpty()) {
                     for (i in 0 until sortedPoints.size - 1) {
                         val p1 = sortedPoints[i]
                         val p2 = sortedPoints[i + 1]
@@ -189,36 +211,40 @@ fun BatteryHistoryCard(
                             start = androidx.compose.ui.geometry.Offset(lastX, lastY),
                             end = androidx.compose.ui.geometry.Offset(nowX, lastY),
                             strokeWidth = 3.dp.toPx(),
-                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(15f, 15f))
+                            pathEffect = dashPathEffect
                         )
                     }
                 }
                 val now = System.currentTimeMillis()
                 val nowX = ((now - startOfDay).toFloat() / (24 * 60 * 60 * 1000f)) * size.width
                 if (nowX in 0f..size.width) {
-                    val trianglePath = Path().apply { moveTo(nowX, size.height); lineTo(nowX - 6.dp.toPx(), size.height + 8.dp.toPx()); lineTo(nowX + 6.dp.toPx(), size.height + 8.dp.toPx()); close() }
+                    trianglePath.reset()
+                    trianglePath.moveTo(nowX, size.height)
+                    trianglePath.lineTo(nowX - 6.dp.toPx(), size.height + 8.dp.toPx())
+                    trianglePath.lineTo(nowX + 6.dp.toPx(), size.height + 8.dp.toPx())
+                    trianglePath.close()
                     drawPath(trianglePath, Color.White)
                     drawLine(Color.White.copy(alpha = 0.5f), androidx.compose.ui.geometry.Offset(nowX, 0f), androidx.compose.ui.geometry.Offset(nowX, size.height), strokeWidth = 1.dp.toPx())
                 }
             }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            Row(verticalAlignment = Alignment.CenterVertically) { Box(modifier = Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(dischargingColor)); Spacer(modifier = Modifier.width(4.dp)); Text("Discharging", style = MaterialTheme.typography.labelSmall) }
+            Row(verticalAlignment = Alignment.CenterVertically) { Box(modifier = Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(dischargingColor)); Spacer(modifier = Modifier.width(4.dp)); Text(stringResource(R.string.status_discharging), style = MaterialTheme.typography.labelSmall) }
             Spacer(modifier = Modifier.width(16.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) { Box(modifier = Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(chargingColor)); Spacer(modifier = Modifier.width(4.dp)); Text("Charging", style = MaterialTheme.typography.labelSmall) }
+            Row(verticalAlignment = Alignment.CenterVertically) { Box(modifier = Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(chargingColor)); Spacer(modifier = Modifier.width(4.dp)); Text(stringResource(R.string.status_charging), style = MaterialTheme.typography.labelSmall) }
         }
         if (lastFullChargeTs > 0 || lastStoppedChargingTs > 0) {
             Spacer(modifier = Modifier.height(12.dp))
             if (lastFullChargeTs > 0) {
                 val duration = System.currentTimeMillis() - lastFullChargeTs
                 val hours = duration / (1000 * 60 * 60); val minutes = (duration / (1000 * 60)) % 60
-                Text("Last charge to 100%: ${hours}h ${minutes}m ago", style = MaterialTheme.typography.labelSmall, color = onSurfaceColor.copy(alpha = 0.5f))
+                Text(stringResource(R.string.last_charge_full, hours.toInt(), minutes.toInt()), style = MaterialTheme.typography.labelSmall, color = onSurfaceColor.copy(alpha = 0.5f))
             }
             if (lastStoppedChargingTs > 0) {
                 val duration = System.currentTimeMillis() - lastStoppedChargingTs
                 val minutes = duration / (1000 * 60)
-                if (minutes < 60) Text("Stopped charging $minutes minutes ago", style = MaterialTheme.typography.labelSmall, color = onSurfaceColor.copy(alpha = 0.5f))
-                else { val hours = minutes / 60; Text("Stopped charging ${hours}h ${minutes % 60}m ago", style = MaterialTheme.typography.labelSmall, color = onSurfaceColor.copy(alpha = 0.5f)) }
+                if (minutes < 60) Text(stringResource(R.string.stopped_charging_min, minutes.toInt()), style = MaterialTheme.typography.labelSmall, color = onSurfaceColor.copy(alpha = 0.5f))
+                else { val hours = minutes / 60; Text(stringResource(R.string.stopped_charging_hour, hours.toInt(), (minutes % 60).toInt()), style = MaterialTheme.typography.labelSmall, color = onSurfaceColor.copy(alpha = 0.5f)) }
             }
         }
     }
@@ -229,21 +255,29 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
     val secondaryColor = MaterialTheme.colorScheme.secondary
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
     val isCharging = (wattage.replace(" W", "").toFloatOrNull() ?: 0f) >= 0
+    val maxWattage = remember(wattageHistory) { (wattageHistory.maxOrNull() ?: 1f).coerceAtLeast(10f) }
+    val minWattage = remember(wattageHistory) { (wattageHistory.minOrNull() ?: 0f).coerceAtMost(0f) }
+    val range = remember(maxWattage, minWattage) { (maxWattage - minWattage).coerceAtLeast(1f) }
+    val path = remember { Path() }
+    val density = LocalDensity.current
+    val stroke = remember(density) { Stroke(with(density) { 3.dp.toPx() }, cap = StrokeCap.Round) }
+
     InfoGroupCard(
-        title = if (isCharging) stringResource(R.string.charging_speed) else "Discharging Speed",
+        title = if (isCharging) stringResource(R.string.charging_speed) else stringResource(R.string.discharging_speed),
         icon = Icons.Default.Bolt,
-        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        cardId = "group_battery_history"
     ) {
         Column(modifier = if (onClick != null) Modifier.clickable { onClick() } else Modifier) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.current_now), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(wattage, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = secondaryColor) }
             Box(modifier = Modifier.fillMaxWidth().height(100.dp).padding(vertical = 8.dp)) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     if (wattageHistory.isNotEmpty()) {
-                        val maxWattage = (wattageHistory.maxOrNull() ?: 1f).coerceAtLeast(10f); val minWattage = (wattageHistory.minOrNull() ?: 0f).coerceAtMost(0f); val range = (maxWattage - minWattage).coerceAtLeast(1f)
                         if (minWattage < 0) { val zeroY = size.height - ((0f - minWattage) / range * size.height); drawLine(color = onSurfaceColor.copy(alpha = 0.2f), start = androidx.compose.ui.geometry.Offset(0f, zeroY), end = androidx.compose.ui.geometry.Offset(size.width, zeroY), strokeWidth = 1.dp.toPx()) }
-                        val path = Path(); val stepX = if (wattageHistory.size > 1) size.width / (wattageHistory.size - 1) else size.width
+                        path.reset()
+                        val stepX = if (wattageHistory.size > 1) size.width / (wattageHistory.size - 1) else size.width
                         wattageHistory.forEachIndexed { i, v -> val x = i * stepX; val y = size.height - ((v - minWattage) / range * size.height); if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }
-                        drawPath(path, secondaryColor, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
+                        drawPath(path, secondaryColor, style = stroke)
                     }
                 }
             }
@@ -274,7 +308,7 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
     
     Card(
         modifier = Modifier.width(180.dp).height(130.dp),
-        shape = RoundedCornerShape(28.dp),
+        shape = ShapeExtraLarge,
         colors = CardDefaults.cardColors(containerColor = bg),
         elevation = CardDefaults.cardElevation(shadow),
         onClick = onClick
@@ -344,11 +378,11 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
 }
 
 @Composable fun CpuClusterBox(c: CpuCluster) {
-    Surface(modifier = Modifier.width(160.dp).height(100.dp), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))) {
+    Surface(modifier = Modifier.width(160.dp).height(100.dp), shape = ShapeMedium, color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.Center) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(c.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                Text("${c.coreCount} Cores", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.unit_cores, c.coreCount), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(c.architecture, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
             Text("${c.minFreq} - ${c.maxFreq}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -356,12 +390,309 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
     }
 }
 
-@Composable fun CpuCoreBox(index: Int, freq: Long, history: List<Float>, modifier: Modifier = Modifier) {
-    Card(modifier = modifier.height(100.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) { Box(modifier = Modifier.fillMaxSize()) { if (history.isNotEmpty()) { val chartColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f); Canvas(modifier = Modifier.fillMaxWidth().height(40.dp).align(Alignment.BottomCenter)) { val path = Path(); val stepX = size.width / 19f; history.forEachIndexed { i, v -> val x = i * stepX; val y = size.height - (v / 100f * size.height); if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }; if (history.size > 1) { val fill = Path().apply { addPath(path); lineTo((history.size - 1) * stepX, size.height); lineTo(0f, size.height); close() }; drawPath(fill, chartColor); drawPath(path, chartColor.copy(alpha = 0.4f), style = Stroke(1.5.dp.toPx(), cap = StrokeCap.Round)) } } } ; Column(modifier = Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { Text(stringResource(R.string.core_format, index), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)); Spacer(modifier = Modifier.height(4.dp)); Text(if (freq > 0) "$freq" else stringResource(R.string.offline), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = if (freq > 0) MaterialTheme.colorScheme.primary else Color.Gray); if (freq > 0) Text("MHz", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontWeight = FontWeight.Bold) } } }
+@Composable
+fun ClusterSparkline(clusterHistory: List<Float>, chartColor: Color, modifier: Modifier = Modifier) {
+    val path = remember { Path() }
+    val fillPath = remember { Path() }
+    val density = LocalDensity.current
+    val stroke = remember(density) { Stroke(with(density) { 2.dp.toPx() }, cap = StrokeCap.Round) }
+
+    Canvas(modifier = modifier) {
+        path.reset()
+        val stepX = size.width / (clusterHistory.size - 1).coerceAtLeast(1)
+        clusterHistory.forEachIndexed { ci, cv ->
+            val x = ci * stepX
+            val y = size.height - (cv / 100f * size.height)
+            if (ci == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        if (clusterHistory.size > 1) {
+            fillPath.reset()
+            fillPath.addPath(path)
+            fillPath.lineTo((clusterHistory.size - 1) * stepX, size.height)
+            fillPath.lineTo(0f, size.height)
+            fillPath.close()
+            drawPath(fillPath, chartColor.copy(alpha = 0.15f))
+            drawPath(path, chartColor.copy(alpha = 0.6f), style = stroke)
+        }
+    }
 }
 
+@Composable
+fun CoreHistorySparkline(coreHistory: List<Float>, chartColor: Color, modifier: Modifier = Modifier) {
+    val path = remember { Path() }
+    val fillPath = remember { Path() }
+    val density = LocalDensity.current
+    val stroke = remember(density) { Stroke(with(density) { 1.5.dp.toPx() }, cap = StrokeCap.Round) }
+
+    Canvas(modifier = modifier) {
+        path.reset()
+        val stepX = size.width / 19f
+        coreHistory.forEachIndexed { ci, cv ->
+            val x = ci * stepX
+            val y = size.height - (cv / 100f * size.height)
+            if (ci == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        if (coreHistory.size > 1) {
+            fillPath.reset()
+            fillPath.addPath(path)
+            fillPath.lineTo((coreHistory.size - 1) * stepX, size.height)
+            fillPath.lineTo(0f, size.height)
+            fillPath.close()
+            drawPath(fillPath, chartColor)
+            drawPath(path, chartColor.copy(alpha = 0.4f), style = stroke)
+        }
+    }
+}
+
+@Composable fun CpuCoreBox(index: Int, freq: Long, history: List<Float>, modifier: Modifier = Modifier) {
+    val path = remember { Path() }
+    val fillPath = remember { Path() }
+    val density = LocalDensity.current
+    val stroke = remember(density) { Stroke(with(density) { 1.5.dp.toPx() }, cap = StrokeCap.Round) }
+    Card(modifier = modifier.height(100.dp), shape = ShapeCard, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (history.isNotEmpty()) {
+                val chartColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                Canvas(modifier = Modifier.fillMaxWidth().height(40.dp).align(Alignment.BottomCenter)) {
+                    path.reset()
+                    val stepX = size.width / 19f
+                    history.forEachIndexed { i, v ->
+                        val x = i * stepX
+                        val y = size.height - (v / 100f * size.height)
+                        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    if (history.size > 1) {
+                        fillPath.reset()
+                        fillPath.addPath(path)
+                        fillPath.lineTo((history.size - 1) * stepX, size.height)
+                        fillPath.lineTo(0f, size.height)
+                        fillPath.close()
+                        drawPath(fillPath, chartColor)
+                        drawPath(path, chartColor.copy(alpha = 0.4f), style = stroke)
+                    }
+                }
+            }
+            Column(modifier = Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Text(stringResource(R.string.core_format, index), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(if (freq > 0) "$freq" else stringResource(R.string.offline), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = if (freq > 0) MaterialTheme.colorScheme.primary else Color.Gray)
+                if (freq > 0) Text("MHz", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable fun CpuClusterLiveBox(name: String, freq: Long, history: List<Float>, modifier: Modifier = Modifier) {
+    val path = remember { Path() }
+    val fillPath = remember { Path() }
+    val density = LocalDensity.current
+    val stroke = remember(density) { Stroke(with(density) { 1.5.dp.toPx() }, cap = StrokeCap.Round) }
+    Card(modifier = modifier.height(100.dp), shape = ShapeCard, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (history.isNotEmpty()) {
+                val chartColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                Canvas(modifier = Modifier.fillMaxWidth().height(40.dp).align(Alignment.BottomCenter)) {
+                    path.reset()
+                    val stepX = size.width / 19f
+                    history.forEachIndexed { i, v ->
+                        val x = i * stepX
+                        val y = size.height - (v / 100f * size.height)
+                        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    if (history.size > 1) {
+                        fillPath.reset()
+                        fillPath.addPath(path)
+                        fillPath.lineTo((history.size - 1) * stepX, size.height)
+                        fillPath.lineTo(0f, size.height)
+                        fillPath.close()
+                        drawPath(fillPath, chartColor)
+                        drawPath(path, chartColor.copy(alpha = 0.4f), style = stroke)
+                    }
+                }
+            }
+            Column(modifier = Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Text(name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(if (freq > 0) "$freq" else stringResource(R.string.offline), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = if (freq > 0) MaterialTheme.colorScheme.primary else Color.Gray)
+                if (freq > 0) Text("MHz", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable fun MiniGraphBox(title: String, value: String, icon: ImageVector, history: List<Float>, modifier: Modifier = Modifier, maxVal: Float = 100f) {
+    val path = remember { Path() }
+    val fillPath = remember { Path() }
+    val density = LocalDensity.current
+    val stroke = remember(density) { Stroke(with(density) { 1.5.dp.toPx() }, cap = StrokeCap.Round) }
+    val graphMax = remember(history, maxVal) {
+        val maxInHistory = history.maxOrNull() ?: maxVal
+        maxOf(maxVal, maxInHistory)
+    }
+    Card(modifier = modifier.fillMaxWidth().height(64.dp), shape = ShapeCard, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (history.isNotEmpty()) {
+                val chartColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                Canvas(modifier = Modifier.fillMaxWidth().height(32.dp).align(Alignment.BottomCenter)) {
+                    path.reset()
+                    val stepX = size.width / 19f
+                    history.forEachIndexed { i, v ->
+                        val x = i * stepX
+                        val y = size.height - (v / graphMax * size.height)
+                        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    if (history.size > 1) {
+                        fillPath.reset()
+                        fillPath.addPath(path)
+                        fillPath.lineTo((history.size - 1) * stepX, size.height)
+                        fillPath.lineTo(0f, size.height)
+                        fillPath.close()
+                        drawPath(fillPath, chartColor)
+                        drawPath(path, chartColor.copy(alpha = 0.4f), style = stroke)
+                    }
+                }
+            }
+            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(icon, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                }
+                Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+@Composable fun NetworkSpeedGraphBox(
+    downloadSpeed: String,
+    uploadSpeed: String,
+    downloadHistory: List<Float>,
+    uploadHistory: List<Float>,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+    contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    lineColorDl: Color = MaterialTheme.colorScheme.primary,
+    lineColorUl: Color = MaterialTheme.colorScheme.secondary
+) {
+    val pathDl = remember { Path() }
+    val fillPathDl = remember { Path() }
+    val pathUl = remember { Path() }
+    val fillPathUl = remember { Path() }
+    
+    val density = LocalDensity.current
+    val stroke = remember(density) { Stroke(with(density) { 2.dp.toPx() }, cap = StrokeCap.Round) }
+    
+    val graphMaxDl = remember(downloadHistory) {
+        val maxInHistory = downloadHistory.maxOrNull() ?: 1f
+        maxOf(1f, maxInHistory)
+    }
+    
+    val graphMaxUl = remember(uploadHistory) {
+        val maxInHistory = uploadHistory.maxOrNull() ?: 1f
+        maxOf(1f, maxInHistory)
+    }
+
+    Row(
+        modifier = modifier.height(100.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Download Card
+        Card(
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            shape = ShapeCard,
+            colors = CardDefaults.cardColors(
+                containerColor = containerColor,
+                contentColor = contentColor
+            )
+        ) {
+            Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+                if (downloadHistory.isNotEmpty()) {
+                    val fillColor = lineColorDl.copy(alpha = 0.15f)
+                    val strokeColor = lineColorDl.copy(alpha = 0.8f)
+                    Canvas(modifier = Modifier.fillMaxWidth().height(40.dp).align(Alignment.BottomCenter)) {
+                        pathDl.reset()
+                        val stepX = size.width / 19f
+                        downloadHistory.forEachIndexed { i, v ->
+                            val x = i * stepX
+                            val y = size.height - (v / graphMaxDl * size.height)
+                            if (i == 0) pathDl.moveTo(x, y) else pathDl.lineTo(x, y)
+                        }
+                        if (downloadHistory.size > 1) {
+                            fillPathDl.reset()
+                            fillPathDl.addPath(pathDl)
+                            fillPathDl.lineTo((downloadHistory.size - 1) * stepX, size.height)
+                            fillPathDl.lineTo(0f, size.height)
+                            fillPathDl.close()
+                            drawPath(fillPathDl, fillColor)
+                            drawPath(pathDl, strokeColor, style = stroke)
+                        }
+                    }
+                }
+                Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.ArrowDownward, null, modifier = Modifier.size(16.dp), tint = lineColorDl)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(stringResource(R.string.network_dl), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = contentColor.copy(alpha = 0.8f))
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(downloadSpeed, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = lineColorDl)
+                }
+            }
+        }
+
+        // Upload Card
+        Card(
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            shape = ShapeCard,
+            colors = CardDefaults.cardColors(
+                containerColor = containerColor,
+                contentColor = contentColor
+            )
+        ) {
+            Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+                if (uploadHistory.isNotEmpty()) {
+                    val fillColor = lineColorUl.copy(alpha = 0.15f)
+                    val strokeColor = lineColorUl.copy(alpha = 0.8f)
+                    Canvas(modifier = Modifier.fillMaxWidth().height(40.dp).align(Alignment.BottomCenter)) {
+                        pathUl.reset()
+                        val stepX = size.width / 19f
+                        uploadHistory.forEachIndexed { i, v ->
+                            val x = i * stepX
+                            val y = size.height - (v / graphMaxUl * size.height)
+                            if (i == 0) pathUl.moveTo(x, y) else pathUl.lineTo(x, y)
+                        }
+                        if (uploadHistory.size > 1) {
+                            fillPathUl.reset()
+                            fillPathUl.addPath(pathUl)
+                            fillPathUl.lineTo((uploadHistory.size - 1) * stepX, size.height)
+                            fillPathUl.lineTo(0f, size.height)
+                            fillPathUl.close()
+                            drawPath(fillPathUl, fillColor)
+                            drawPath(pathUl, strokeColor, style = stroke)
+                        }
+                    }
+                }
+                Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.ArrowUpward, null, modifier = Modifier.size(16.dp), tint = lineColorUl)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(stringResource(R.string.network_ul), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = contentColor.copy(alpha = 0.8f))
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(uploadSpeed, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = lineColorUl)
+                }
+            }
+        }
+    }
+}
+
+
 @Composable fun UsageHistoryDialog(title: String, current: Int, history: List<Float>, color: Color, onDismiss: () -> Unit) {
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = { Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { Text("$current%", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Black, color = color); Box(modifier = Modifier.fillMaxWidth().height(150.dp).padding(vertical = 16.dp)) { Canvas(modifier = Modifier.fillMaxSize()) { if (history.isNotEmpty()) { val path = Path(); val stepX = size.width / 20f; history.forEachIndexed { i, v -> val x = i * stepX; val y = size.height - (v / 100f * size.height); if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }; drawPath(path, color, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round)) } } } } }, confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } })
+    val path = remember { Path() }
+    val density = LocalDensity.current
+    val stroke = remember(density) { Stroke(with(density) { 3.dp.toPx() }, cap = StrokeCap.Round) }
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = { Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { Text("$current%", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Black, color = color); Box(modifier = Modifier.fillMaxWidth().height(150.dp).padding(vertical = 16.dp)) { Canvas(modifier = Modifier.fillMaxSize()) { if (history.isNotEmpty()) { path.reset(); val stepX = size.width / 20f; history.forEachIndexed { i, v -> val x = i * stepX; val y = size.height - (v / 100f * size.height); if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }; drawPath(path, color, style = stroke) } } } } }, confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } })
 }
 
 @Composable fun WattageFullHistoryDialog(wattage: String, history: List<Float>, onDismiss: () -> Unit) {
@@ -369,7 +700,32 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
     val errorColor = MaterialTheme.colorScheme.error
     val isCharging = (wattage.replace(" W", "").toFloatOrNull() ?: 0f) >= 0
-    val peakWattage = history.maxOrNull() ?: 0f
+    val peakWattage = remember(history) { history.maxOrNull() ?: 0f }
+    
+    val path = remember { Path() }
+    val density = LocalDensity.current
+    val stroke = remember(density) { Stroke(with(density) { 2.5.dp.toPx() }, cap = StrokeCap.Round) }
+    val dashPathEffect = remember { androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f) }
+    
+    val labelPaint = remember(onSurfaceColor, density) {
+        android.graphics.Paint().apply {
+            color = onSurfaceColor.copy(alpha = 0.4f).toArgb()
+            textSize = with(density) { 10.dp.toPx() }
+        }
+    }
+    
+    val calculatedLimits = remember(history) {
+        val maxW = (history.maxOrNull() ?: 0f).coerceAtLeast(25f)
+        val minW = (history.minOrNull() ?: 0f).coerceAtMost(0f)
+        val yLimit = (((maxW / 25).toInt() + 1) * 25).toFloat()
+        val yMin = if (minW < 0) (((minW / 25).toInt() - 1) * 25).toFloat() else 0f
+        val yRange = yLimit - yMin
+        Triple(yLimit, yMin, yRange)
+    }
+    val yLimit = calculatedLimits.first
+    val yMin = calculatedLimits.second
+    val yRange = calculatedLimits.third
+
     AlertDialog(onDismissRequest = onDismiss, title = { Text(if (isCharging) stringResource(R.string.charging_speed) else "Discharging Speed") }, text = {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.current_now), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(wattage, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = secondaryColor) }
@@ -378,15 +734,11 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
             Box(modifier = Modifier.fillMaxWidth().height(280.dp).padding(start = 32.dp, top = 16.dp, bottom = 32.dp, end = 8.dp)) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val gridColor = onSurfaceColor.copy(alpha = 0.1f)
-                    val labelPaint = android.graphics.Paint().apply { color = onSurfaceColor.copy(alpha = 0.4f).toArgb(); textSize = 10.dp.toPx() }
-                    val maxW = (history.maxOrNull() ?: 0f).coerceAtLeast(25f); val minW = (history.minOrNull() ?: 0f).coerceAtMost(0f)
-                    val yLimit = (((maxW / 25).toInt() + 1) * 25).toFloat(); val yMin = if (minW < 0) (((minW / 25).toInt() - 1) * 25).toFloat() else 0f
-                    val yRange = yLimit - yMin
                     var yS = yMin; while (yS <= yLimit) { val yP = size.height - ((yS - yMin) / yRange * size.height); drawLine(gridColor, androidx.compose.ui.geometry.Offset(0f, yP), androidx.compose.ui.geometry.Offset(size.width, yP)); drawContext.canvas.nativeCanvas.drawText("${yS.toInt()}W", -32.dp.toPx(), yP + 4.dp.toPx(), labelPaint); yS += 25f }
                     val pointsPer5Min = 1000f; val xInt = (history.size / pointsPer5Min).toInt()
                     for (i in 0..xInt) { val xP = (i * pointsPer5Min / history.size.coerceAtLeast(1).toFloat()) * size.width; drawLine(gridColor, androidx.compose.ui.geometry.Offset(xP, 0f), androidx.compose.ui.geometry.Offset(xP, size.height)); labelPaint.textAlign = android.graphics.Paint.Align.CENTER; drawContext.canvas.nativeCanvas.drawText("${i * 5}m", xP, size.height + 16.dp.toPx(), labelPaint) }
-                    val peakY = size.height - ((peakWattage - yMin) / yRange * size.height); drawLine(color = errorColor.copy(alpha = 0.4f), start = androidx.compose.ui.geometry.Offset(0f, peakY), end = androidx.compose.ui.geometry.Offset(size.width, peakY), strokeWidth = 1.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f))
-                    if (history.isNotEmpty()) { val path = Path(); val stepX = size.width / (history.size - 1).coerceAtLeast(1); history.forEachIndexed { i, v -> val x = i * stepX; val y = size.height - ((v - yMin) / yRange * size.height); if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }; drawPath(path, secondaryColor, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round)) }
+                    val peakY = size.height - ((peakWattage - yMin) / yRange * size.height); drawLine(color = errorColor.copy(alpha = 0.4f), start = androidx.compose.ui.geometry.Offset(0f, peakY), end = androidx.compose.ui.geometry.Offset(size.width, peakY), strokeWidth = 1.dp.toPx(), pathEffect = dashPathEffect)
+                    if (history.isNotEmpty()) { path.reset(); val stepX = size.width / (history.size - 1).coerceAtLeast(1); history.forEachIndexed { i, v -> val x = i * stepX; val y = size.height - ((v - yMin) / yRange * size.height); if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }; drawPath(path, secondaryColor, style = stroke) }
                 }
             }
             Text("Total data points: ${history.size} (~%.1f minutes)".format(Locale.US, history.size * 0.3 / 60.0), style = MaterialTheme.typography.labelSmall, color = onSurfaceColor.copy(alpha = 0.5f))
@@ -425,8 +777,88 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
 }
 
 @Composable fun AppEntryCard(app: AppEntry) {
-    val context = LocalContext.current; var exp by remember { mutableStateOf(false) }
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), onClick = { exp = !exp }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) { Column(modifier = Modifier.padding(16.dp)) { Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Surface(modifier = Modifier.size(40.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) { Box(contentAlignment = Alignment.Center) { Text(app.name.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) } }; Spacer(modifier = Modifier.width(12.dp)); Column(modifier = Modifier.weight(1f)) { Text(app.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold); Text(app.packageName, style = MaterialTheme.typography.bodySmall, maxLines = 1) }; Row { if (app.isGame) BadgeTag(stringResource(R.string.tag_game), MaterialTheme.colorScheme.primaryContainer); if (app.isSystem) BadgeTag(stringResource(R.string.tag_system), MaterialTheme.colorScheme.tertiaryContainer) } }; AnimatedVisibility(visible = exp, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) { Column(modifier = Modifier.padding(top = 16.dp)) { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant); Spacer(modifier = Modifier.height(12.dp)); InfoRow(stringResource(R.string.version), app.version); InfoRow(stringResource(R.string.target_sdk), app.sdk); if (app.updateUrl != null) { Spacer(modifier = Modifier.height(8.dp)); Button(onClick = { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(app.updateUrl))) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.update_apkpure)) } } } } } }
+    val context = LocalContext.current
+    var exp by remember { mutableStateOf(false) }
+    
+    val iconDrawable by produceState<android.graphics.drawable.Drawable?>(initialValue = null, keys = arrayOf(app.packageName)) {
+        value = withContext(Dispatchers.IO) {
+            try {
+                context.packageManager.getApplicationIcon(app.packageName)
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ShapeCard,
+        onClick = { exp = !exp },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (iconDrawable != null) {
+                            AsyncImage(
+                                model = iconDrawable,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text(
+                                text = app.name.take(1).uppercase(),
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(app.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(app.packageName, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                }
+                Row {
+                    if (app.isGame) BadgeTag(stringResource(R.string.tag_game), MaterialTheme.colorScheme.primaryContainer)
+                    if (app.isSystem) BadgeTag(stringResource(R.string.tag_system), MaterialTheme.colorScheme.tertiaryContainer)
+                }
+            }
+            AnimatedVisibility(
+                visible = exp,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(modifier = Modifier.padding(top = 16.dp)) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    InfoRow(stringResource(R.string.version), app.version)
+                    InfoRow(stringResource(R.string.target_sdk), app.sdk)
+                    if (app.updateUrl != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                context.startActivity(
+                                    android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse(app.updateUrl)
+                                    )
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(stringResource(R.string.update_apkpure))
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable fun DashboardRamCard(
@@ -436,10 +868,14 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
     size: CardSize,
     modifier: Modifier = Modifier
 ) {
+    val path = remember { Path() }
+    val fillPath = remember { Path() }
+    val density = LocalDensity.current
+    val stroke = remember(density) { Stroke(with(density) { 2.dp.toPx() }, cap = StrokeCap.Round) }
     val usedPercent = if (total > 0) (used.toFloat() / total.toFloat() * 100).toInt() else 0
     Card(
         modifier = modifier.fillMaxSize(),
-        shape = RoundedCornerShape(24.dp),
+        shape = ShapeCard,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -506,7 +942,7 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
                         Canvas(modifier = Modifier.fillMaxWidth().height(if (size == CardSize.SIZE_4x4) 140.dp else 60.dp).align(Alignment.BottomCenter)) {
                             val canvasWidth = this.size.width
                             val canvasHeight = this.size.height
-                            val path = Path()
+                            path.reset()
                             val stepX = canvasWidth / 19f
                             history.forEachIndexed { i, v ->
                                 val x = i * stepX
@@ -514,14 +950,13 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
                                 if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
                             }
                             if (history.size > 1) {
-                                val fill = Path().apply {
-                                    addPath(path)
-                                    lineTo((history.size - 1) * stepX, canvasHeight)
-                                    lineTo(0f, canvasHeight)
-                                    close()
-                                }
-                                drawPath(fill, chartColor)
-                                drawPath(path, chartColor.copy(alpha = 0.4f), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+                                fillPath.reset()
+                                fillPath.addPath(path)
+                                fillPath.lineTo((history.size - 1) * stepX, canvasHeight)
+                                fillPath.lineTo(0f, canvasHeight)
+                                fillPath.close()
+                                drawPath(fillPath, chartColor)
+                                drawPath(path, chartColor.copy(alpha = 0.4f), style = stroke)
                             }
                         }
                     }
@@ -572,10 +1007,14 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
     size: CardSize,
     modifier: Modifier = Modifier
 ) {
+    val path = remember { Path() }
+    val fillPath = remember { Path() }
+    val density = LocalDensity.current
+    val stroke = remember(density) { Stroke(with(density) { 2.dp.toPx() }, cap = StrokeCap.Round) }
     val progress by animateFloatAsState(usage / 100f, tween(400), label = "cpu")
     Card(
         modifier = modifier.fillMaxSize(),
-        shape = RoundedCornerShape(24.dp),
+        shape = ShapeCard,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -621,7 +1060,7 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
                         Canvas(modifier = Modifier.fillMaxWidth().height(60.dp).align(Alignment.BottomCenter)) {
                             val canvasWidth = this.size.width
                             val canvasHeight = this.size.height
-                            val path = Path()
+                            path.reset()
                             val stepX = canvasWidth / 19f
                             history.forEachIndexed { i, v ->
                                 val x = i * stepX
@@ -629,14 +1068,13 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
                                 if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
                             }
                             if (history.size > 1) {
-                                val fill = Path().apply {
-                                    addPath(path)
-                                    lineTo((history.size - 1) * stepX, canvasHeight)
-                                    lineTo(0f, canvasHeight)
-                                    close()
-                                }
-                                drawPath(fill, chartColor)
-                                drawPath(path, chartColor.copy(alpha = 0.3f), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+                                fillPath.reset()
+                                fillPath.addPath(path)
+                                fillPath.lineTo((history.size - 1) * stepX, canvasHeight)
+                                fillPath.lineTo(0f, canvasHeight)
+                                fillPath.close()
+                                drawPath(fillPath, chartColor)
+                                drawPath(path, chartColor.copy(alpha = 0.3f), style = stroke)
                             }
                         }
                     }
@@ -666,7 +1104,7 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
                         Canvas(modifier = Modifier.fillMaxWidth().height(if (size == CardSize.SIZE_4x4) 140.dp else 60.dp).align(Alignment.BottomCenter)) {
                             val canvasWidth = this.size.width
                             val canvasHeight = this.size.height
-                            val path = Path()
+                            path.reset()
                             val stepX = canvasWidth / 19f
                             history.forEachIndexed { i, v ->
                                 val x = i * stepX
@@ -674,14 +1112,13 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
                                 if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
                             }
                             if (history.size > 1) {
-                                val fill = Path().apply {
-                                    addPath(path)
-                                    lineTo((history.size - 1) * stepX, canvasHeight)
-                                    lineTo(0f, canvasHeight)
-                                    close()
-                                }
-                                drawPath(fill, chartColor)
-                                drawPath(path, chartColor.copy(alpha = 0.3f), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+                                fillPath.reset()
+                                fillPath.addPath(path)
+                                fillPath.lineTo((history.size - 1) * stepX, canvasHeight)
+                                fillPath.lineTo(0f, canvasHeight)
+                                fillPath.close()
+                                drawPath(fillPath, chartColor)
+                                drawPath(path, chartColor.copy(alpha = 0.3f), style = stroke)
                             }
                         }
                     }
@@ -728,10 +1165,14 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
     size: CardSize,
     modifier: Modifier = Modifier
 ) {
+    val path = remember { Path() }
+    val fillPath = remember { Path() }
+    val density = LocalDensity.current
+    val stroke = remember(density) { Stroke(with(density) { 2.dp.toPx() }, cap = StrokeCap.Round) }
     val progress by animateFloatAsState(usage / 100f, tween(400), label = "gpu")
     Card(
         modifier = modifier.fillMaxSize(),
-        shape = RoundedCornerShape(24.dp),
+        shape = ShapeCard,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.onTertiaryContainer)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -777,7 +1218,7 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
                         Canvas(modifier = Modifier.fillMaxWidth().height(60.dp).align(Alignment.BottomCenter)) {
                             val canvasWidth = this.size.width
                             val canvasHeight = this.size.height
-                            val path = Path()
+                            path.reset()
                             val stepX = canvasWidth / 19f
                             history.forEachIndexed { i, v ->
                                 val x = i * stepX
@@ -785,14 +1226,13 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
                                 if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
                             }
                             if (history.size > 1) {
-                                val fill = Path().apply {
-                                    addPath(path)
-                                    lineTo((history.size - 1) * stepX, canvasHeight)
-                                    lineTo(0f, canvasHeight)
-                                    close()
-                                }
-                                drawPath(fill, chartColor)
-                                drawPath(path, chartColor.copy(alpha = 0.3f), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+                                fillPath.reset()
+                                fillPath.addPath(path)
+                                fillPath.lineTo((history.size - 1) * stepX, canvasHeight)
+                                fillPath.lineTo(0f, canvasHeight)
+                                fillPath.close()
+                                drawPath(fillPath, chartColor)
+                                drawPath(path, chartColor.copy(alpha = 0.3f), style = stroke)
                             }
                         }
                     }
@@ -822,7 +1262,7 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
                         Canvas(modifier = Modifier.fillMaxWidth().height(if (size == CardSize.SIZE_4x4) 140.dp else 60.dp).align(Alignment.BottomCenter)) {
                             val canvasWidth = this.size.width
                             val canvasHeight = this.size.height
-                            val path = Path()
+                            path.reset()
                             val stepX = canvasWidth / 19f
                             history.forEachIndexed { i, v ->
                                 val x = i * stepX
@@ -830,14 +1270,13 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
                                 if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
                             }
                             if (history.size > 1) {
-                                val fill = Path().apply {
-                                    addPath(path)
-                                    lineTo((history.size - 1) * stepX, canvasHeight)
-                                    lineTo(0f, canvasHeight)
-                                    close()
-                                }
-                                drawPath(fill, chartColor)
-                                drawPath(path, chartColor.copy(alpha = 0.3f), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+                                fillPath.reset()
+                                fillPath.addPath(path)
+                                fillPath.lineTo((history.size - 1) * stepX, canvasHeight)
+                                fillPath.lineTo(0f, canvasHeight)
+                                fillPath.close()
+                                drawPath(fillPath, chartColor)
+                                drawPath(path, chartColor.copy(alpha = 0.3f), style = stroke)
                             }
                         }
                     }
@@ -876,7 +1315,7 @@ fun WattageHistoryCard(wattage: String, wattageHistory: List<Float>, onClick: ((
 }
 
 @Composable fun HighlightCard(modifier: Modifier = Modifier, title: String, value: String, subtext: String, containerColor: Color, contentColor: Color) {
-    Card(modifier = modifier.height(110.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = containerColor, contentColor = contentColor)) {
+    Card(modifier = modifier.height(110.dp), shape = ShapeCard, colors = CardDefaults.cardColors(containerColor = containerColor, contentColor = contentColor)) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Text(title, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = contentColor.copy(alpha = 0.6f))
             Spacer(modifier = Modifier.height(4.dp))
@@ -935,7 +1374,7 @@ fun Modifier.dashboardCardBorder(isResizing: Boolean): Modifier {
     return this.border(
         width = 2.5.dp,
         color = MaterialTheme.colorScheme.primary.copy(alpha = borderAlpha),
-        shape = RoundedCornerShape(24.dp)
+        shape = ShapeCard
     )
 }
 
@@ -968,6 +1407,7 @@ fun LazyGridItemScope.ResizableCardContainer(
     onReorderDrag: (Offset) -> Offset,
     onReorderEnd: () -> Unit,
     modifier: Modifier = Modifier,
+    gridColumns: Int = 4,
     content: @Composable (CardSize) -> Unit
 ) {
 
@@ -977,8 +1417,10 @@ fun LazyGridItemScope.ResizableCardContainer(
 
     // Calculate grid dimensions dynamically for snapping
     val screenWidthDp = configuration.screenWidthDp.dp
-    val gridWidthDp = screenWidthDp - 32.dp
-    val cellWidthDp = (gridWidthDp - 36.dp) / 4
+    val gridWidthDp = minOf(screenWidthDp, 1280.dp) - 32.dp
+    val spacingDp = 12.dp
+    val totalSpacingDp = spacingDp * (gridColumns - 1)
+    val cellWidthDp = (gridWidthDp - totalSpacingDp) / gridColumns
     val cellWidthPx = with(density) { cellWidthDp.toPx() }
     val cellHeightPx = with(density) { 80.dp.toPx() }
 
@@ -993,7 +1435,7 @@ fun LazyGridItemScope.ResizableCardContainer(
     var initialWidthPx by remember { mutableStateOf(0f) }
     var initialHeightPx by remember { mutableStateOf(0f) }
 
-    // Clamping values
+    // Clamping values (max span is 4 columns)
     val minWidthPx = cellWidthPx
     val minHeightPx = cellHeightPx
     val maxWidthPx = cellWidthPx * 4 + with(density) { 36.dp.toPx() }
@@ -1013,8 +1455,9 @@ fun LazyGridItemScope.ResizableCardContainer(
 
     // Determine target size for snapping preview in real-time
     val candidateSize = if (isDragging) {
-        val targetSpan = (visualWidthPx / cellWidthPx).roundToInt().coerceIn(1, 4)
-        val targetHeightCells = (visualHeightPx / cellHeightPx).roundToInt().coerceIn(1, 4)
+        val spacingPx = with(density) { 12.dp.toPx() }
+        val targetSpan = ((visualWidthPx + spacingPx) / (cellWidthPx + spacingPx)).roundToInt().coerceIn(1, 4)
+        val targetHeightCells = ((visualHeightPx + spacingPx) / (cellHeightPx + spacingPx)).roundToInt().coerceIn(1, 4)
         findClosestCardSize(targetSpan, targetHeightCells)
     } else {
         currentSize
@@ -1134,11 +1577,11 @@ fun LazyGridItemScope.ResizableCardContainer(
                     .border(
                         width = 2.dp,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                        shape = RoundedCornerShape(24.dp)
+                        shape = ShapeCard
                     )
                     .background(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(24.dp)
+                        shape = ShapeCard
                     )
             )
 
@@ -1158,7 +1601,7 @@ fun LazyGridItemScope.ResizableCardContainer(
                     .border(
                         width = 2.dp,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                        shape = RoundedCornerShape(24.dp)
+                        shape = ShapeCard
                     )
             )
         }
@@ -1241,23 +1684,31 @@ fun LazyGridItemScope.ResizableCardContainer(
     onNavigateToInfoTab: (Int) -> Unit = {}
 ) {
     val dataState by viewModel.dashboardData.collectAsStateWithLifecycle()
+    val realtimeState by viewModel.dashboardRealtime.collectAsStateWithLifecycle()
+    val socInfoState by viewModel.socInfo.collectAsStateWithLifecycle()
     val batteryHistory by viewModel.batteryCapacityHistory.collectAsStateWithLifecycle()
     val lastFullChargeTs by viewModel.lastFullChargeTs.collectAsStateWithLifecycle()
     val lastStoppedChargingTs by viewModel.lastStoppedChargingTs.collectAsStateWithLifecycle()
-    val hasData by remember { derivedStateOf { dataState != null } }
+    val hasData by remember { derivedStateOf { dataState != null && realtimeState != null } }
     val isWideScreen = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
+    val gridColumns = when (windowSizeClass.widthSizeClass) {
+        WindowWidthSizeClass.Compact -> 4
+        WindowWidthSizeClass.Medium -> 6
+        WindowWidthSizeClass.Expanded -> 8
+        else -> 4
+    }
     var showBatteryDialog by remember { mutableStateOf(false) }
     val bottomContentPadding = if (isWideScreen) 16.dp else 120.dp
 
-    val onMemoryClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(7) } }
+    val onMemoryClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(6) } }
     val onSoCClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(1) } }
-    val onWifiClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(8) } }
+    val onWifiClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(7) } }
     val onBluetoothClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(4) } }
-    val onCellularClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(9) } }
+    val onCellularClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(8) } }
     val onDisplayClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(5) } }
-    val onDrmClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(6) } }
-    val onSensorsClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(12) } }
-    val onAppsClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(13) } }
+    val onDrmClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(14) } }
+    val onSensorsClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(11) } }
+    val onAppsClick = remember(onNavigateToInfoTab) { { onNavigateToInfoTab(12) } }
     val onBatteryClick = remember { { showBatteryDialog = true } }
 
     val context = LocalContext.current
@@ -1322,7 +1773,8 @@ fun LazyGridItemScope.ResizableCardContainer(
         }
 
         val data = dataState ?: return
-        val statusItems = remember(data) {
+        val rt = realtimeState ?: return
+        val statusItems = remember(data, rt) {
             listOfNotNull(
                 StatusCardItem(
                     key = "thermal",
@@ -1338,13 +1790,13 @@ fun LazyGridItemScope.ResizableCardContainer(
                         else -> surfaceVariant
                     },
                     contentColor = onSurface,
-                    onClick = { onNavigateToInfoTab(14) }
+                    onClick = { onNavigateToInfoTab(13) }
                 ),
                 StatusCardItem(
                     key = "touch_sampling",
                     title = context.getString(R.string.touch_sampling_rate),
                     icon = Icons.Outlined.TouchApp,
-                    value = "${data.touchSamplingRate} Hz",
+                    value = "${rt.touchSamplingRate} Hz",
                     subtext = context.getString(R.string.live_monitoring),
                     containerColor = secondary,
                     contentColor = onSecondary
@@ -1406,8 +1858,8 @@ fun LazyGridItemScope.ResizableCardContainer(
                     key = "disk_io",
                     title = context.getString(R.string.disk_io),
                     icon = Icons.Outlined.Save,
-                    value = data.diskReadSpeed,
-                    subtext = "${context.getString(R.string.write_speed)}: ${data.diskWriteSpeed}",
+                    value = rt.diskReadSpeed,
+                    subtext = "${context.getString(R.string.write_speed)}: ${rt.diskWriteSpeed}",
                     containerColor = primaryContainer,
                     contentColor = onPrimaryContainer,
                     onClick = onMemoryClick
@@ -1424,13 +1876,13 @@ fun LazyGridItemScope.ResizableCardContainer(
                         onClick = onBluetoothClick
                     )
                 } else null,
-                if (data.ambientLightLux > 0 || data.pressureHpa > 0) {
+                if (rt.ambientLightLux > 0 || rt.pressureHpa > 0) {
                     StatusCardItem(
                         key = "ambient_light",
                         title = context.getString(R.string.ambient_light),
                         icon = Icons.Outlined.LightMode,
-                        value = context.getString(R.string.unit_lux, data.ambientLightLux),
-                        subtext = context.getString(R.string.unit_hpa, data.pressureHpa),
+                        value = context.getString(R.string.unit_lux, rt.ambientLightLux),
+                        subtext = context.getString(R.string.unit_hpa, rt.pressureHpa),
                         containerColor = secondaryContainer,
                         contentColor = onSecondaryContainer,
                         onClick = onSensorsClick
@@ -1444,7 +1896,7 @@ fun LazyGridItemScope.ResizableCardContainer(
                     subtext = "SELinux: ${data.selinuxStatus}\n${context.getString(R.string.security_patch_level)}: ${data.securityPatch}",
                     containerColor = if (data.isRooted) error else primary,
                     contentColor = onPrimary,
-                    onClick = onBatteryClick
+                    onClick = { onNavigateToInfoTab(14) }
                 ),
                 StatusCardItem(
                     key = "bluetooth_count",
@@ -1494,7 +1946,7 @@ fun LazyGridItemScope.ResizableCardContainer(
                     key = "refresh_rate",
                     title = context.getString(R.string.refresh_rate),
                     icon = Icons.Outlined.Refresh,
-                    value = context.getString(R.string.fps_format, data.currentRefreshRate),
+                    value = context.getString(R.string.fps_format, rt.currentRefreshRate),
                     subtext = context.getString(R.string.live_monitoring),
                     containerColor = secondaryContainer,
                     contentColor = onSecondaryContainer,
@@ -1524,7 +1976,7 @@ fun LazyGridItemScope.ResizableCardContainer(
                     key = "download",
                     title = context.getString(R.string.tab_network) + context.getString(R.string.network_dl),
                     icon = Icons.Default.ArrowDownward,
-                    value = data.downloadSpeed,
+                    value = rt.downloadSpeed,
                     subtext = context.getString(R.string.tab_network),
                     containerColor = primary,
                     contentColor = onPrimary,
@@ -1534,7 +1986,7 @@ fun LazyGridItemScope.ResizableCardContainer(
                     key = "upload",
                     title = context.getString(R.string.tab_network) + context.getString(R.string.network_ul),
                     icon = Icons.Default.ArrowUpward,
-                    value = data.uploadSpeed,
+                    value = rt.uploadSpeed,
                     subtext = context.getString(R.string.tab_network),
                     containerColor = secondary,
                     contentColor = onSecondary,
@@ -1596,11 +2048,19 @@ fun LazyGridItemScope.ResizableCardContainer(
             key(isEditing, localCardSizes) {
                 LazyVerticalGrid(
                     state = gridState,
-                    columns = GridCells.Fixed(4),
-                    contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = bottomContentPadding),
+                    columns = GridCells.Fixed(gridColumns),
+                    contentPadding = PaddingValues(
+                        start = if (isWideScreen) 24.dp else 16.dp,
+                        top = if (isWideScreen) 24.dp else 16.dp,
+                        end = if (isWideScreen) 24.dp else 16.dp,
+                        bottom = bottomContentPadding
+                    ),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = 1280.dp)
+                        .align(Alignment.TopCenter)
                 ) {
                     items(activeCardOrder, key = { it }, span = { key ->
                         val size = localCardSizes[key] ?: CardSize.SIZE_2x2
@@ -1666,8 +2126,9 @@ fun LazyGridItemScope.ResizableCardContainer(
                                     },
                                     onClick = onMemoryClick,
                                     onReorderDrag = onReorderDragCallback,
-                                    onReorderEnd = onReorderEndCallback) { size ->
-                                    DashboardRamCard(total = data.ramTotal, used = data.ramUsed, history = data.ramHistory, size = size)
+                                    onReorderEnd = onReorderEndCallback,
+                                    gridColumns = gridColumns) { size ->
+                                    DashboardRamCard(total = rt.ramTotal, used = rt.ramUsed, history = rt.ramHistory, size = size)
                                 }
                             }
                             "cpu" -> {
@@ -1686,8 +2147,9 @@ fun LazyGridItemScope.ResizableCardContainer(
                                     },
                                     onClick = onSoCClick,
                                     onReorderDrag = onReorderDragCallback,
-                                    onReorderEnd = onReorderEndCallback) { size ->
-                                    DashboardCpuCard(usage = data.cpuUsage, history = data.cpuHistory, size = size)
+                                    onReorderEnd = onReorderEndCallback,
+                                    gridColumns = gridColumns) { size ->
+                                    DashboardCpuCard(usage = rt.cpuUsage, history = rt.cpuHistory, size = size)
                                 }
                             }
                             "gpu" -> {
@@ -1706,8 +2168,9 @@ fun LazyGridItemScope.ResizableCardContainer(
                                     },
                                     onClick = onSoCClick,
                                     onReorderDrag = onReorderDragCallback,
-                                    onReorderEnd = onReorderEndCallback) { size ->
-                                    DashboardGpuCard(usage = data.gpuUsage, history = data.gpuHistory, size = size)
+                                    onReorderEnd = onReorderEndCallback,
+                                    gridColumns = gridColumns) { size ->
+                                    DashboardGpuCard(usage = rt.gpuUsage, history = rt.gpuHistory, size = size)
                                 }
                             }
                             "cpu_freqs" -> {
@@ -1726,7 +2189,8 @@ fun LazyGridItemScope.ResizableCardContainer(
                                     },
                                     onClick = {},
                                     onReorderDrag = onReorderDragCallback,
-                                    onReorderEnd = onReorderEndCallback) { size ->
+                                    onReorderEnd = onReorderEndCallback,
+                                    gridColumns = gridColumns) { size ->
                                     Card(
                                         modifier = Modifier.fillMaxSize(),
                                         shape = RoundedCornerShape(24.dp),
@@ -1750,45 +2214,96 @@ fun LazyGridItemScope.ResizableCardContainer(
                                                 }
                                             }
                                             if (size != CardSize.SIZE_1x1 && size != CardSize.SIZE_2x1) {
-                                                Spacer(modifier = Modifier.height(12.dp))
-                                                val columns = if (size == CardSize.SIZE_4x2 || size == CardSize.SIZE_4x4) {
-                                                    if (isWideScreen) 8 else 4
-                                                } else 2
-                                                
-                                                Column(
-                                                    modifier = Modifier.fillMaxWidth().weight(1f),
-                                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                                ) {
-                                                    data.cpuCoreFrequencies.withIndex().chunked(columns).forEach { chunk ->
+                                                if (size == CardSize.SIZE_4x4) {
+                                                    Spacer(modifier = Modifier.height(12.dp))
+                                                    Column(
+                                                        modifier = Modifier.fillMaxWidth().weight(1f),
+                                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                                    ) {
+                                                        rt.cpuCoreFrequencies.withIndex().chunked(4).forEach { chunk ->
+                                                            Row(
+                                                                modifier = Modifier.fillMaxWidth(),
+                                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                            ) {
+                                                                chunk.forEach { indexedFreq ->
+                                                                    CpuCoreBox(
+                                                                        index = indexedFreq.index,
+                                                                        freq = indexedFreq.value,
+                                                                        history = rt.cpuCoreHistory.getOrNull(indexedFreq.index) ?: emptyList(),
+                                                                        modifier = Modifier.weight(1f)
+                                                                    )
+                                                                }
+                                                                repeat(4 - chunk.size) {
+                                                                    Spacer(modifier = Modifier.weight(1f))
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                } else if (size == CardSize.SIZE_4x2) {
+                                                    Spacer(modifier = Modifier.height(12.dp))
+                                                    val clusters = socInfoState?.cpuClusters ?: emptyList()
+                                                    if (clusters.isNotEmpty()) {
                                                         Row(
-                                                            modifier = Modifier.fillMaxWidth(),
+                                                            modifier = Modifier.fillMaxWidth().weight(1f),
                                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                                         ) {
-                                                            chunk.forEach { indexedFreq ->
-                                                                CpuCoreBox(
-                                                                    index = indexedFreq.index,
-                                                                    freq = indexedFreq.value,
-                                                                    history = data.cpuCoreHistory.getOrNull(indexedFreq.index) ?: emptyList(),
+                                                            clusters.forEachIndexed { clusterIdx, cluster ->
+                                                                val coresFreqs = cluster.coreIndices.map { coreIdx ->
+                                                                    rt.cpuCoreFrequencies.getOrNull(coreIdx) ?: 0L
+                                                                }
+                                                                val clusterFreq = coresFreqs.maxOrNull() ?: 0L
+                                                                val clusterHistory = rt.clusterHistories.getOrNull(clusterIdx) ?: emptyList()
+                                                                CpuClusterLiveBox(
+                                                                    name = cluster.name,
+                                                                    freq = clusterFreq,
+                                                                    history = clusterHistory,
                                                                     modifier = Modifier.weight(1f)
                                                                 )
                                                             }
-                                                            repeat(columns - chunk.size) {
-                                                                Spacer(modifier = Modifier.weight(1f))
-                                                            }
                                                         }
+                                                    } else {
+                                                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                            Text(stringResource(R.string.unknown), style = MaterialTheme.typography.bodyMedium)
+                                                        }
+                                                    }
+                                                } else if (size == CardSize.SIZE_2x2) {
+                                                    Spacer(modifier = Modifier.height(12.dp))
+                                                    Column(
+                                                        modifier = Modifier.fillMaxWidth().weight(1f),
+                                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                                    ) {
+                                                        val cpuUtil = rt.cpuUsage
+                                                        MiniGraphBox(
+                                                            title = stringResource(R.string.cpu_utilisation),
+                                                            value = "$cpuUtil%",
+                                                            icon = Icons.Outlined.Memory,
+                                                            history = rt.cpuHistory,
+                                                            modifier = Modifier.weight(1f),
+                                                            maxVal = 100f
+                                                        )
+                                                        val cpuTemp = rt.cpuTemperature
+                                                        val cpuTempStr = if (cpuTemp > 0f) "${"%.1f".format(cpuTemp)}°C" else "N/A"
+                                                        MiniGraphBox(
+                                                            title = stringResource(R.string.tab_thermal),
+                                                            value = cpuTempStr,
+                                                            icon = Icons.Outlined.Thermostat,
+                                                            history = rt.cpuTempHistory,
+                                                            modifier = Modifier.weight(1f),
+                                                            maxVal = 100f
+                                                        )
                                                     }
                                                 }
                                             } else if (size == CardSize.SIZE_2x1) {
                                                 Spacer(modifier = Modifier.height(4.dp))
                                                 Text(
-                                                    "Max Freq: ${data.cpuCoreFrequencies.maxOrNull() ?: 0} MHz",
+                                                    stringResource(R.string.max_freq_format, rt.cpuCoreFrequencies.maxOrNull() ?: 0),
                                                     style = MaterialTheme.typography.bodyMedium,
                                                     fontWeight = FontWeight.Bold
                                                 )
                                             } else {
                                                 Spacer(modifier = Modifier.height(4.dp))
                                                 Text(
-                                                    "${(data.cpuCoreFrequencies.maxOrNull() ?: 0) / 1000f}G",
+                                                    "${(rt.cpuCoreFrequencies.maxOrNull() ?: 0) / 1000f}G",
                                                     style = MaterialTheme.typography.titleMedium,
                                                     fontWeight = FontWeight.Bold
                                                 )
@@ -1813,7 +2328,8 @@ fun LazyGridItemScope.ResizableCardContainer(
                                     },
                                     onClick = {},
                                     onReorderDrag = onReorderDragCallback,
-                                    onReorderEnd = onReorderEndCallback) { size ->
+                                    onReorderEnd = onReorderEndCallback,
+                                    gridColumns = gridColumns) { size ->
                                     Card(
                                         modifier = Modifier.fillMaxSize(),
                                         shape = RoundedCornerShape(24.dp),
@@ -1881,7 +2397,8 @@ fun LazyGridItemScope.ResizableCardContainer(
                                     },
                                     onClick = {},
                                     onReorderDrag = onReorderDragCallback,
-                                    onReorderEnd = onReorderEndCallback) { size ->
+                                    onReorderEnd = onReorderEndCallback,
+                                    gridColumns = gridColumns) { size ->
 
                                     Card(
                                         modifier = Modifier.fillMaxSize(),
@@ -1961,6 +2478,105 @@ fun LazyGridItemScope.ResizableCardContainer(
                                     }
                                 }
                             }
+                            "wifi" -> {
+                                val item = statusItems.firstOrNull { it.key == "wifi" }
+                                if (item != null) {
+                                    val size = localCardSizes["wifi"] ?: CardSize.SIZE_2x2
+                                    ResizableCardContainer(
+                                        cardId = "wifi",
+                                        currentSize = size,
+                                        isResizingMode = isEditing,
+                                        isResizeHandleVisible = resizingCardId == "wifi",
+                                        onSizeChanged = { newSize -> 
+                                            localCardSizes += ("wifi" to newSize)
+                                        },
+                                        onLongClick = {
+                                            resizingCardId = "wifi"
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        },
+                                        onClick = { item.onClick?.invoke() },
+                                        onReorderDrag = onReorderDragCallback,
+                                        onReorderEnd = onReorderEndCallback,
+                                        gridColumns = gridColumns) { sizeParam ->
+                                        if (sizeParam == CardSize.SIZE_4x4) {
+                                            val bg = item.containerColor.copy(alpha = 1f)
+                                            val safeContent = contrastColor(bg)
+                                            Card(
+                                                modifier = Modifier.fillMaxSize(),
+                                                shape = RoundedCornerShape(24.dp),
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = bg,
+                                                    contentColor = safeContent
+                                                )
+                                            ) {
+                                                Column(modifier = Modifier.padding(16.dp).fillMaxSize()) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.Center,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Icon(item.icon, null, modifier = Modifier.size(24.dp), tint = safeContent.copy(alpha = 0.9f))
+                                                        Spacer(modifier = Modifier.width(8.dp))
+                                                        Text(
+                                                            text = item.title,
+                                                            style = MaterialTheme.typography.titleMedium,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = safeContent.copy(alpha = 0.85f),
+                                                            textAlign = TextAlign.Center
+                                                        )
+                                                    }
+                                                    Spacer(modifier = Modifier.height(12.dp))
+                                                    Column(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalAlignment = Alignment.CenterHorizontally
+                                                    ) {
+                                                        AutoSizeText(
+                                                            text = translateValue(item.value),
+                                                            style = MaterialTheme.typography.headlineMedium,
+                                                            fontWeight = FontWeight.Black,
+                                                            color = safeContent,
+                                                            maxLines = 1,
+                                                            textAlign = TextAlign.Center
+                                                        )
+                                                        Spacer(modifier = Modifier.height(8.dp))
+                                                        Text(
+                                                            text = item.subtext,
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = safeContent.copy(alpha = 0.8f),
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            textAlign = TextAlign.Center
+                                                        )
+                                                    }
+                                                    Spacer(modifier = Modifier.height(16.dp))
+                                                    NetworkSpeedGraphBox(
+                                                        downloadSpeed = rt.downloadSpeed,
+                                                        uploadSpeed = rt.uploadSpeed,
+                                                        downloadHistory = rt.downloadSpeedHistory,
+                                                        uploadHistory = rt.uploadSpeedHistory,
+                                                        modifier = Modifier.fillMaxWidth().weight(1f),
+                                                        containerColor = if (safeContent == Color.White) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.08f),
+                                                        contentColor = safeContent,
+                                                        lineColorDl = safeContent,
+                                                        lineColorUl = safeContent.copy(alpha = 0.7f)
+                                                    )
+                                                }
+                                            }
+                                        } else {
+                                            DashboardStatusCard(
+                                                title = item.title,
+                                                icon = item.icon,
+                                                value = item.value,
+                                                subtext = item.subtext,
+                                                progress = item.progress,
+                                                isCharging = item.isCharging,
+                                                containerColor = item.containerColor,
+                                                contentColor = item.contentColor,
+                                                size = sizeParam
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                             else -> {
                                 val item = statusItems.firstOrNull { it.key == key }
                                 if (item != null) {
@@ -1979,7 +2595,8 @@ fun LazyGridItemScope.ResizableCardContainer(
                                         },
                                         onClick = { item.onClick?.invoke() },
                                         onReorderDrag = onReorderDragCallback,
-                                        onReorderEnd = onReorderEndCallback) { sizeParam ->
+                                        onReorderEnd = onReorderEndCallback,
+                                        gridColumns = gridColumns) { sizeParam ->
 
                                         if (item.isCounter) {
                                             DashboardCounterCard(
@@ -2028,163 +2645,829 @@ fun LazyGridItemScope.ResizableCardContainer(
     }
 }
 
-@Composable fun DeviceTab(viewModel: DeviceInfoViewModel) {
-    val summary by viewModel.deviceSummary.collectAsState(); val system by viewModel.systemInfo.collectAsState(); val socName = remember { SoCUtils.getCommercialName(viewModel.getApplication()) }
-    summary?.let { s -> LazyColumn(contentPadding = PaddingValues(16.dp)) { item { ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)) { Column(modifier = Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) { Surface(modifier = Modifier.size(56.dp), shape = CircleShape, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f)) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Smartphone, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp)) } }; Spacer(modifier = Modifier.height(12.dp)); Text(s.model, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center) } } }; item { Spacer(modifier = Modifier.height(16.dp)) }; item { Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) { Card(modifier = Modifier.weight(1f).height(110.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))) { Column(modifier = Modifier.fillMaxSize().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { Icon(Icons.Outlined.Android, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(28.dp)); Spacer(modifier = Modifier.height(8.dp)); Text("Android ${s.androidVersion}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSecondaryContainer, textAlign = TextAlign.Center); Text("Version", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f), textAlign = TextAlign.Center) } }; Card(modifier = Modifier.weight(1f).height(110.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f))) { Column(modifier = Modifier.fillMaxSize().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { Icon(Icons.Outlined.AutoAwesome, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(28.dp)); Spacer(modifier = Modifier.height(8.dp)); Text(system?.osVersion ?: "Unknown", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onTertiaryContainer, textAlign = TextAlign.Center, maxLines = 2); Text("UI Version", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.6f), textAlign = TextAlign.Center) } } } }; item { Spacer(modifier = Modifier.height(16.dp)) }; item { InfoGroupCard(stringResource(R.string.hardware_platform), Icons.Outlined.SettingsInputComponent, MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)) { InfoRow(stringResource(R.string.model), s.model); system?.let { InfoRow(stringResource(R.string.model_name), it.modelName) }; InfoRow(stringResource(R.string.board), s.board); InfoRow(stringResource(R.string.platform), s.platform); InfoRow(stringResource(R.string.hardware), s.hardware); InfoRow(stringResource(R.string.processor), socName); InfoRow(stringResource(R.string.tab_memory), s.ramType); InfoRow(stringResource(R.string.flash), s.flashType) } }; item { Spacer(modifier = Modifier.height(16.dp)) }; item { InfoGroupCard(stringResource(R.string.tab_system), Icons.Outlined.Android, MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f), MaterialTheme.colorScheme.secondary) { InfoRow(stringResource(R.string.android), s.androidVersion); system?.let { InfoRow(stringResource(R.string.api), it.sdkLevel); InfoRow(stringResource(R.string.codename), it.codeName); InfoRow(stringResource(R.string.security), it.securityPatch) }; InfoRow(stringResource(R.string.kernel), s.kernel) } }; item { Spacer(modifier = Modifier.height(16.dp)) }; item { InfoGroupCard(stringResource(R.string.build_details), Icons.Outlined.Build, MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f), MaterialTheme.colorScheme.tertiary) { system?.let { InfoRow(stringResource(R.string.build), it.buildId); InfoRow(stringResource(R.string.java_vm), it.javaVm); InfoRow(stringResource(R.string.baseband), it.baseband); InfoRow(stringResource(R.string.bootloader), it.bootloader); InfoRow(stringResource(R.string.gps), it.gps); InfoRow(stringResource(R.string.bluetooth), it.bluetoothVersion); InfoRow(stringResource(R.string.build_type), it.buildType); InfoRow(stringResource(R.string.tags), it.tags); InfoRow(stringResource(R.string.incremental), it.incremental) } } }; item { Spacer(modifier = Modifier.height(16.dp)) }; item { InfoGroupCard(stringResource(R.string.screen), Icons.Outlined.DisplaySettings, MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f), MaterialTheme.colorScheme.secondary) { InfoRow(stringResource(R.string.resolution), s.resolution); InfoRow(stringResource(R.string.touchscreen), s.touchscreen) } }; item { Spacer(modifier = Modifier.height(16.dp)) }; item { InfoGroupCard(stringResource(R.string.system_identifiers), Icons.Outlined.Fingerprint, MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), MaterialTheme.colorScheme.onSurfaceVariant) { InfoRow(stringResource(R.string.android_id), s.androidId); s.gsfId?.let { gsf -> InfoRow(stringResource(R.string.gsf_id), gsf) }; InfoRow(stringResource(R.string.tab_device), s.device); system?.let { InfoRow(stringResource(R.string.product), it.product) }; InfoRow(stringResource(R.string.fingerprint), s.buildFingerprint) } }; item { Spacer(modifier = Modifier.height(16.dp)) }; item { InfoGroupCard(stringResource(R.string.miscellaneous), Icons.Outlined.Dashboard, MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)) { system?.let { InfoRow(stringResource(R.string.gms), it.googlePlayServices); InfoRow(stringResource(R.string.device_features), it.deviceFeatures); InfoRow(stringResource(R.string.language), it.language); InfoRow(stringResource(R.string.timezone), it.timezone); InfoRow(stringResource(R.string.uptime), it.uptime) } } } } }
-}
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun DeviceSummaryCard(
+    modifier: Modifier = Modifier,
+    model: String,
+    manufacturer: String,
+    containerColor: Color = MaterialTheme.colorScheme.primary,
+    contentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    cardId: String? = null
+) {
+    val logoUrl = remember(manufacturer, model) {
+        val m = manufacturer.lowercase().trim()
+        val md = model.lowercase().trim()
+        if (m.contains("bkav") || md.contains("bphone")) {
+            "https://gsmfind.com/img/brand/bphone.png"
+        } else {
+            val domain = when {
+                m.contains("motorola") -> "motorola.com"
+                m.contains("samsung") -> "samsung.com"
+                m.contains("google") -> "google.com"
+                m.contains("xiaomi") || m.contains("redmi") || m.contains("poco") -> "xiaomi.com"
+                m.contains("oneplus") -> "oneplus.com"
+                m.contains("oppo") -> "oppo.com"
+                m.contains("vivo") -> "vivo.com"
+                m.contains("realme") -> "realme.com"
+                m.contains("nothing") -> "nothing.tech"
+                m.contains("huawei") -> "huawei.com"
+                m.contains("honor") -> "hihonor.com"
+                m.contains("asus") -> "asus.com"
+                m.contains("meizu") -> "meizu.com"
+                m.contains("zte") -> "zte.com.cn"
+                m.contains("nubia") -> "nubia.com"
+                m.contains("sony") -> "sony.com"
+                m.contains("lg") -> "lg.com"
+                m.contains("htc") -> "htc.com"
+                m.contains("lenovo") -> "lenovo.com"
+                else -> "$m.com"
+            }
+            "https://logos.hunter.io/$domain"
+        }
+    }
+    val context = LocalContext.current
+    val imageRequest = remember(logoUrl) {
+        ImageRequest.Builder(context)
+            .data(logoUrl)
+            .setHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .crossfade(true)
+            .build()
+    }
+    val handler = LocalCardInteractionHandler.current
 
-@Composable fun SocTab(v: DeviceInfoViewModel) {
-    val info by v.socInfo.collectAsState(); val context = LocalContext.current; val socName = remember { SoCUtils.getCommercialName(context) }
-    info?.let { i -> 
-        LazyColumn(contentPadding = PaddingValues(16.dp)) { 
-            item {
-                DashboardStatusCard(
-                    title = stringResource(R.string.processor),
-                    icon = Icons.Outlined.Memory,
-                    value = socName,
-                    subtext = i.vendor,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-            item { Spacer(modifier = Modifier.height(12.dp)) }
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    DashboardStatusCard(
-                        modifier = Modifier.weight(1f),
-                        title = stringResource(R.string.cores),
-                        icon = Icons.Outlined.Numbers,
-                        value = i.cores,
-                        subtext = i.bigLittle,
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    DashboardStatusCard(
-                        modifier = Modifier.weight(1f),
-                        title = stringResource(R.string.gpu),
-                        icon = Icons.Outlined.GraphicEq,
-                        value = i.gpu,
-                        subtext = i.gpuVendor,
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
+    val finalModifier = modifier.then(
+        if (cardId != null && handler != null) {
+            val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            Modifier.combinedClickable(
+                interactionSource = interactionSource,
+                indication = ripple(bounded = true),
+                onClick = {},
+                onLongClick = {
+                    handler.triggerLongPress(cardId)
                 }
-            }
-            if (i.cpuClusters.isNotEmpty()) {
-                item { Spacer(modifier = Modifier.height(12.dp)) }
-                item {
-                    InfoGroupCard(
-                        stringResource(R.string.clusters),
-                        Icons.Outlined.Layers,
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                    ) {
-                        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            items(i.cpuClusters) { cluster -> CpuClusterBox(cluster) }
-                        }
-                    }
-                }
-            }
-            item { Spacer(modifier = Modifier.height(24.dp)) }
-            item { 
-                InfoGroupCard(
-                    stringResource(R.string.cpu), 
-                    Icons.Outlined.Memory, 
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                ) { 
-                    InfoRow(stringResource(R.string.processor), socName)
-                    InfoRow(stringResource(R.string.cpu), i.processor)
-                    InfoRow(stringResource(R.string.vendor), i.vendor)
-                    InfoRow(stringResource(R.string.cores), i.cores)
-                    InfoRow(stringResource(R.string.big_little), i.bigLittle)
-                    if (i.cpuClusters.isEmpty()) {
-                        InfoRow(stringResource(R.string.clusters), i.clusters) 
-                    }
-                    InfoRow(stringResource(R.string.family), i.family)
-                    InfoRow(stringResource(R.string.mode), i.mode)
-                    InfoRow(stringResource(R.string.machine), i.machine)
-                    InfoRow(stringResource(R.string.abi), i.abi)
-                    InfoRow(stringResource(R.string.revision), i.revision)
-                    InfoRow(stringResource(R.string.clock_speed), i.clockSpeed)
-                    InfoRow(stringResource(R.string.governor), i.governor)
-                    InfoRow(stringResource(R.string.supported_abi), i.supportedAbi) 
-                } 
-            }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-            item {
-                InfoGroupCard(
-                    stringResource(R.string.instructions),
-                    Icons.Outlined.Terminal,
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
-                    MaterialTheme.colorScheme.primary
+            )
+        } else Modifier
+    )
+
+    ElevatedCard(
+        modifier = finalModifier,
+        shape = ShapeCard,
+        colors = CardDefaults.elevatedCardColors(containerColor = containerColor, contentColor = contentColor),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.9f))
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    val instructionsList = i.instructions.split(Regex("[,\\s]+")).map { it.trim() }.filter { it.isNotEmpty() }
-                    @OptIn(ExperimentalLayoutApi::class)
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        instructionsList.forEach { instruction ->
-                            Surface(
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                shape = RoundedCornerShape(8.dp),
-                            ) {
-                                Text(
-                                    text = instruction,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp
-                                )
-                            }
-                        }
-                    }
+                    AsyncImage(
+                        model = imageRequest,
+                        contentDescription = "$manufacturer logo",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.tab_device),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = contentColor.copy(alpha = 0.65f)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    AutoSizeText(
+                        text = model,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = contentColor,
+                        maxLines = 2
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = manufacturer,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = contentColor.copy(alpha = 0.8f)
+                    )
                 }
             }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-            item { 
-                InfoGroupCard(
-                    stringResource(R.string.gpu), 
-                    Icons.Outlined.GraphicEq, 
-                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f), 
-                    MaterialTheme.colorScheme.secondary
-                ) { 
-                    InfoRow(stringResource(R.string.gpu), i.gpu)
-                    InfoRow(stringResource(R.string.vendor), i.gpuVendor)
-                    InfoRow(stringResource(R.string.architecture), i.gpuArch)
-                    InfoRow(stringResource(R.string.gpu_cores), i.gpuCores)
-                    InfoRow(stringResource(R.string.clock_speed), i.gpuClockSpeed)
-                    InfoRow(stringResource(R.string.l2_cache), i.gpuL2Cache)
-                    InfoRow(stringResource(R.string.bus_width), i.gpuBusWidth)
-                    InfoRow(stringResource(R.string.open_gl_es), i.gpuFullVersion)
-                    InfoRow(stringResource(R.string.vulkan), i.vulkanVersion)
-                    InfoRow(stringResource(R.string.gpu_extensions), i.gpuExtensions) 
-                } 
-            }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-            item { 
-                InfoGroupCard(
-                    stringResource(R.string.technology), 
-                    Icons.Outlined.Science, 
-                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f), 
-                    MaterialTheme.colorScheme.tertiary
-                ) { 
-                    InfoRow(stringResource(R.string.process), i.process) 
-                } 
+
+            if (cardId != null && handler != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(18.dp)
+                        .alpha(0.5f)
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            handler.showCardInfo(cardId)
+                        }
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = "Info",
+                        tint = contentColor,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun ProcessorSummaryCard(
+    modifier: Modifier = Modifier,
+    socName: String,
+    vendor: String,
+    containerColor: Color = MaterialTheme.colorScheme.primary,
+    contentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    cardId: String? = null
+) {
+    val logoUrl = remember(socName, vendor) {
+        val s = socName.lowercase().trim()
+        val v = vendor.lowercase().trim()
+        when {
+            s.contains("snapdragon") || s.contains("dragonwing") || v.contains("qualcomm") -> {
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Snapdragon_Logo.svg/250px-Snapdragon_Logo.svg.png"
+            }
+            s.contains("dimensity") || s.contains("helio") || v.contains("mediatek") -> {
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/MediaTek_logo.svg/250px-MediaTek_logo.svg.png"
+            }
+            s.contains("exynos") || v.contains("samsung") -> {
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Exynos_Logo.svg/250px-Exynos_Logo.svg.png"
+            }
+            s.contains("kirin") || s.contains("hisilicon") || v.contains("hisilicon") || v.contains("huawei") -> {
+                "https://upload.wikimedia.org/wikipedia/commons/7/7b/Hisilicon_logo.png"
+            }
+            s.contains("xring") || s.contains("surge") || v.contains("xiaomi") -> {
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Xiaomi_logo_%282021-%29.svg/250px-Xiaomi_logo_%282021-%29.svg.png"
+            }
+            s.contains("unisoc") || s.contains("spreadtrum") || v.contains("unisoc") || v.contains("spreadtrum") -> {
+                "https://upload.wikimedia.org/wikipedia/commons/d/d5/Unisoc_Logo.png"
+            }
+            s.contains("tensor") || v.contains("google") -> {
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/500px-Google_2015_logo.svg.png"
+            }
+            else -> {
+                "https://logos.hunter.io/${v.replace(" ", "")}.com"
+            }
+        }
+    }
+
+    val context = LocalContext.current
+    val imageRequest = remember(logoUrl) {
+        ImageRequest.Builder(context)
+            .data(logoUrl)
+            .setHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .crossfade(true)
+            .build()
+    }
+    val handler = LocalCardInteractionHandler.current
+
+    val finalModifier = modifier.then(
+        if (cardId != null && handler != null) {
+            val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            Modifier.combinedClickable(
+                interactionSource = interactionSource,
+                indication = ripple(bounded = true),
+                onClick = {},
+                onLongClick = {
+                    handler.triggerLongPress(cardId)
+                }
+            )
+        } else Modifier
+    )
+
+    ElevatedCard(
+        modifier = finalModifier,
+        shape = ShapeCard,
+        colors = CardDefaults.elevatedCardColors(containerColor = containerColor, contentColor = contentColor),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.9f))
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage(
+                        model = imageRequest,
+                        contentDescription = "$vendor logo",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.processor),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = contentColor.copy(alpha = 0.65f)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    AutoSizeText(
+                        text = socName,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = contentColor,
+                        maxLines = 2
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = vendor,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = contentColor.copy(alpha = 0.8f)
+                    )
+                }
+            }
+
+            if (cardId != null && handler != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(18.dp)
+                        .alpha(0.5f)
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            handler.showCardInfo(cardId)
+                        }
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = "Info",
+                        tint = contentColor,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable fun DeviceTab(viewModel: DeviceInfoViewModel) {
+    val summary by viewModel.deviceSummary.collectAsStateWithLifecycle()
+    val system by viewModel.systemInfo.collectAsStateWithLifecycle()
+    val cpu by viewModel.cpuInfo.collectAsStateWithLifecycle()
+    val socName = cpu?.processor ?: stringResource(id = R.string.unknown)
+    summary?.let { s -> 
+        LazyColumn(contentPadding = PaddingValues(16.dp)) { 
+            item { 
+                DeviceSummaryCard(
+                    modifier = Modifier.fillMaxWidth().height(140.dp),
+                    model = s.model,
+                    manufacturer = s.manufacturer,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    cardId = "device_model"
+                )
+            }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item { 
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) { 
+                    DashboardStatusCard(
+                        modifier = Modifier.weight(1f).height(160.dp),
+                        title = stringResource(id = R.string.android),
+                        icon = Icons.Outlined.Android,
+                        value = stringResource(R.string.android_version_format, s.androidVersion),
+                        subtext = stringResource(R.string.version),
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        size = CardSize.SIZE_2x2,
+                        cardId = "android_version"
+                    )
+                    DashboardStatusCard(
+                        modifier = Modifier.weight(1f).height(160.dp),
+                        title = "OS",
+                        icon = Icons.Outlined.AutoAwesome,
+                        value = system?.osVersion ?: stringResource(R.string.unknown),
+                        subtext = stringResource(R.string.ui_version),
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        size = CardSize.SIZE_2x2,
+                        cardId = "os_version"
+                    )
+                } 
+            }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item {
+                InfoGroupCard(
+                    title = stringResource(R.string.hardware_platform),
+                    icon = Icons.Outlined.SettingsInputComponent,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    cardId = "group_hardware_platform"
+                ) {
+                    InfoRow(stringResource(R.string.model), s.model)
+                    system?.let { InfoRow(stringResource(R.string.model_name), it.modelName) }
+                    InfoRow(stringResource(R.string.board), s.board)
+                    InfoRow(stringResource(R.string.platform), s.platform)
+                    InfoRow(stringResource(R.string.hardware), s.hardware)
+                    InfoRow(stringResource(R.string.processor), socName)
+                    InfoRow(stringResource(R.string.tab_memory), s.ramType)
+                    InfoRow(stringResource(R.string.flash), s.flashType)
+                }
+            }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item {
+                InfoGroupCard(
+                    title = stringResource(R.string.tab_system),
+                    icon = Icons.Outlined.Android,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f),
+                    contentColor = MaterialTheme.colorScheme.secondary,
+                    cardId = "group_system"
+                ) {
+                    InfoRow(stringResource(R.string.android), s.androidVersion)
+                    system?.let {
+                        InfoRow(stringResource(R.string.api), it.sdkLevel)
+                        InfoRow(stringResource(R.string.codename), it.codeName)
+                        InfoRow(stringResource(R.string.security), it.securityPatch)
+                    }
+                    InfoRow(stringResource(R.string.kernel), s.kernel)
+                }
+            }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item {
+                InfoGroupCard(
+                    title = stringResource(R.string.build_details),
+                    icon = Icons.Outlined.Build,
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
+                    contentColor = MaterialTheme.colorScheme.tertiary,
+                    cardId = "group_build_details"
+                ) {
+                    system?.let {
+                        InfoRow(stringResource(R.string.build), it.buildId)
+                        InfoRow(stringResource(R.string.java_vm), it.javaVm)
+                        InfoRow(stringResource(R.string.baseband), it.baseband)
+                        InfoRow(stringResource(R.string.bootloader), it.bootloader)
+                        InfoRow(stringResource(R.string.gps), it.gps)
+                        InfoRow(stringResource(R.string.bluetooth), it.bluetoothVersion)
+                        InfoRow(stringResource(R.string.build_type), it.buildType)
+                        InfoRow(stringResource(R.string.tags), it.tags)
+                        InfoRow(stringResource(R.string.incremental), it.incremental)
+                    }
+                }
+            }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item {
+                InfoGroupCard(
+                    title = stringResource(R.string.screen),
+                    icon = Icons.Outlined.DisplaySettings,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
+                    contentColor = MaterialTheme.colorScheme.secondary,
+                    cardId = "group_screen"
+                ) {
+                    InfoRow(stringResource(R.string.resolution), s.resolution)
+                    InfoRow(stringResource(R.string.touchscreen), s.touchscreen)
+                }
+            }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item {
+                InfoGroupCard(
+                    title = stringResource(R.string.system_identifiers),
+                    icon = Icons.Outlined.Fingerprint,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    cardId = "group_system_identifiers"
+                ) {
+                    InfoRow(stringResource(R.string.android_id), s.androidId)
+                    s.gsfId?.let { gsf -> InfoRow(stringResource(R.string.gsf_id), gsf) }
+                    InfoRow(stringResource(R.string.tab_device), s.device)
+                    system?.let { InfoRow(stringResource(R.string.product), it.product) }
+                    InfoRow(stringResource(R.string.fingerprint), s.buildFingerprint)
+                }
+            }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item {
+                InfoGroupCard(
+                    title = stringResource(R.string.miscellaneous),
+                    icon = Icons.Outlined.Dashboard,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                    cardId = "group_miscellaneous"
+                ) {
+                    system?.let {
+                        InfoRow(stringResource(R.string.gms), it.googlePlayServices)
+                        InfoRow(stringResource(R.string.device_features), it.deviceFeatures)
+                        InfoRow(stringResource(R.string.language), it.language)
+                        InfoRow(stringResource(R.string.timezone), it.timezone)
+                        InfoRow(stringResource(R.string.uptime), it.uptime)
+                    }
+                }
+            }
+        }
+    }
+}
+
+enum class SocTabType { CPU, GPU }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable fun SocTab(v: DeviceInfoViewModel) {
+    var showCoreDetails by remember { mutableStateOf(false) }
+    
+    AnimatedContent(
+        targetState = showCoreDetails,
+        transitionSpec = {
+            if (targetState) {
+                slideInHorizontally { width -> width } + fadeIn() togetherWith
+                        slideOutHorizontally { width -> -width } + fadeOut()
+            } else {
+                slideInHorizontally { width -> -width } + fadeIn() togetherWith
+                        slideOutHorizontally { width -> width } + fadeOut()
+            }
+        },
+        label = "soc_tab_details_transition"
+    ) { targetShowDetails ->
+        if (targetShowDetails) {
+            CpuCoresDetailScreen(v, onBack = { showCoreDetails = false })
+        } else {
+            var activeTab by remember { mutableStateOf(SocTabType.CPU) }
+        val info by v.socInfo.collectAsStateWithLifecycle(); val socName = info?.processor ?: stringResource(id = R.string.unknown)
+        val realtimeDataState by v.dashboardRealtime.collectAsStateWithLifecycle()
+        info?.let { i -> 
+            LazyColumn(contentPadding = PaddingValues(16.dp)) {
+                item {
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        SegmentedButton(
+                            selected = activeTab == SocTabType.CPU,
+                            onClick = { activeTab = SocTabType.CPU },
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                            label = { Text(stringResource(R.string.cpu)) }
+                        )
+                        SegmentedButton(
+                            selected = activeTab == SocTabType.GPU,
+                            onClick = { activeTab = SocTabType.GPU },
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            label = { Text(stringResource(R.string.gpu)) }
+                        )
+                    }
+                }
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+
+                if (activeTab == SocTabType.CPU) {
+                    item {
+                        ProcessorSummaryCard(
+                            modifier = Modifier.fillMaxWidth().height(140.dp),
+                            socName = socName,
+                            vendor = i.vendor,
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            cardId = "soc"
+                        )
+                    }
+                    item { Spacer(modifier = Modifier.height(12.dp)) }
+                    item {
+                        DashboardStatusCard(
+                            modifier = Modifier.fillMaxWidth().height(160.dp),
+                            title = stringResource(R.string.cores),
+                            icon = Icons.Outlined.Numbers,
+                            value = i.cores,
+                            subtext = i.bigLittle,
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            size = CardSize.SIZE_4x2,
+                            cardId = "cores"
+                        )
+                    }
+                    if (i.cpuClusters.isNotEmpty()) {
+                        item { Spacer(modifier = Modifier.height(12.dp)) }
+                        item {
+                            InfoGroupCard(
+                                title = stringResource(R.string.clusters),
+                                icon = Icons.Outlined.Layers,
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                onClick = { showCoreDetails = true },
+                                cardId = "group_cpu"
+                            ) {
+                                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                    items(i.cpuClusters) { cluster -> CpuClusterBox(cluster) }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Live CPU Cluster Utilisation ──
+                    item { Spacer(modifier = Modifier.height(24.dp)) }
+                    item {
+                        Text(
+                            stringResource(R.string.cpu_frequencies),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    item { Spacer(modifier = Modifier.height(8.dp)) }
+                    if (i.cpuClusters.isNotEmpty()) {
+                        realtimeDataState?.let { realtimeData ->
+                            i.cpuClusters.forEachIndexed { clusterIdx, cluster ->
+                                item {
+                                    InfoGroupCard(
+                                        "${cluster.name} (${cluster.coreCount} cores)",
+                                        Icons.Outlined.Speed,
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f + clusterIdx * 0.1f)
+                                    ) {
+                                        Text(
+                                            "${cluster.architecture} · ${cluster.minFreq} - ${cluster.maxFreq}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        // Cluster aggregate sparkline
+                                        val clusterHistory = realtimeData.clusterHistories.getOrNull(clusterIdx)
+                                        if (clusterHistory != null && clusterHistory.isNotEmpty()) {
+                                            val clusterAvg = clusterHistory.lastOrNull()?.toInt() ?: 0
+                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                                Text("${clusterAvg}%", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                                                Spacer(modifier = Modifier.width(16.dp))
+                                                val chartColor = MaterialTheme.colorScheme.primary
+                                                ClusterSparkline(
+                                                    clusterHistory = clusterHistory,
+                                                    chartColor = chartColor,
+                                                    modifier = Modifier.weight(1f).height(40.dp)
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        // Per-core freq boxes within cluster
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            cluster.coreIndices.forEach { coreIdx ->
+                                                val coreFreq = realtimeData.cpuCoreFrequencies.getOrNull(coreIdx) ?: 0L
+                                                val coreHistory = realtimeData.cpuCoreHistory.getOrNull(coreIdx) ?: emptyList()
+                                                CpuCoreBox(
+                                                    index = coreIdx,
+                                                    freq = coreFreq,
+                                                    history = coreHistory,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                item { Spacer(modifier = Modifier.height(12.dp)) }
+                            }
+                        }
+                    }
+
+                    item { Spacer(modifier = Modifier.height(24.dp)) }
+                    item { 
+                        InfoGroupCard(
+                            stringResource(R.string.cpu), 
+                            Icons.Outlined.Memory, 
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                            cardId = "group_cpu"
+                        ) { 
+                            InfoRow(stringResource(R.string.processor), socName)
+                            InfoRow(stringResource(R.string.cpu), i.processor)
+                            InfoRow(stringResource(R.string.vendor), i.vendor)
+                            InfoRow(stringResource(R.string.cores), i.cores)
+                            InfoRow(stringResource(R.string.big_little), i.bigLittle)
+                            if (i.cpuClusters.isEmpty()) {
+                                InfoRow(stringResource(R.string.clusters), i.clusters) 
+                            }
+                            InfoRow(stringResource(R.string.family), i.family)
+                            InfoRow(stringResource(R.string.mode), i.mode)
+                            InfoRow(stringResource(R.string.machine), i.machine)
+                            InfoRow(stringResource(R.string.abi), i.abi)
+                            InfoRow(stringResource(R.string.revision), i.revision)
+                            InfoRow(stringResource(R.string.clock_speed), i.clockSpeed)
+                            InfoRow(stringResource(R.string.governor), i.governor)
+                            InfoRow(stringResource(R.string.supported_abi), i.supportedAbi) 
+                        } 
+                    }
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                    item {
+                        InfoGroupCard(
+                            stringResource(R.string.instructions),
+                            Icons.Outlined.Terminal,
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                            MaterialTheme.colorScheme.primary,
+                            cardId = "group_instructions"
+                        ) {
+                            val instructionsList = i.instructions.split(Regex("[,\\s]+")).map { it.trim() }.filter { it.isNotEmpty() }
+                            @OptIn(ExperimentalLayoutApi::class)
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                instructionsList.forEach { instruction ->
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                        shape = ShapeSmall,
+                                    ) {
+                                        Text(
+                                            text = instruction,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                    item { 
+                        InfoGroupCard(
+                            stringResource(R.string.technology), 
+                            Icons.Outlined.Science, 
+                            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f), 
+                            MaterialTheme.colorScheme.tertiary,
+                            cardId = "group_technology"
+                        ) { 
+                            InfoRow(stringResource(R.string.process), i.process) 
+                        } 
+                    }
+                } else {
+                    item {
+                        DashboardStatusCard(
+                            modifier = Modifier.fillMaxWidth().height(160.dp),
+                            title = stringResource(R.string.gpu),
+                            icon = Icons.Outlined.GraphicEq,
+                            value = i.gpu,
+                            subtext = i.gpuVendor,
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                            size = CardSize.SIZE_4x2,
+                            cardId = "gpu"
+                        )
+                    }
+                    item { Spacer(modifier = Modifier.height(12.dp)) }
+                    item {
+                        realtimeDataState?.let { realtimeData ->
+                            val gpuProgress by animateFloatAsState(realtimeData.gpuUsage / 100f, tween(400), label = "socGpu")
+                            InfoGroupCard(
+                                stringResource(R.string.gpu_utilisation),
+                                Icons.Outlined.GraphicEq,
+                                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
+                                MaterialTheme.colorScheme.tertiary,
+                                cardId = "gpu"
+                            ) {
+                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(80.dp)) {
+                                        CircularProgressIndicator(
+                                            progress = { gpuProgress },
+                                            modifier = Modifier.fillMaxSize(),
+                                            color = MaterialTheme.colorScheme.tertiary,
+                                            strokeWidth = 6.dp,
+                                            trackColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f),
+                                            strokeCap = StrokeCap.Round
+                                        )
+                                        Text("${realtimeData.gpuUsage}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+                                    }
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("Freq: ${"%.0f".format(realtimeData.gpuFreq)} MHz", style = MaterialTheme.typography.bodyMedium)
+                                        Text("Memory: ${"%.0f".format(realtimeData.gpuMemory)} MB", style = MaterialTheme.typography.bodyMedium)
+                                        Text("Temp: ${"%.1f".format(realtimeData.gpuTemperature)}°C", style = MaterialTheme.typography.bodyMedium)
+                                        if (realtimeData.cpuTemperature > 0) {
+                                            Text("CPU Temp: ${"%.1f".format(realtimeData.cpuTemperature)}°C", style = MaterialTheme.typography.bodyMedium)
+                                        }
+                                    }
+                                }
+                                // GPU Frequency History Chart
+                                if (realtimeData.gpuFreqHistory.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text("GPU Frequency History", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    val chartColor = MaterialTheme.colorScheme.tertiary
+                                    val gpuFreqPath = remember { Path() }
+                                    val gpuFreqFillPath = remember { Path() }
+                                    val density = LocalDensity.current
+                                    val gpuStroke = remember(density) { Stroke(with(density) { 2.dp.toPx() }, cap = StrokeCap.Round) }
+                                    val history = realtimeData.gpuFreqHistory
+                                    val maxVal = remember(history) { history.maxOrNull()?.coerceAtLeast(1f) ?: 1f }
+                                    Canvas(modifier = Modifier.fillMaxWidth().height(50.dp)) {
+                                        gpuFreqPath.reset()
+                                        val stepX = size.width / (history.size - 1).coerceAtLeast(1)
+                                        history.forEachIndexed { gi, gv ->
+                                            val x = gi * stepX
+                                            val y = size.height - (gv / maxVal * size.height)
+                                            if (gi == 0) gpuFreqPath.moveTo(x, y) else gpuFreqPath.lineTo(x, y)
+                                        }
+                                        if (history.size > 1) {
+                                            gpuFreqFillPath.reset()
+                                            gpuFreqFillPath.addPath(gpuFreqPath)
+                                            gpuFreqFillPath.lineTo((history.size - 1) * stepX, size.height)
+                                            gpuFreqFillPath.lineTo(0f, size.height)
+                                            gpuFreqFillPath.close()
+                                            drawPath(gpuFreqFillPath, chartColor.copy(alpha = 0.1f))
+                                            drawPath(gpuFreqPath, chartColor.copy(alpha = 0.5f), style = gpuStroke)
+                                        }
+                                    }
+                                }
+                                // GPU Temperature History Chart
+                                if (realtimeData.gpuTempHistory.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text("GPU Temperature History", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    val tempColor = MaterialTheme.colorScheme.error
+                                    val gpuTempPath = remember { Path() }
+                                    val gpuTempFillPath = remember { Path() }
+                                    val density = LocalDensity.current
+                                    val gpuStroke = remember(density) { Stroke(with(density) { 2.dp.toPx() }, cap = StrokeCap.Round) }
+                                    val history = realtimeData.gpuTempHistory
+                                    val maxVal = remember(history) { history.maxOrNull()?.coerceAtLeast(1f) ?: 1f }
+                                    Canvas(modifier = Modifier.fillMaxWidth().height(50.dp)) {
+                                        gpuTempPath.reset()
+                                        val stepX = size.width / (history.size - 1).coerceAtLeast(1)
+                                        history.forEachIndexed { gi, gv ->
+                                            val x = gi * stepX
+                                            val y = size.height - (gv / maxVal * size.height)
+                                            if (gi == 0) gpuTempPath.moveTo(x, y) else gpuTempPath.lineTo(x, y)
+                                        }
+                                        if (history.size > 1) {
+                                            gpuTempFillPath.reset()
+                                            gpuTempFillPath.addPath(gpuTempPath)
+                                            gpuTempFillPath.lineTo((history.size - 1) * stepX, size.height)
+                                            gpuTempFillPath.lineTo(0f, size.height)
+                                            gpuTempFillPath.close()
+                                            drawPath(gpuTempFillPath, tempColor.copy(alpha = 0.1f))
+                                            drawPath(gpuTempPath, tempColor.copy(alpha = 0.5f), style = gpuStroke)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                    item { 
+                        InfoGroupCard(
+                            stringResource(R.string.gpu), 
+                            Icons.Outlined.GraphicEq, 
+                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f), 
+                            MaterialTheme.colorScheme.secondary,
+                            cardId = "gpu"
+                        ) { 
+                            InfoRow(stringResource(R.string.gpu), i.gpu)
+                            InfoRow(stringResource(R.string.vendor), i.gpuVendor)
+                            InfoRow(stringResource(R.string.architecture), i.gpuArch)
+                            InfoRow(stringResource(R.string.gpu_cores), i.gpuCores)
+                            InfoRow(stringResource(R.string.clock_speed), i.gpuClockSpeed)
+                            InfoRow(stringResource(R.string.l2_cache), i.gpuL2Cache)
+                            InfoRow(stringResource(R.string.bus_width), i.gpuBusWidth)
+                            InfoRow(stringResource(R.string.open_gl_es), i.gpuFullVersion)
+                            InfoRow(stringResource(R.string.vulkan), i.vulkanVersion)
+                            InfoRow(stringResource(R.string.gpu_extensions), i.gpuExtensions) 
+                        } 
+                    }
+                }
+            }
+        }
+    }
+}
+}
+
 @Composable fun BatteryTab(viewModel: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
-    val info by viewModel.batteryInfo.collectAsState()
-    val batteryHistory by viewModel.batteryCapacityHistory.collectAsState()
-    val lastFullChargeTs by viewModel.lastFullChargeTs.collectAsState()
-    val lastStoppedChargingTs by viewModel.lastStoppedChargingTs.collectAsState()
-    val dashboardData by viewModel.dashboardData.collectAsState()
+    val info by viewModel.batteryInfo.collectAsStateWithLifecycle()
+    val batteryHistory by viewModel.batteryCapacityHistory.collectAsStateWithLifecycle()
+    val lastFullChargeTs by viewModel.lastFullChargeTs.collectAsStateWithLifecycle()
+    val lastStoppedChargingTs by viewModel.lastStoppedChargingTs.collectAsStateWithLifecycle()
+    val dashboardData by viewModel.dashboardData.collectAsStateWithLifecycle()
     val wattageHistory = dashboardData?.wattageHistory ?: emptyList()
-    val fullWattageHistory by viewModel.fullWattageHistory.collectAsState()
+    val fullWattageHistory by viewModel.fullWattageHistory.collectAsStateWithLifecycle()
     var showFullWattage by remember { mutableStateOf(false) }
     val isWideScreen = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
 
@@ -2195,18 +3478,36 @@ fun LazyGridItemScope.ResizableCardContainer(
     info?.let { i -> 
         LazyColumn(contentPadding = PaddingValues(16.dp)) { 
             item { 
-                val cardColor = if (i.isCharging) Color(0xFF2CBF6C) else MaterialTheme.colorScheme.primary
+                val cardColor = if (i.isCharging) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+                val contentColor = if (i.isCharging) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onPrimary
+                val handler = LocalCardInteractionHandler.current
+                val finalCardModifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .then(
+                        if (handler != null) {
+                            val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                            Modifier.combinedClickable(
+                                interactionSource = interactionSource,
+                                indication = ripple(bounded = true),
+                                onClick = {},
+                                onLongClick = {
+                                    handler.triggerLongPress("battery_main")
+                                }
+                            )
+                        } else Modifier
+                    )
                 Card(
-                    modifier = Modifier.fillMaxWidth().height(220.dp),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.cardColors(containerColor = cardColor, contentColor = Color.White)
+                    modifier = finalCardModifier,
+                    shape = ShapeExtraLarge,
+                    colors = CardDefaults.cardColors(containerColor = cardColor, contentColor = contentColor)
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         // Background bubbles (Xiaomi style)
                         Canvas(modifier = Modifier.fillMaxSize()) {
-                            drawCircle(Color.White.copy(alpha = 0.1f), radius = 20.dp.toPx(), center = androidx.compose.ui.geometry.Offset(size.width * 0.8f, size.height * 0.2f))
-                            drawCircle(Color.White.copy(alpha = 0.05f), radius = 40.dp.toPx(), center = androidx.compose.ui.geometry.Offset(size.width * 0.1f, size.height * 0.7f))
-                            drawCircle(Color.White.copy(alpha = 0.08f), radius = 15.dp.toPx(), center = androidx.compose.ui.geometry.Offset(size.width * 0.6f, size.height * 0.85f))
+                            drawCircle(contentColor.copy(alpha = 0.1f), radius = 20.dp.toPx(), center = androidx.compose.ui.geometry.Offset(size.width * 0.8f, size.height * 0.2f))
+                            drawCircle(contentColor.copy(alpha = 0.05f), radius = 40.dp.toPx(), center = androidx.compose.ui.geometry.Offset(size.width * 0.1f, size.height * 0.7f))
+                            drawCircle(contentColor.copy(alpha = 0.08f), radius = 15.dp.toPx(), center = androidx.compose.ui.geometry.Offset(size.width * 0.6f, size.height * 0.85f))
                         }
                         
                         // Right side progress bar
@@ -2222,7 +3523,7 @@ fun LazyGridItemScope.ResizableCardContainer(
                                     .align(Alignment.BottomCenter)
                                     .fillMaxWidth()
                                     .fillMaxHeight(i.level / 100f)
-                                    .background(Color.White.copy(alpha = 0.3f))
+                                    .background(contentColor.copy(alpha = 0.3f))
                             )
                         }
 
@@ -2250,12 +3551,12 @@ fun LazyGridItemScope.ResizableCardContainer(
                                             append("m")
                                         }
                                     },
-                                    color = Color.White,
+                                    color = contentColor,
                                     maxLines = 1
                                 )
                                 
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                                    if (i.isCharging) Icon(Icons.Default.Bolt, null, modifier = Modifier.size(22.dp), tint = Color.White)
+                                    if (i.isCharging) Icon(Icons.Default.Bolt, null, modifier = Modifier.size(22.dp), tint = contentColor)
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = if (i.isCharging) {
@@ -2265,10 +3566,33 @@ fun LazyGridItemScope.ResizableCardContainer(
                                         },
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = FontWeight.ExtraBold,
-                                        color = Color.White.copy(alpha = 0.95f),
+                                        color = contentColor.copy(alpha = 0.95f),
                                         textAlign = TextAlign.Center
                                     )
                                 }
+                            }
+                        }
+
+                        if (handler != null) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(end = 20.dp, top = 8.dp)
+                                    .size(18.dp)
+                                    .alpha(0.5f)
+                                    .clickable(
+                                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        handler.showCardInfo("battery_main")
+                                    }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Info,
+                                    contentDescription = "Info",
+                                    tint = contentColor,
+                                    modifier = Modifier.fillMaxSize()
+                                )
                             }
                         }
                     }
@@ -2280,7 +3604,8 @@ fun LazyGridItemScope.ResizableCardContainer(
                 val items = listOf(
                     Triple("Temperature", Icons.Outlined.Thermostat, Pair(i.temperature, stringResource(id = R.string.battery_temp_label))),
                     Triple("Wattage", Icons.Outlined.Bolt, Pair(i.wattage, stringResource(id = R.string.charging_speed_label))),
-                    Triple("Power", Icons.Outlined.Power, Pair(i.powerSource, stringResource(id = R.string.source)))
+                    Triple("Power", Icons.Outlined.Power, Pair(i.powerSource, stringResource(id = R.string.source))),
+                    Triple("WirelessCharging", Icons.Outlined.Contactless, Pair(if (i.isWirelessSupported) stringResource(id = R.string.supported) else stringResource(id = R.string.not_supported), stringResource(id = R.string.wireless_charging)))
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items.chunked(statusColumns).forEach { chunk ->
@@ -2292,12 +3617,20 @@ fun LazyGridItemScope.ResizableCardContainer(
                                     "Wattage" -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
                                     else -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
                                 }
+                                val cardId = when(title) {
+                                    "Temperature" -> "battery_temp"
+                                    "Wattage" -> "battery_wattage"
+                                    "Power" -> "battery_power"
+                                    "WirelessCharging" -> "battery_wireless"
+                                    else -> null
+                                }
                                 DashboardStatusCard(
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.weight(1f).height(160.dp),
                                     title = when(title) {
                                         "Temperature" -> stringResource(id = R.string.tab_thermal)
                                         "Wattage" -> stringResource(id = R.string.charging_speed)
                                         "Power" -> stringResource(id = R.string.source)
+                                        "WirelessCharging" -> stringResource(id = R.string.wireless_charging)
                                         else -> title
                                     },
                                     icon = icon,
@@ -2305,6 +3638,8 @@ fun LazyGridItemScope.ResizableCardContainer(
                                     subtext = subtext,
                                     containerColor = containerColor,
                                     contentColor = contentColor,
+                                    size = CardSize.SIZE_2x2,
+                                    cardId = cardId,
                                     onClick = if (title == "Wattage") { { showFullWattage = true } } else null
                                 )
                             }
@@ -2318,46 +3653,69 @@ fun LazyGridItemScope.ResizableCardContainer(
             item { Spacer(modifier = Modifier.height(16.dp)) }
             item { WattageHistoryCard(i.wattage, wattageHistory) { showFullWattage = true } }
             item { Spacer(modifier = Modifier.height(16.dp)) }
-            item { InfoGroupCard(stringResource(R.string.health_specs), Icons.Outlined.HealthAndSafety, MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)) { InfoRow(stringResource(R.string.health), i.health); InfoRow(stringResource(id = R.string.battery_wear), i.wear); InfoRow(stringResource(id = R.string.actual_capacity), i.actualCapacity); InfoRow(stringResource(R.string.capacity), i.capacity); InfoRow(stringResource(R.string.technology), i.technology); InfoRow(stringResource(id = R.string.charging_speed), i.wattage); InfoRow(stringResource(R.string.current_now), i.currentNow); InfoRow(stringResource(R.string.cycle_count), i.chargeCounter) } }
+            item {
+                InfoGroupCard(
+                    title = stringResource(R.string.health_specs),
+                    icon = Icons.Outlined.HealthAndSafety,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    cardId = "group_health_specs"
+                ) {
+                    InfoRow(stringResource(R.string.health), i.health)
+                    InfoRow(stringResource(id = R.string.battery_wear), i.wear)
+                    InfoRow(stringResource(id = R.string.actual_capacity), i.actualCapacity)
+                    InfoRow(stringResource(R.string.capacity), i.capacity)
+                    InfoRow(stringResource(R.string.technology), i.technology)
+                    InfoRow(stringResource(id = R.string.charging_speed), i.wattage)
+                    InfoRow(stringResource(R.string.current_now), i.currentNow)
+                    InfoRow(stringResource(R.string.cycle_count), i.chargeCounter)
+                }
+            }
         } 
     }
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable fun DisplayTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
-    val info by v.displayInfo.collectAsState()
+    val info by v.displayInfo.collectAsStateWithLifecycle()
     info?.let { i -> 
         LazyColumn(contentPadding = PaddingValues(16.dp)) { 
             item {
                 DashboardStatusCard(
+                    modifier = Modifier.fillMaxWidth().height(160.dp),
                     title = stringResource(R.string.resolution),
                     icon = Icons.Outlined.Monitor,
                     value = i.currentResolution,
                     subtext = stringResource(id = R.string.aspect_ratio) + ": ${i.aspectRatio}",
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    size = CardSize.SIZE_4x2,
+                    cardId = "display_resolution"
                 )
             }
             item { Spacer(modifier = Modifier.height(12.dp)) }
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     DashboardStatusCard(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(160.dp),
                         title = stringResource(id = R.string.color_depth),
                         icon = Icons.Outlined.Palette,
                         value = i.colorDepth,
                         subtext = i.colorDepthSubtext,
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        size = CardSize.SIZE_2x2,
+                        cardId = "display_color_depth"
                     )
                     DashboardStatusCard(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(160.dp),
                         title = stringResource(R.string.refresh_rate),
                         icon = Icons.Outlined.Refresh,
                         value = i.currentRefreshRate,
                         subtext = stringResource(id = R.string.high_refresh_support),
                         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        size = CardSize.SIZE_2x2,
+                        cardId = "display_refresh_rate"
                     )
                 }
             }
@@ -2365,22 +3723,26 @@ fun LazyGridItemScope.ResizableCardContainer(
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     DashboardStatusCard(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(160.dp),
                         title = stringResource(R.string.physical_size),
                         icon = Icons.Outlined.AspectRatio,
                         value = i.physicalSize,
                         subtext = i.ppi,
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        size = CardSize.SIZE_2x2,
+                        cardId = "display_size"
                     )
                     DashboardStatusCard(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(160.dp),
                         title = stringResource(id = R.string.wide_color_gamut),
                         icon = Icons.Outlined.Palette,
                         value = if (i.wideColorGamut) stringResource(id = R.string.supported) else stringResource(id = R.string.not_supported),
                         subtext = if (i.wideColorGamut) stringResource(id = R.string.p3_display) else stringResource(id = R.string.standard_rgb),
                         containerColor = if (i.wideColorGamut) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        contentColor = if (i.wideColorGamut) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        contentColor = if (i.wideColorGamut) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        size = CardSize.SIZE_2x2,
+                        cardId = "display_gamut"
                     )
                 }
             }
@@ -2389,7 +3751,8 @@ fun LazyGridItemScope.ResizableCardContainer(
                 InfoGroupCard(
                     stringResource(R.string.screen_specs), 
                     Icons.Outlined.Monitor, 
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    cardId = "group_screen"
                 ) { 
                     InfoRow(stringResource(R.string.resolution), i.highestResolution)
                     InfoRow(stringResource(id = R.string.aspect_ratio), i.aspectRatio)
@@ -2406,15 +3769,16 @@ fun LazyGridItemScope.ResizableCardContainer(
                     stringResource(R.string.density_config), 
                     Icons.Outlined.SettingsOverscan, 
                     MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f), 
-                    MaterialTheme.colorScheme.secondary
+                    MaterialTheme.colorScheme.secondary,
+                    cardId = "group_screen"
                 ) { 
                     InfoRow(stringResource(R.string.density), i.density)
-                    InfoRow("X DPI", i.xDpi)
-                    InfoRow("Y DPI", i.yDpi)
-                    InfoRow("PPI", i.ppi)
+                    InfoRow(stringResource(R.string.x_dpi), i.xDpi)
+                    InfoRow(stringResource(R.string.y_dpi), i.yDpi)
+                    InfoRow(stringResource(R.string.ppi_label), i.ppi)
                     InfoRow(stringResource(R.string.brightness), i.brightnessLevel)
                     InfoRow(stringResource(R.string.timeout), i.screenTimeout)
-                    InfoRow("Orientation", i.orientation) 
+                    InfoRow(stringResource(R.string.orientation), i.orientation) 
                 } 
             }
         } 
@@ -2428,7 +3792,7 @@ fun LazyGridItemScope.ResizableCardContainer(
     info?.let { i -> 
         LazyColumn(contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = bottomContentPadding), verticalArrangement = Arrangement.spacedBy(16.dp)) { 
             item {
-                InfoGroupCard(stringResource(R.string.tab_memory), Icons.Outlined.Memory, MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f), MaterialTheme.colorScheme.primary) {
+                InfoGroupCard(stringResource(R.string.tab_memory), Icons.Outlined.Memory, MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f), MaterialTheme.colorScheme.primary, cardId = "group_tab_memory") {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         // Header with RAM Type
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -2463,7 +3827,7 @@ fun LazyGridItemScope.ResizableCardContainer(
             }
             
             item {
-                InfoGroupCard(stringResource(R.string.internal_storage), Icons.Outlined.SdStorage, MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f), MaterialTheme.colorScheme.secondary) {
+                InfoGroupCard(stringResource(R.string.internal_storage), Icons.Outlined.SdStorage, MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f), MaterialTheme.colorScheme.secondary, cardId = "group_internal_storage") {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         // Header with Storage Type
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -2476,8 +3840,8 @@ fun LazyGridItemScope.ResizableCardContainer(
                         
                         // Details Breakdown
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StorageDetailRow(stringResource(id = R.string.apps_and_data), i.internalUsedByApps, Color(0xFF2CBF6C))
-                            StorageDetailRow(stringResource(id = R.string.tab_system), i.internalUsedBySystem, Color(0xFF006400))
+                            StorageDetailRow(stringResource(id = R.string.apps_and_data), i.internalUsedByApps, MaterialTheme.colorScheme.primary)
+                            StorageDetailRow(stringResource(id = R.string.tab_system), i.internalUsedBySystem, MaterialTheme.colorScheme.secondary)
                             StorageDetailRow(stringResource(id = R.string.free_format, "").trim(), i.internalFree, MaterialTheme.colorScheme.outline)
                         }
                     }
@@ -2485,11 +3849,11 @@ fun LazyGridItemScope.ResizableCardContainer(
             }
 
             item {
-                InfoGroupCard(stringResource(R.string.filesystem_details), Icons.Outlined.Dns, MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.25f), MaterialTheme.colorScheme.tertiary) {
-                    InfoRow("FS Type", i.internalFsType)
-                    InfoRow("Block Size", i.internalBlockSize)
-                    InfoRow("Memory Page Size", i.memoryPageSize)
-                    InfoRow("Partition", i.internalPartition)
+                InfoGroupCard(stringResource(R.string.filesystem_details), Icons.Outlined.Dns, MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.25f), MaterialTheme.colorScheme.tertiary, cardId = "group_filesystem_details") {
+                    InfoRow(stringResource(R.string.fs_type), i.internalFsType)
+                    InfoRow(stringResource(R.string.block_size), i.internalBlockSize)
+                    InfoRow(stringResource(R.string.memory_page_size), i.memoryPageSize)
+                    InfoRow(stringResource(R.string.partition_label), i.internalPartition)
                 }
             }
 
@@ -2569,8 +3933,8 @@ fun LazyGridItemScope.ResizableCardContainer(
     val systemRatio = (i.internalUsedBySystemBytes.toFloat() / total).coerceIn(0f, 1f)
     
     val contentColor = LocalContentColor.current
-    val greenApps = Color(0xFF2CBF6C)
-    val darkGreenSystem = Color(0xFF006400)
+    val appsColor = MaterialTheme.colorScheme.primary
+    val systemColor = MaterialTheme.colorScheme.secondary
 
     Column {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
@@ -2590,7 +3954,7 @@ fun LazyGridItemScope.ResizableCardContainer(
         ) {
             Row(modifier = Modifier.fillMaxSize()) {
                 if (appsRatio > 0) {
-                    Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(appsRatio).background(greenApps))
+                    Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(appsRatio).background(appsColor))
                 }
                 if (appsRatio > 0 && systemRatio > 0) {
                     Spacer(modifier = Modifier.width(2.dp))
@@ -2602,7 +3966,7 @@ fun LazyGridItemScope.ResizableCardContainer(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .fillMaxWidth(systemRatio / remainingWidth)
-                                .background(darkGreenSystem)
+                                .background(systemColor)
                         )
                     }
                 }
@@ -2624,12 +3988,12 @@ fun LazyGridItemScope.ResizableCardContainer(
     }
 }
 
-@Composable fun StorageCard(title: String, icon: ImageVector, total: String, available: String, totalBytes: Long, availableBytes: Long, container: Color, content: Color) {
+@Composable fun StorageCard(title: String, icon: ImageVector, total: String, available: String, totalBytes: Long, availableBytes: Long, container: Color, content: Color, cardId: String? = "group_internal_storage") {
     val used = if (totalBytes > 0) ((totalBytes - availableBytes).toFloat() / totalBytes).coerceIn(0f, 1f) else 0f
     val context = androidx.compose.ui.platform.LocalContext.current
     val usedStr = android.text.format.Formatter.formatFileSize(context, (totalBytes - availableBytes).coerceAtLeast(0L))
     
-    InfoGroupCard(title, icon, container, content) {
+    InfoGroupCard(title, icon, container, content, cardId = cardId) {
         Column(modifier = Modifier.padding(top = 8.dp)) {
             LinearProgressIndicator(progress = { used }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape), color = if (used > 0.9f) MaterialTheme.colorScheme.error else content, trackColor = content.copy(alpha = 0.1f), strokeCap = StrokeCap.Round)
             Spacer(modifier = Modifier.height(12.dp))
@@ -2643,130 +4007,125 @@ fun LazyGridItemScope.ResizableCardContainer(
 }
 
 @Composable fun WifiTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
-    val info by v.networkInfo.collectAsState()
+    val info by v.networkInfo.collectAsStateWithLifecycle()
     val isWideScreen = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
     info?.let { i -> 
-        LazyColumn(contentPadding = PaddingValues(16.dp)) { 
-            item {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) { 
+            item(span = { GridItemSpan(3) }) {
                 DashboardStatusCard(
+                    modifier = Modifier.fillMaxWidth().height(160.dp),
                     title = "SSID",
                     icon = Icons.Outlined.Wifi,
-                    value = i.wifiSsid ?: "Disconnected",
+                    value = i.wifiSsid ?: stringResource(R.string.disconnected),
                     subtext = i.wifiBssid ?: i.state,
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    size = CardSize.SIZE_4x2,
+                    cardId = "wifi_card"
                 )
             }
-            item { Spacer(modifier = Modifier.height(12.dp)) }
 
-            item {
+            item(span = { GridItemSpan(3) }) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     DashboardStatusCard(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(160.dp),
                         title = stringResource(R.string.link_speed),
                         icon = Icons.Outlined.Speed,
-                        value = i.linkSpeed ?: "N/A",
-                        subtext = "Current Speed",
+                        value = i.linkSpeed ?: stringResource(R.string.na),
+                        subtext = stringResource(R.string.current_speed),
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        size = CardSize.SIZE_2x2,
+                        cardId = "wifi_card"
                     )
                     DashboardStatusCard(
-                        modifier = Modifier.weight(1f),
-                        title = "Standard",
+                        modifier = Modifier.weight(1f).height(160.dp),
+                        title = stringResource(R.string.wifi_standard),
                         icon = Icons.Outlined.SettingsInputAntenna,
-                        value = i.standard?.substringAfter("(")?.substringBefore(")") ?: "N/A",
-                        subtext = i.standard?.substringBefore("(") ?: "WiFi Standard",
+                        value = i.standard?.substringAfter("(")?.substringBefore(")") ?: stringResource(R.string.na),
+                        subtext = i.standard?.substringBefore("(") ?: stringResource(R.string.wifi_standard_label),
                         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        size = CardSize.SIZE_2x2,
+                        cardId = "wifi_card"
                     )
                 }
             }
-            item { Spacer(modifier = Modifier.height(24.dp)) }
 
-            item {
-                val featureColumns = if (isWideScreen) 5 else 3
-                val wifiStandardStr = "802.11 b/a/g/n/ac/ax"
-                val wifi5GHzStr = "5 GHz Support"
-                val wifi6GHzStr = "6 GHz Support"
-                val wifiDirectStr = "Wi-Fi Direct"
-                val wifiAwareStr = "Wi-Fi Aware"
-                val hotspotStr = "Mobile Hotspot"
-                
-                val features = remember(i.is5GHzSupported, i.is6GHzSupported, i.isWifiDirectSupported, i.isWifiAwareSupported, i.isApSupported) {
-                    listOf(
-                        Triple(wifiStandardStr, Icons.Outlined.SettingsInputAntenna, true),
-                        Triple(wifi5GHzStr, Icons.Outlined.Wifi, i.is5GHzSupported),
-                        Triple(wifi6GHzStr, Icons.Outlined.Wifi, i.is6GHzSupported),
-                        Triple(wifiDirectStr, Icons.Outlined.WifiTethering, i.isWifiDirectSupported),
-                        Triple(wifiAwareStr, Icons.Outlined.NearbyError, i.isWifiAwareSupported),
-                        Triple(hotspotStr, Icons.Outlined.WifiTethering, i.isApSupported)
-                    )
-                }
-                
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = "Hardware Capabilities",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                    features.chunked(featureColumns).forEach { chunk ->
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            chunk.forEach { (t, ic, s) ->
-                                DashboardFeatureCard(modifier = Modifier.weight(1f), title = t, icon = ic, isSupported = s)
-                            }
-                            repeat(featureColumns - chunk.size) { Spacer(modifier = Modifier.weight(1f)) }
-                        }
-                    }
-                }
+            item(span = { GridItemSpan(3) }) {
+                Text(
+                    text = stringResource(R.string.tab_wifi) + " " + stringResource(R.string.capabilities),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
             
-            item { Spacer(modifier = Modifier.height(16.dp)) }
+            val features = listOf(
+                Triple(R.string.wifi_standard_default, Icons.Outlined.SettingsInputAntenna, true),
+                Triple(R.string.wifi_5ghz, Icons.Outlined.Wifi, i.is5GHzSupported),
+                Triple(R.string.wifi_6ghz, Icons.Outlined.Wifi, i.is6GHzSupported),
+                Triple(R.string.wifi_direct, Icons.Outlined.WifiTethering, i.isWifiDirectSupported),
+                Triple(R.string.wifi_aware, Icons.Outlined.NearbyError, i.isWifiAwareSupported),
+                Triple(R.string.wifi_hotspot, Icons.Outlined.WifiTethering, i.isApSupported)
+            )
             
-            item { 
-                InfoGroupCard(stringResource(R.string.connection), if (i.type == "WiFi") Icons.Outlined.Wifi else Icons.Outlined.SignalCellularAlt, MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)) { 
+            items(features) { (tRes, ic, s) ->
+                HardwareCapabilityCard(
+                    icon = ic,
+                    label = stringResource(tRes),
+                    isSupported = s,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            
+            item(span = { GridItemSpan(3) }) { 
+                InfoGroupCard(stringResource(R.string.connection), if (i.type == "WiFi") Icons.Outlined.Wifi else Icons.Outlined.SignalCellularAlt, MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f), cardId = "group_connection") { 
                     InfoRow(stringResource(R.string.status), i.state)
                     InfoRow(stringResource(R.string.type), i.type)
-                    i.interfaceName?.let { InfoRow("Interface", it) }
-                    i.vendor?.let { InfoRow("Vendor", it) }
+                    i.interfaceName?.let { InfoRow(stringResource(R.string.interface_label), it) }
+                    i.vendor?.let { InfoRow(stringResource(R.string.vendor_label), it) }
                 } 
             }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
             
             if (i.type == "WiFi") {
-                item {
-                    InfoGroupCard("WiFi Details", Icons.Outlined.SettingsInputAntenna, MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f), MaterialTheme.colorScheme.secondary) {
+                item(span = { GridItemSpan(3) }) {
+                    InfoGroupCard(stringResource(R.string.wifi_details_label), Icons.Outlined.SettingsInputAntenna, MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f), MaterialTheme.colorScheme.secondary, cardId = "group_wifi_details") {
                         i.frequency?.let { InfoRow(stringResource(R.string.frequency), it) }
-                        i.channel?.let { InfoRow("Channel", it) }
-                        i.width?.let { InfoRow("Bandwidth", it) }
-                        i.signalStrength?.let { InfoRow("Signal Strength", it) }
-                        i.security?.let { InfoRow("Security", it) }
+                        i.channel?.let { InfoRow(stringResource(R.string.channel_label), it) }
+                        i.width?.let { InfoRow(stringResource(R.string.bandwidth_label), it) }
+                        i.signalStrength?.let { InfoRow(stringResource(R.string.signal_strength), it) }
+                        i.security?.let { InfoRow(stringResource(R.string.security_label), it) }
                     }
                 }
-                item { Spacer(modifier = Modifier.height(16.dp)) }
             }
 
-            item {
-                InfoGroupCard("TCP/IP & DHCP", Icons.Outlined.Router, MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.2f), MaterialTheme.colorScheme.tertiary) {
-                    i.ipAddress?.let { InfoRow("IPv4 Address", it) }
-                    i.ipv6Address?.let { InfoRow("IPv6 Address", it) }
-                    i.gateway?.let { InfoRow("Gateway", it) }
-                    i.netmask?.let { InfoRow("Netmask", it) }
-                    i.dns1?.let { InfoRow("DNS 1", it) }
-                    i.dns2?.let { InfoRow("DNS 2", it) }
-                    i.dhcpServer?.let { InfoRow("DHCP Server", it) }
-                    i.leaseDuration?.let { InfoRow("Lease Duration", it) }
+            item(span = { GridItemSpan(3) }) {
+                InfoGroupCard("TCP/IP & DHCP", Icons.Outlined.Router, MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.2f), MaterialTheme.colorScheme.tertiary, cardId = "group_wifi_dhcp") {
+                    i.ipAddress?.let { InfoRow(stringResource(R.string.ipv4_address), it) }
+                    i.ipv6Address?.let { InfoRow(stringResource(R.string.ipv6_address), it) }
+                    i.gateway?.let { InfoRow(stringResource(R.string.gateway_label), it) }
+                    i.netmask?.let { InfoRow(stringResource(R.string.netmask_label), it) }
+                    i.dns1?.let { InfoRow(stringResource(R.string.dns1_label), it) }
+                    i.dns2?.let { InfoRow(stringResource(R.string.dns2_label), it) }
+                    i.dhcpServer?.let { InfoRow(stringResource(R.string.dhcp_server), it) }
+                    i.leaseDuration?.let { InfoRow(stringResource(R.string.lease_duration), it) }
                 }
             }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-        } 
+            item(span = { GridItemSpan(3) }) { Spacer(modifier = Modifier.height(80.dp)) }
+        }
     } ?: EmptyState(Icons.Outlined.SignalWifiOff, stringResource(R.string.no_network))
 }
 
 @Composable
 fun CellularTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
-    val info by v.networkInfo.collectAsState()
+    val info by v.networkInfo.collectAsStateWithLifecycle()
     info?.let { i ->
         LazyColumn(contentPadding = PaddingValues(16.dp)) {
             if (i.cellularInfo != null) {
@@ -2778,24 +4137,29 @@ fun CellularTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
                             for (slot in 1..2) {
                                 val sim = cell.simInfos.find { it.slot == slot }
                                 DashboardStatusCard(
-                                    modifier = Modifier.weight(1f),
-                                    title = "SIM $slot Operator",
+                                    modifier = Modifier.weight(1f).height(160.dp),
+                                    title = stringResource(R.string.sim_operator_format, slot),
                                     icon = Icons.Outlined.SignalCellularAlt,
-                                    value = sim?.carrier ?: "Disconnected",
-                                    subtext = if (slot == 1) cell.state else (sim?.state ?: "Disconnected"),
+                                    value = sim?.carrier ?: stringResource(R.string.disconnected),
+                                    subtext = if (slot == 1) cell.state else (sim?.state ?: stringResource(R.string.disconnected)),
                                     containerColor = if (slot == 1) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiary,
-                                    contentColor = if (slot == 1) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onTertiary
+                                    contentColor = if (slot == 1) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onTertiary,
+                                    size = CardSize.SIZE_2x2,
+                                    cardId = "cellular_card"
                                 )
                             }
                         }
                     } else {
                         DashboardStatusCard(
-                            title = "Network Operator",
+                            modifier = Modifier.fillMaxWidth().height(160.dp),
+                            title = stringResource(R.string.network_operator),
                             icon = Icons.Outlined.SignalCellularAlt,
-                            value = cell.networkOperator ?: "Disconnected",
+                            value = cell.networkOperator ?: stringResource(R.string.disconnected),
                             subtext = cell.state,
                             containerColor = MaterialTheme.colorScheme.secondary,
-                            contentColor = MaterialTheme.colorScheme.onSecondary
+                            contentColor = MaterialTheme.colorScheme.onSecondary,
+                            size = CardSize.SIZE_4x2,
+                            cardId = "cellular_card"
                         )
                     }
                 }
@@ -2803,21 +4167,22 @@ fun CellularTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
 
                 item {
                     InfoGroupCard(
-                        "Cellular Details",
+                        stringResource(R.string.cellular_details),
                         Icons.Outlined.SignalCellularAlt,
                         MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f),
-                        MaterialTheme.colorScheme.secondary
+                        MaterialTheme.colorScheme.secondary,
+                        cardId = "cellular_card"
                     ) {
-                        InfoRow("Status", cell.state)
-                        InfoRow("SIM Support", cell.multiSimSupport)
-                        InfoRow("Network Operator", cell.networkOperator ?: "N/A")
-                        InfoRow("Network Type", cell.networkType ?: "N/A")
-                        InfoRow("APN", cell.apn ?: "N/A")
-                        InfoRow("IPv4 Address", cell.ipV4 ?: "N/A")
+                        InfoRow(stringResource(R.string.status), cell.state)
+                        InfoRow(stringResource(R.string.sim_support), cell.multiSimSupport)
+                        InfoRow(stringResource(R.string.network_operator), cell.networkOperator ?: stringResource(R.string.na))
+                        InfoRow(stringResource(R.string.network_type), cell.networkType ?: stringResource(R.string.na))
+                        InfoRow(stringResource(R.string.apn_label), cell.apn ?: stringResource(R.string.na))
+                        InfoRow(stringResource(R.string.ipv4_address), cell.ipV4 ?: stringResource(R.string.na))
                         if (cell.ipV6.isNotEmpty()) {
-                            InfoRow("IPv6 Address", cell.ipV6.joinToString("\n"))
+                            InfoRow(stringResource(R.string.ipv6_address), cell.ipV6.joinToString("\n"))
                         }
-                        InfoRow("Interface", cell.interfaceName ?: "N/A")
+                        InfoRow(stringResource(R.string.interface_label), cell.interfaceName ?: stringResource(R.string.na))
                     }
                 }
 
@@ -2825,18 +4190,19 @@ fun CellularTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
                     item { Spacer(modifier = Modifier.height(12.dp)) }
                     item {
                         InfoGroupCard(
-                            "SIM ${sim.slot}",
+                            stringResource(R.string.sim_slot, sim.slot),
                             Icons.Outlined.SimCard,
                             MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.2f),
-                            MaterialTheme.colorScheme.tertiary
+                            MaterialTheme.colorScheme.tertiary,
+                            cardId = "group_sim_status"
                         ) {
-                            InfoRow("Carrier", sim.carrier)
-                            sim.phoneNumber?.let { InfoRow("Phone Number", it) }
-                            InfoRow("Country ISO", sim.countryIso?.uppercase() ?: "N/A")
-                            InfoRow("MCC", sim.mcc ?: "N/A")
-                            InfoRow("MNC", sim.mnc ?: "N/A")
-                            InfoRow("Roaming", if (sim.roaming) "Enabled" else "Disabled")
-                            InfoRow("State", sim.state)
+                            InfoRow(stringResource(R.string.carrier), sim.carrier)
+                            sim.phoneNumber?.let { InfoRow(stringResource(R.string.phone_number), it) }
+                            InfoRow(stringResource(R.string.country_iso), sim.countryIso?.uppercase() ?: stringResource(R.string.na))
+                            InfoRow(stringResource(R.string.mcc_label), sim.mcc ?: stringResource(R.string.na))
+                            InfoRow(stringResource(R.string.mnc_label), sim.mnc ?: stringResource(R.string.na))
+                            InfoRow(stringResource(R.string.roaming_label), if (sim.roaming) stringResource(R.string.enabled) else stringResource(R.string.disabled))
+                            InfoRow(stringResource(R.string.state_label), sim.state)
                         }
                     }
                 }
@@ -2844,7 +4210,7 @@ fun CellularTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
                 item {
                     EmptyState(
                         Icons.Outlined.SignalCellularConnectedNoInternet0Bar,
-                        "Cellular information requires Phone permission or hardware support."
+                        stringResource(R.string.cellular_requires_permission)
                     )
                 }
             }
@@ -2855,32 +4221,210 @@ fun CellularTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
 
 
 @Composable fun CodecsTab(v: DeviceInfoViewModel) {
-    val codecs by v.codecs.collectAsState(); LazyColumn(contentPadding = PaddingValues(16.dp)) { itemsIndexed(codecs) { idx, c -> InfoGroupCard(c.name, Icons.Outlined.Audiotrack, (if (idx % 2 == 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer).copy(alpha = 0.2f), if (idx % 2 == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary) { InfoRow(stringResource(R.string.type), c.type); InfoRow(stringResource(R.string.mime), c.mimeType) }; Spacer(modifier = Modifier.height(12.dp)) } }
+    val codecs by v.codecs.collectAsStateWithLifecycle()
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) { 
+        itemsIndexed(codecs, key = { _, c -> c.name }) { idx, c -> 
+            InfoGroupCard(
+                title = c.name, 
+                icon = Icons.Outlined.Audiotrack, 
+                containerColor = (if (idx % 2 == 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer).copy(alpha = 0.2f), 
+                contentColor = if (idx % 2 == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                cardId = "group_codecs"
+            ) { 
+                InfoRow(stringResource(R.string.type), c.type)
+                InfoRow(stringResource(R.string.mime), c.mimeType) 
+            }
+        } 
+    }
 }
 
 @Composable fun UsbTab(v: DeviceInfoViewModel) {
-    val devices by v.usbDevices.collectAsState(); if (devices.isEmpty()) EmptyState(Icons.Outlined.UsbOff, stringResource(R.string.no_usb))
-    else LazyColumn(contentPadding = PaddingValues(16.dp)) { itemsIndexed(devices) { idx, u -> InfoGroupCard(u.name, Icons.Outlined.Usb, (if (idx % 2 == 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.tertiaryContainer).copy(alpha = 0.2f), if (idx % 2 == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary) { InfoRow(stringResource(R.string.vendor_id), u.vendorId); InfoRow(stringResource(R.string.product_id), u.productId); InfoRow(stringResource(R.string.class_label), u.deviceClass) }; Spacer(modifier = Modifier.height(12.dp)) } }
+    val devices by v.usbDevices.collectAsStateWithLifecycle()
+    if (devices.isEmpty()) {
+        EmptyState(Icons.Outlined.UsbOff, stringResource(R.string.no_usb))
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) { 
+            itemsIndexed(devices, key = { _, u -> u.name + u.productId }) { idx, u -> 
+                InfoGroupCard(
+                    title = u.name, 
+                    icon = Icons.Outlined.Usb, 
+                    containerColor = (if (idx % 2 == 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.tertiaryContainer).copy(alpha = 0.2f), 
+                    contentColor = if (idx % 2 == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
+                    cardId = "group_usb"
+                ) { 
+                    InfoRow(stringResource(R.string.vendor_id), u.vendorId)
+                    InfoRow(stringResource(R.string.product_id), u.productId)
+                    InfoRow(stringResource(R.string.class_label), u.deviceClass) 
+                }
+            } 
+        }
+    }
 }
 
 @Composable fun SensorsTab(v: DeviceInfoViewModel) {
-    val sensors by v.sensors.collectAsState(); LazyColumn(contentPadding = PaddingValues(16.dp)) { 
+    val sensors by v.sensors.collectAsStateWithLifecycle()
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) { 
         itemsIndexed(sensors, key = { _, s -> s.name }, contentType = { _, _ -> "sensor" }) { idx, s -> 
-            val c = when (idx % 3) { 0 -> MaterialTheme.colorScheme.primaryContainer; 1 -> MaterialTheme.colorScheme.secondaryContainer; else -> MaterialTheme.colorScheme.tertiaryContainer }
-            val tc = when (idx % 3) { 0 -> MaterialTheme.colorScheme.primary; 1 -> MaterialTheme.colorScheme.secondary; else -> MaterialTheme.colorScheme.tertiary }
-            InfoGroupCard(s.name, Icons.Outlined.Sensors, c.copy(alpha = 0.2f), tc) { 
+            val c = when (idx % 3) { 
+                0 -> MaterialTheme.colorScheme.primaryContainer
+                1 -> MaterialTheme.colorScheme.secondaryContainer
+                else -> MaterialTheme.colorScheme.tertiaryContainer 
+            }
+            val tc = when (idx % 3) { 
+                0 -> MaterialTheme.colorScheme.primary
+                1 -> MaterialTheme.colorScheme.secondary
+                else -> MaterialTheme.colorScheme.tertiary 
+            }
+            InfoGroupCard(title = s.name, icon = Icons.Outlined.Sensors, containerColor = c.copy(alpha = 0.2f), contentColor = tc, cardId = "group_sensors") { 
                 InfoRow(stringResource(R.string.vendor), s.vendor)
                 InfoRow(stringResource(R.string.big_little), "${s.power} mA")
                 InfoRow(stringResource(R.string.resolution), s.resolution.toString())
                 InfoRow(stringResource(R.string.frequency), if (s.minDelay > 0) "${1000000 / s.minDelay} Hz" else "N/A") 
             }
-            Spacer(modifier = Modifier.height(12.dp)) 
         } 
     }
 }
 
+enum class AppFilterType { ALL, INSTALLED, SYSTEM }
+
 @Composable fun AppsTab(v: DeviceInfoViewModel) {
-    val apps by v.installedApps.collectAsState(); val playStore by v.isPlayStoreAvailable.collectAsState(); Column { if (!playStore) Button(onClick = { v.checkForUpdates() }, modifier = Modifier.fillMaxWidth().padding(16.dp), shape = RoundedCornerShape(12.dp)) { Icon(Icons.Default.Update, null); Spacer(modifier = Modifier.width(8.dp)); Text(stringResource(R.string.check_updates)) }; LazyColumn(contentPadding = PaddingValues(16.dp)) { items(apps, key = { it.packageName }, contentType = { "app" }) { a -> AppEntryCard(a); Spacer(modifier = Modifier.height(8.dp)) } } }
+    val apps by v.installedApps.collectAsStateWithLifecycle()
+    val playStore by v.isPlayStoreAvailable.collectAsStateWithLifecycle()
+    var activeFilter by remember { mutableStateOf(AppFilterType.ALL) }
+    
+    val totalCount = apps.size
+    val systemCount = apps.count { it.isSystem }
+    val installedCount = totalCount - systemCount
+
+    val filteredApps = remember(apps, activeFilter) {
+        when (activeFilter) {
+            AppFilterType.ALL -> apps
+            AppFilterType.INSTALLED -> apps.filter { !it.isSystem }
+            AppFilterType.SYSTEM -> apps.filter { it.isSystem }
+        }
+    }
+
+    Column { 
+        if (!playStore) {
+            Button(
+                onClick = { v.checkForUpdates() }, 
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp), 
+                shape = ShapeMedium
+            ) { 
+                Icon(Icons.Default.Update, null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.check_updates)) 
+            }
+        }
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) { 
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Big Card: Total Apps
+                    DashboardStatusCard(
+                        modifier = Modifier.fillMaxWidth().height(160.dp),
+                        title = stringResource(R.string.apps_total),
+                        icon = Icons.Outlined.Apps,
+                        value = totalCount.toString(),
+                        subtext = stringResource(R.string.tab_apps),
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        size = CardSize.SIZE_4x2,
+                        cardId = "apps_installed"
+                    )
+
+                    // Side-by-side Cards: Installed and System
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Installed Card
+                        DashboardStatusCard(
+                            modifier = Modifier.weight(1f).height(160.dp),
+                            title = stringResource(R.string.apps_installed),
+                            icon = Icons.Outlined.Download,
+                            value = installedCount.toString(),
+                            subtext = stringResource(R.string.status_installed),
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            size = CardSize.SIZE_2x2,
+                            cardId = "apps_installed"
+                        )
+
+                        // System Card
+                        DashboardStatusCard(
+                            modifier = Modifier.weight(1f).height(160.dp),
+                            title = stringResource(R.string.apps_system),
+                            icon = Icons.Outlined.Settings,
+                            value = systemCount.toString(),
+                            subtext = stringResource(R.string.tag_system),
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                            size = CardSize.SIZE_2x2,
+                            cardId = "apps_installed"
+                        )
+                    }
+                }
+            }
+
+            // Filtering Chips
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val filters = listOf(
+                        AppFilterType.ALL to stringResource(R.string.filter_all),
+                        AppFilterType.INSTALLED to stringResource(R.string.filter_installed),
+                        AppFilterType.SYSTEM to stringResource(R.string.filter_system)
+                    )
+                    filters.forEach { (type, label) ->
+                        val isSelected = activeFilter == type
+                        val containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .clip(CircleShape)
+                                .clickable { activeFilter = type },
+                            shape = CircleShape,
+                            color = containerColor,
+                            contentColor = contentColor,
+                            border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            items(filteredApps, key = { it.packageName }, contentType = { "app" }) { a -> 
+                AppEntryCard(a)
+            } 
+        } 
+    }
 }
 
 @Composable fun CamerasTab(viewModel: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
@@ -2888,14 +4432,462 @@ fun CellularTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
     CameraSpecScreen(cameraSpecViewModel)
 }
 
+@Composable fun BluetoothTab(v: DeviceInfoViewModel) {
+    val info by v.bluetoothInfo.collectAsStateWithLifecycle()
+    info?.let { bt ->
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item(span = { GridItemSpan(3) }) {
+                DashboardStatusCard(
+                    modifier = Modifier.fillMaxWidth().height(160.dp),
+                    title = stringResource(R.string.tab_bluetooth),
+                    icon = Icons.Outlined.Bluetooth,
+                    value = bt.version,
+                    subtext = bt.state,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    size = CardSize.SIZE_4x2,
+                    cardId = "bluetooth_version"
+                )
+            }
+            item(span = { GridItemSpan(3) }) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    DashboardStatusCard(
+                        modifier = Modifier.weight(1f).height(160.dp),
+                        title = stringResource(R.string.bt_paired_devices),
+                        icon = Icons.Outlined.Devices,
+                        value = bt.pairedDevicesCount.toString(),
+                        subtext = stringResource(R.string.bt_paired_devices),
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        size = CardSize.SIZE_2x2,
+                        cardId = "bluetooth_paired"
+                    )
+                    DashboardStatusCard(
+                        modifier = Modifier.weight(1f).height(160.dp),
+                        title = stringResource(R.string.connected_devices),
+                        icon = Icons.Outlined.BluetoothConnected,
+                        value = bt.connectedDevicesCount.toString(),
+                        subtext = stringResource(R.string.connected_devices),
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        size = CardSize.SIZE_2x2,
+                        cardId = "bluetooth_connected"
+                    )
+                }
+            }
+            item(span = { GridItemSpan(3) }) {
+                InfoGroupCard(
+                    stringResource(R.string.tab_bluetooth),
+                    Icons.Outlined.Bluetooth,
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    cardId = "group_bluetooth"
+                ) {
+                    InfoRow(stringResource(R.string.bt_state), bt.state)
+                    InfoRow(stringResource(R.string.bt_version), bt.version)
+                    InfoRow(stringResource(R.string.bt_device_name), bt.name)
+                    InfoRow(stringResource(R.string.bt_mac_address), bt.address)
+                    InfoRow(stringResource(R.string.bt_paired_devices), bt.pairedDevicesCount.toString())
+                    InfoRow(stringResource(R.string.connected_devices), bt.connectedDevicesCount.toString())
+                }
+            }
+            bt.featureGroups.forEach { group ->
+                item(span = { GridItemSpan(3) }) {
+                    Text(
+                        text = stringResource(group.titleRes),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                items(group.features) { feature ->
+                    HardwareCapabilityCard(
+                        icon = Icons.Outlined.Bluetooth,
+                        label = stringResource(feature.nameRes),
+                        isSupported = feature.isSupported,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+            item(span = { GridItemSpan(3) }) { Spacer(modifier = Modifier.height(80.dp)) }
+        }
+    } ?: EmptyState(Icons.Outlined.BluetoothDisabled, stringResource(R.string.bt_permission_required))
+}
+
+
+@Composable fun ThermalTab(v: DeviceInfoViewModel) {
+    val thermalZones by v.thermalZones.collectAsStateWithLifecycle()
+    LazyColumn(contentPadding = PaddingValues(16.dp)) {
+        if (thermalZones.isEmpty()) {
+            item { EmptyState(Icons.Outlined.Thermostat, stringResource(R.string.tab_thermal)) }
+        } else {
+            itemsIndexed(thermalZones) { idx, zone ->
+                val temp = zone.temperature.replace("°C", "").trim().toFloatOrNull() ?: 0f
+                val containerColor = when {
+                    temp >= 70 -> MaterialTheme.colorScheme.errorContainer
+                    temp >= 50 -> MaterialTheme.colorScheme.tertiaryContainer
+                    temp >= 35 -> MaterialTheme.colorScheme.secondaryContainer
+                    else -> MaterialTheme.colorScheme.primaryContainer
+                }.copy(alpha = 0.3f)
+                val titleColor = when {
+                    temp >= 70 -> MaterialTheme.colorScheme.error
+                    temp >= 50 -> MaterialTheme.colorScheme.tertiary
+                    temp >= 35 -> MaterialTheme.colorScheme.secondary
+                    else -> MaterialTheme.colorScheme.primary
+                }
+                InfoGroupCard(title = zone.name, icon = Icons.Outlined.Thermostat, containerColor = containerColor, contentColor = titleColor, cardId = "group_thermal") {
+                    InfoRow(stringResource(R.string.thermal_zone), zone.name)
+                    InfoRow(stringResource(R.string.battery_temperature), zone.temperature)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            item { Spacer(modifier = Modifier.height(80.dp)) }
+        }
+    }
+}
+
+@Composable fun SecurityTab(v: DeviceInfoViewModel) {
+    val info by v.securityInfo.collectAsStateWithLifecycle()
+    val drmInfos by v.drmInfos.collectAsStateWithLifecycle()
+    info?.let { sec ->
+        val isSecure = !sec.rootAccess.contains("rooted", ignoreCase = true) && sec.selinuxStatus.equals("Enforcing", ignoreCase = true)
+        val scoreColor = if (isSecure) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item(span = { GridItemSpan(3) }) {
+                DashboardStatusCard(
+                    modifier = Modifier.fillMaxWidth().height(160.dp),
+                    title = stringResource(R.string.sec_overview),
+                    icon = Icons.Outlined.Security,
+                    value = if (isSecure) stringResource(R.string.sec_status_good) else stringResource(R.string.sec_status_warning),
+                    subtext = stringResource(R.string.security_patch) + ": " + sec.securityPatch,
+                    containerColor = scoreColor,
+                    contentColor = if (isSecure) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onError,
+                    size = CardSize.SIZE_4x2,
+                    cardId = "security_patch"
+                )
+            }
+            
+            // Section 1: System Status
+            item(span = { GridItemSpan(3) }) {
+                InfoGroupCard(
+                    stringResource(R.string.sec_system_status),
+                    Icons.Outlined.Shield,
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    cardId = "group_sec_system_status"
+                ) {
+                    InfoRow(stringResource(R.string.sec_root_access), sec.rootAccess)
+                    InfoRow(stringResource(R.string.sec_selinux), sec.selinuxStatus)
+                    InfoRow(stringResource(R.string.sec_encryption), sec.encryptionStatus)
+                    InfoRow(stringResource(R.string.sec_verified_boot), sec.verifiedBootState)
+                    InfoRow(stringResource(R.string.bootloader), sec.bootloaderStatus)
+                    InfoRow(stringResource(R.string.sec_avb_version), sec.avbVersion)
+                    InfoRow(stringResource(R.string.sec_dm_verity), sec.dmVerity)
+                }
+            }
+            
+            item {
+                HardwareCapabilityCard(
+                    icon = Icons.Outlined.EnhancedEncryption,
+                    label = stringResource(R.string.sec_secure_enclave),
+                    isSupported = sec.hasStrongBox,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            item { Spacer(modifier = Modifier.fillMaxWidth()) }
+            item { Spacer(modifier = Modifier.fillMaxWidth()) }
+            
+            // Section 2: Biometrics
+            item(span = { GridItemSpan(3) }) {
+                Text(
+                    text = stringResource(R.string.sec_biometrics),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            
+            val biometricFeatures = listOf(
+                Triple(R.string.sec_fingerprint_supp, Icons.Outlined.Fingerprint, sec.hasFingerprint),
+                Triple(R.string.sec_face_supp, Icons.Outlined.Face, sec.hasFaceUnlock),
+                Triple(R.string.sec_iris_supp, Icons.Outlined.RemoveRedEye, sec.hasIrisScanner)
+            )
+            items(biometricFeatures) { (tRes, ic, s) ->
+                HardwareCapabilityCard(icon = ic, label = stringResource(tRes), isSupported = s, modifier = Modifier.fillMaxWidth())
+            }
+            
+            item(span = { GridItemSpan(3) }) {
+                InfoGroupCard(
+                    stringResource(R.string.sec_biometrics) + " Info",
+                    Icons.Outlined.Fingerprint,
+                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f),
+                    MaterialTheme.colorScheme.secondary,
+                    cardId = "group_sec_biometrics"
+                ) {
+                    InfoRow(stringResource(R.string.sec_biometric_class), sec.biometricClass)
+                }
+            }
+            
+            // Section 3: Play Integrity
+            item(span = { GridItemSpan(3) }) {
+                Text(
+                    text = stringResource(R.string.sec_play_integrity),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            
+            val integrityFeatures = listOf(
+                Triple(R.string.sec_meets_basic, Icons.Outlined.VerifiedUser, sec.meetsBasicIntegrity),
+                Triple(R.string.sec_meets_device, Icons.Outlined.VerifiedUser, sec.meetsDeviceIntegrity),
+                Triple(R.string.sec_meets_strong, Icons.Outlined.VerifiedUser, sec.meetsStrongIntegrity)
+            )
+            items(integrityFeatures) { (tRes, ic, s) ->
+                HardwareCapabilityCard(icon = ic, label = stringResource(tRes), isSupported = s, modifier = Modifier.fillMaxWidth())
+            }
+            
+            sec.integrityFailureReason?.let { reason ->
+                item(span = { GridItemSpan(3) }) {
+                    InfoGroupCard(
+                        stringResource(R.string.sec_play_integrity) + " Details",
+                        Icons.Outlined.VerifiedUser,
+                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
+                        MaterialTheme.colorScheme.tertiary,
+                        cardId = "group_sec_play_integrity"
+                    ) {
+                        InfoRow(stringResource(R.string.sec_failure_reason), reason)
+                    }
+                }
+            }
+            
+            // Section 4: Encryption & Storage
+            item(span = { GridItemSpan(3) }) {
+                Text(
+                    text = stringResource(R.string.sec_encryption_storage),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            item(span = { GridItemSpan(3) }) {
+                InfoGroupCard(
+                    stringResource(R.string.sec_encryption_storage),
+                    Icons.Outlined.Lock,
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                    cardId = "group_sec_encryption_storage"
+                ) {
+                    InfoRow(stringResource(R.string.sec_keystore_type), sec.keystoreType)
+                    InfoRow(stringResource(R.string.sec_encryption_alg), sec.encryptionAlgorithm)
+                }
+            }
+            item {
+                HardwareCapabilityCard(
+                    icon = Icons.Outlined.Lock,
+                    label = stringResource(R.string.sec_hw_keystore),
+                    isSupported = sec.hardwareBackedKeystore,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            item { Spacer(modifier = Modifier.fillMaxWidth()) }
+            item { Spacer(modifier = Modifier.fillMaxWidth()) }
+            
+            // Section 5: DRM Status
+            if (drmInfos.isNotEmpty()) {
+                item(span = { GridItemSpan(3) }) {
+                    Text(
+                        text = stringResource(R.string.drm_status),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                itemsIndexed(drmInfos, span = { _, _ -> GridItemSpan(3) }) { idx, drm ->
+                    val containerColor = when (idx % 3) {
+                        0 -> MaterialTheme.colorScheme.primaryContainer
+                        1 -> MaterialTheme.colorScheme.secondaryContainer
+                        else -> MaterialTheme.colorScheme.tertiaryContainer
+                    }.copy(alpha = 0.3f)
+                    val titleColor = when (idx % 3) {
+                        0 -> MaterialTheme.colorScheme.primary
+                        1 -> MaterialTheme.colorScheme.secondary
+                        else -> MaterialTheme.colorScheme.tertiary
+                    }
+                    InfoGroupCard(title = drm.name, icon = Icons.Outlined.VerifiedUser, containerColor = containerColor, contentColor = titleColor, cardId = "group_drm") {
+                        InfoRow(stringResource(R.string.vendor), drm.vendor)
+                        InfoRow(stringResource(R.string.version), drm.version)
+                        InfoRow(stringResource(R.string.drm_description), drm.description)
+                        InfoRow(stringResource(R.string.security_level), drm.securityLevel)
+                        InfoRow(stringResource(R.string.max_hdcp_level), drm.maxHdcpLevel)
+                        InfoRow(stringResource(R.string.current_hdcp_level), drm.currentHdcpLevel)
+                        InfoRow(stringResource(R.string.drm_system_id), drm.systemId)
+                    }
+                }
+            }
+            
+            // Section 6: Network Connection security
+            item(span = { GridItemSpan(3) }) {
+                Text(
+                    text = "Network Security",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            
+            val networkSecFeatures = listOf(
+                Triple(R.string.sec_vpn_active, Icons.Outlined.VpnLock, sec.vpnActive),
+                Triple(R.string.sec_wifi_mac_rand, Icons.Outlined.PhonelinkSetup, sec.randomMacEnabled),
+                Triple(R.string.sec_cleartext_traffic, Icons.Outlined.LockOpen, sec.cleartextPermitted)
+            )
+            items(networkSecFeatures) { (tRes, ic, s) ->
+                HardwareCapabilityCard(icon = ic, label = stringResource(tRes), isSupported = s, modifier = Modifier.fillMaxWidth())
+            }
+            
+            item(span = { GridItemSpan(3) }) {
+                InfoGroupCard(
+                    stringResource(R.string.sec_network_conn) + " Details",
+                    Icons.Outlined.Wifi,
+                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
+                    MaterialTheme.colorScheme.secondary,
+                    cardId = "group_sec_network_conn"
+                ) {
+                    InfoRow(stringResource(R.string.sec_private_dns), sec.privateDnsStatus)
+                }
+            }
+            
+            // Section 7: Updates
+            item(span = { GridItemSpan(3) }) {
+                Text(
+                    text = "System Update Capabilities",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            
+            val updateFeatures = listOf(
+                Triple(R.string.sec_treble, Icons.Outlined.SystemUpdate, sec.projectTreble),
+                Triple(R.string.sec_mainline, Icons.Outlined.SystemUpdate, sec.projectMainline),
+                Triple(R.string.sec_dynamic_partitions, Icons.Outlined.SystemUpdate, sec.dynamicPartitions),
+                Triple(R.string.sec_seamless_updates, Icons.Outlined.SystemUpdate, sec.seamlessUpdates)
+            )
+            items(updateFeatures) { (tRes, ic, s) ->
+                HardwareCapabilityCard(icon = ic, label = stringResource(tRes), isSupported = s, modifier = Modifier.fillMaxWidth())
+            }
+            
+            item(span = { GridItemSpan(3) }) {
+                InfoGroupCard(
+                    stringResource(R.string.sec_updates) + " Details",
+                    Icons.Outlined.SystemUpdate,
+                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.2f),
+                    MaterialTheme.colorScheme.tertiary,
+                    cardId = "group_sec_updates"
+                ) {
+                    InfoRow(stringResource(R.string.sec_active_slot), sec.activeSlot)
+                }
+            }
+            
+            // Section 8: Perm audit
+            item(span = { GridItemSpan(3) }) {
+                InfoGroupCard(
+                    stringResource(R.string.sec_perm_audit),
+                    Icons.Outlined.AdminPanelSettings,
+                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                    MaterialTheme.colorScheme.error,
+                    cardId = "group_sec_perm_audit"
+                ) {
+                    InfoRow(stringResource(R.string.sec_apps_camera), sec.appsCameraCount.toString())
+                    InfoRow(stringResource(R.string.sec_apps_mic), sec.appsMicCount.toString())
+                    InfoRow(stringResource(R.string.sec_apps_location), sec.appsLocationCount.toString())
+                    InfoRow(stringResource(R.string.sec_apps_contacts_sms), sec.appsContactsSmsCount.toString())
+                    InfoRow(stringResource(R.string.sec_system_alerts), sec.overlayAppsCount.toString())
+                    InfoRow(stringResource(R.string.sec_unknown_sources), sec.unknownSourcesCount.toString())
+                    InfoRow(stringResource(R.string.sec_non_play_store), sec.nonPlayStoreCount.toString())
+                }
+            }
+            
+            // Section 9: Apps settings
+            item(span = { GridItemSpan(3) }) {
+                Text(
+                    text = "Developer Capabilities",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            
+            val devFeatures = listOf(
+                Triple(R.string.sec_dev_options, Icons.Outlined.Code, sec.developerOptionsEnabled),
+                Triple(R.string.sec_adb_enabled, Icons.Outlined.Terminal, sec.adbEnabled),
+                Triple(R.string.sec_wireless_debugging, Icons.Outlined.DeveloperMode, sec.wirelessDebuggingEnabled)
+            )
+            items(devFeatures) { (tRes, ic, s) ->
+                HardwareCapabilityCard(icon = ic, label = stringResource(tRes), isSupported = s, modifier = Modifier.fillMaxWidth())
+            }
+            
+            if (sec.accessibilityApps.isNotEmpty() || sec.deviceAdminApps.isNotEmpty()) {
+                item(span = { GridItemSpan(3) }) {
+                    InfoGroupCard(
+                        stringResource(R.string.sec_apps) + " Info",
+                        Icons.Outlined.Apps,
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        cardId = "group_sec_apps"
+                    ) {
+                        if (sec.accessibilityApps.isNotEmpty()) {
+                            InfoRow(stringResource(R.string.sec_accessibility_services), sec.accessibilityApps.joinToString(", "))
+                        }
+                        if (sec.deviceAdminApps.isNotEmpty()) {
+                            InfoRow(stringResource(R.string.sec_device_admins), sec.deviceAdminApps.joinToString(", "))
+                        }
+                    }
+                }
+            }
+            item(span = { GridItemSpan(3) }) { Spacer(modifier = Modifier.height(80.dp)) }
+        }
+    } ?: EmptyState(Icons.Outlined.Security, stringResource(R.string.tab_security))
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceInfoScreen(viewModel: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
+    var activeCardInfoId by rememberSaveable { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val interactionHandler = remember(context, haptic) {
+        object : CardInteractionHandler {
+            override fun showCardInfo(cardId: String) {
+                activeCardInfoId = cardId
+            }
+            override fun triggerLongPress(cardId: String) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                CardDetailsHelper.launchSettingsIntent(context, cardId)
+            }
+        }
+    }
+
     val tabs = listOf(
         TabItem(stringResource(R.string.tab_device), Icons.Outlined.Smartphone),
         TabItem(stringResource(R.string.tab_soc), Icons.Outlined.Memory),
         TabItem(stringResource(R.string.tab_cameras), Icons.Outlined.PhotoCamera),
         TabItem(stringResource(R.string.tab_battery), Icons.Outlined.BatteryStd),
+        TabItem(stringResource(R.string.tab_bluetooth), Icons.Outlined.Bluetooth),
         TabItem(stringResource(R.string.tab_display), Icons.Outlined.DisplaySettings),
         TabItem(stringResource(R.string.tab_memory), Icons.Outlined.Storage),
         TabItem(stringResource(R.string.tab_wifi), Icons.Outlined.Wifi),
@@ -2903,83 +4895,472 @@ fun DeviceInfoScreen(viewModel: DeviceInfoViewModel, windowSizeClass: WindowSize
         TabItem(stringResource(R.string.tab_usb), Icons.Outlined.Usb),
         TabItem(stringResource(R.string.tab_codecs), Icons.Outlined.Audiotrack),
         TabItem(stringResource(R.string.tab_sensors), Icons.Outlined.Sensors),
-        TabItem(stringResource(R.string.tab_apps), Icons.Outlined.Apps)
+        TabItem(stringResource(R.string.tab_apps), Icons.Outlined.Apps),
+        TabItem(stringResource(R.string.tab_thermal), Icons.Outlined.Thermostat),
+        TabItem(stringResource(R.string.tab_security), Icons.Outlined.Security)
     )
     
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { tabs.size })
+    
+    val requestedInfoTab by viewModel.requestedInfoTab.collectAsStateWithLifecycle()
+    LaunchedEffect(requestedInfoTab) {
+        requestedInfoTab?.let { tabIndex ->
+            pagerState.scrollToPage(tabIndex)
+            viewModel.clearRequestedInfoTab()
+        }
+    }
     val coroutineScope = rememberCoroutineScope()
     val isWideScreen = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
 
-    Row(modifier = Modifier.fillMaxSize()) {
-        if (isWideScreen) {
-            NavigationRail(
-                modifier = Modifier.fillMaxHeight(),
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary
-            ) {
-                tabs.forEachIndexed { index, tab ->
-                    NavigationRailItem(
-                        selected = pagerState.currentPage == index,
-                        onClick = { coroutineScope.launch { pagerState.animateScrollToPage(index) } },
-                        icon = { Icon(tab.icon, null) },
-                        label = { Text(tab.title, style = MaterialTheme.typography.labelSmall) }
-                    )
+    CompositionLocalProvider(LocalCardInteractionHandler provides interactionHandler) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            if (isWideScreen) {
+                NavigationRail(
+                    modifier = Modifier.fillMaxHeight(),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ) {
+                    tabs.forEachIndexed { index, tab ->
+                        NavigationRailItem(
+                            selected = pagerState.currentPage == index,
+                            onClick = { coroutineScope.launch { pagerState.animateScrollToPage(index) } },
+                            icon = { Icon(tab.icon, null) },
+                            label = { Text(tab.title, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                if (!isWideScreen) {
+                    ScrollableTabRow(
+                        selectedTabIndex = pagerState.currentPage,
+                        edgePadding = 16.dp,
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        divider = {},
+                        indicator = { tabPositions ->
+                            TabRowDefaults.SecondaryIndicator(
+                                Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
+                                height = 3.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    ) {
+                        tabs.forEachIndexed { index, tab ->
+                            Tab(
+                                selected = pagerState.currentPage == index,
+                                onClick = { coroutineScope.launch { pagerState.animateScrollToPage(index) } },
+                                text = {
+                                    Text(
+                                        tab.title,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                icon = { Icon(tab.icon, null, modifier = Modifier.size(20.dp)) }
+                            )
+                        }
+                    }
+                }
+                androidx.compose.foundation.pager.HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    userScrollEnabled = true,
+                    beyondViewportPageCount = 1
+                ) { page ->
+                    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        when (page) {
+                            0 -> DeviceTab(viewModel)
+                            1 -> SocTab(viewModel)
+                            2 -> CamerasTab(viewModel, windowSizeClass)
+                            3 -> BatteryTab(viewModel, windowSizeClass)
+                            4 -> BluetoothTab(viewModel)
+                            5 -> DisplayTab(viewModel, windowSizeClass)
+                            6 -> MemoryTab(viewModel, windowSizeClass)
+                            7 -> WifiTab(viewModel, windowSizeClass)
+                            8 -> CellularTab(viewModel, windowSizeClass)
+                            9 -> UsbTab(viewModel)
+                            10 -> CodecsTab(viewModel)
+                            11 -> SensorsTab(viewModel)
+                            12 -> AppsTab(viewModel)
+                            13 -> ThermalTab(viewModel)
+                            14 -> SecurityTab(viewModel)
+                        }
+                    }
                 }
             }
         }
-        Column(modifier = Modifier.weight(1f)) {
-            if (!isWideScreen) {
-                ScrollableTabRow(
-                    selectedTabIndex = pagerState.currentPage,
-                    edgePadding = 16.dp,
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    divider = {},
-                    indicator = { tabPositions ->
-                        TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
-                            height = 3.dp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
+    }
+
+    if (activeCardInfoId != null) {
+        ModalBottomSheet(
+            onDismissRequest = { activeCardInfoId = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            CardDetailsSheetContent(
+                cardId = activeCardInfoId!!,
+                onDismiss = { activeCardInfoId = null }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CardDetailsSheetContent(
+    cardId: String,
+    onDismiss: () -> Unit
+) {
+    val details = remember(cardId) { CardDetailsHelper.getDetailsForCard(cardId) }
+    if (details == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("No information available for this component.")
+        }
+        return
+    }
+
+    val title = stringResource(details.titleRes)
+    val explanation = if (details.explanationRes == R.string.card_details_explanation_template) {
+        stringResource(details.explanationRes, title)
+    } else {
+        stringResource(details.explanationRes)
+    }
+    val howItWorks = if (details.howItWorksRes == R.string.card_details_how_it_works_template) {
+        stringResource(details.howItWorksRes, title)
+    } else {
+        stringResource(details.howItWorksRes)
+    }
+    val whyItMatters = if (details.whyItMattersRes == R.string.card_details_why_it_matters_template) {
+        stringResource(details.whyItMattersRes, title)
+    } else {
+        stringResource(details.whyItMattersRes)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 32.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = details.icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Explanation Section
+        Text(
+            text = stringResource(R.string.card_details_what_is_it),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = explanation,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // How it works Section
+        Text(
+            text = stringResource(R.string.card_details_how_it_works),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = howItWorks,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Why it matters Section
+        Text(
+            text = stringResource(R.string.card_details_why_it_matters),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = whyItMatters,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        Button(
+            onClick = onDismiss,
+            modifier = Modifier.fillMaxWidth(),
+            shape = ShapeMedium
+        ) {
+            Text(stringResource(R.string.done))
+        }
+    }
+}
+
+private fun getCoreTemperature(coreIdx: Int, zones: List<ThermalInfo>, fallbackTemp: Float): String {
+    val queries = listOf("cpu$coreIdx", "cpu-$coreIdx", "tsens_tz_sensor$coreIdx", "cpu_${coreIdx}_usr")
+    val zone = zones.find { zone ->
+        val nameLower = zone.name.lowercase()
+        queries.any { query -> nameLower.contains(query) }
+    }
+    return if (zone != null) {
+        zone.temperature
+    } else {
+        if (fallbackTemp > 0f) "${"%.1f".format(fallbackTemp)}°C" else "N/A"
+    }
+}
+
+@Composable
+fun CpuCoresDetailScreen(
+    v: DeviceInfoViewModel,
+    onBack: () -> Unit
+) {
+    BackHandler { onBack() }
+    val info by v.socInfo.collectAsStateWithLifecycle()
+    val realtimeDataState by v.dashboardRealtime.collectAsStateWithLifecycle()
+    val thermalZones by v.thermalZones.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                    tint = MaterialTheme.colorScheme.onBackground
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.cpu_cores_detail),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+        
+        info?.let { i ->
+            val realtimeData = realtimeDataState
+            if (realtimeData != null) {
+                LazyColumn(
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    tabs.forEachIndexed { index, tab ->
-                        Tab(
-                            selected = pagerState.currentPage == index,
-                            onClick = { coroutineScope.launch { pagerState.animateScrollToPage(index) } },
-                            text = {
-                                Text(
-                                    tab.title,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = ShapeExtraLarge,
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.size(70.dp)
+                                ) {
+                                    val progress by animateFloatAsState(
+                                        realtimeData.cpuUsage / 100f,
+                                        tween(400),
+                                        label = "cpuTotal"
+                                    )
+                                    CircularProgressIndicator(
+                                        progress = { progress },
+                                        modifier = Modifier.fillMaxSize(),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        strokeWidth = 6.dp,
+                                        trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                        strokeCap = StrokeCap.Round
+                                    )
+                                    Text(
+                                        "${realtimeData.cpuUsage}%",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        text = SoCUtils.getCommercialName(context),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "${i.cores} Cores · ${i.bigLittle}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                    )
+                                    if (realtimeData.cpuTemperature > 0f) {
+                                        Text(
+                                            text = "CPU Temp: ${"%.1f".format(realtimeData.cpuTemperature)}°C",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    i.cpuClusters.forEach { cluster ->
+                        item {
+                            Text(
+                                text = "${cluster.name} (${cluster.architecture})",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                        
+                        items(cluster.coreIndices) { coreIdx ->
+                            val coreFreq = realtimeData.cpuCoreFrequencies.getOrNull(coreIdx) ?: 0L
+                            val coreHistory = realtimeData.cpuCoreHistory.getOrNull(coreIdx) ?: emptyList()
+                            val coreUtil = coreHistory.lastOrNull()?.toInt() ?: 0
+                            val coreTemp = getCoreTemperature(coreIdx, thermalZones, realtimeData.cpuTemperature)
+                            
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = ShapeCard,
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            },
-                            icon = { Icon(tab.icon, null, modifier = Modifier.size(20.dp)) }
-                        )
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.core_format, coreIdx),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = if (coreFreq > 0) "$coreFreq MHz" else stringResource(R.string.offline),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (coreFreq > 0) MaterialTheme.colorScheme.primary else Color.Gray
+                                            )
+                                            Text(
+                                                text = coreTemp,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.secondary
+                                            )
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = "$coreUtil%",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.width(45.dp)
+                                        )
+                                        
+                                        val progressVal by animateFloatAsState(
+                                            coreUtil / 100f,
+                                            tween(400),
+                                            label = "coreProgress_$coreIdx"
+                                        )
+                                        
+                                        LinearProgressIndicator(
+                                            progress = { progressVal },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(8.dp)
+                                                .clip(CircleShape),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                            strokeCap = StrokeCap.Round
+                                        )
+                                    }
+                                    
+                                    if (coreHistory.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        val chartColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                        CoreHistorySparkline(
+                                            coreHistory = coreHistory,
+                                            chartColor = chartColor,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(40.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-            }
-            androidx.compose.foundation.pager.HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize(),
-                userScrollEnabled = true,
-                beyondViewportPageCount = 1
-            ) { page ->
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    when (page) {
-                        0 -> DeviceTab(viewModel)
-                        1 -> SocTab(viewModel)
-                        2 -> CamerasTab(viewModel, windowSizeClass)
-                        3 -> BatteryTab(viewModel, windowSizeClass)
-                        4 -> DisplayTab(viewModel, windowSizeClass)
-                        5 -> MemoryTab(viewModel, windowSizeClass)
-                        6 -> WifiTab(viewModel, windowSizeClass)
-                        7 -> CellularTab(viewModel, windowSizeClass)
-                        8 -> UsbTab(viewModel)
-                        9 -> CodecsTab(viewModel)
-                        10 -> SensorsTab(viewModel)
-                        11 -> AppsTab(viewModel)
-                    }
+            } else {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
                 }
             }
         }

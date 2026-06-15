@@ -21,7 +21,7 @@ object NotificationHelper {
             ).apply {
                 description = "Notifications for app updates"
             }
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
             notificationManager.createNotificationChannel(channel)
         }
     }
@@ -29,7 +29,7 @@ object NotificationHelper {
     fun showUpdateNotification(context: Context, appsWithUpdates: List<AppInfo>) {
         if (appsWithUpdates.isEmpty()) return
 
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
         
         val title = "App Hub — Updates Available"
         val content = if (appsWithUpdates.size == 1) {

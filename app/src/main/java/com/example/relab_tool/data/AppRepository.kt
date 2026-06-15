@@ -14,7 +14,7 @@ import kotlinx.coroutines.withContext
 
 class AppRepository(private val context: Context) {
     private val packageManager: PackageManager = context.packageManager
-    private val crawler = ApkCrawler()
+    private val crawler = ApkCrawler(context)
 
     private val _apps = MutableStateFlow<List<AppInfo>>(initialApps())
     val apps: StateFlow<List<AppInfo>> = _apps.asStateFlow()
@@ -24,11 +24,15 @@ class AppRepository(private val context: Context) {
             currentApps.map { app ->
                 val installedVersion = getInstalledVersion(app.packageName)
                 val (latestVersion, downloadUrl) = crawler.getLatestVersionInfo(app.packageName)
+                val fetchedIcon = if (app.iconUrl.isNullOrEmpty()) {
+                    crawler.getAppIconUrl(app.packageName)
+                } else app.iconUrl
                 
                 app.copy(
                     installedVersion = installedVersion,
                     latestVersion = latestVersion,
                     apkUrl = downloadUrl ?: app.apkUrl,
+                    iconUrl = fetchedIcon ?: app.iconUrl,
                     hasUpdate = isUpdateAvailable(installedVersion, latestVersion),
                     status = if (installedVersion != null) InstallationStatus.INSTALLED else InstallationStatus.NOT_INSTALLED
                 )

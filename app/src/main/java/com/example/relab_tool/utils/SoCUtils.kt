@@ -26,14 +26,27 @@ object SoCUtils {
         "sm6450" to "Snapdragon 6 Gen 1",
         "sm6435" to "Snapdragon 6s Gen 4",
         "sm4450" to "Snapdragon 4 Gen 2",
+        "sm6850" to "Snapdragon 6 Gen 5",
+        "sm4850" to "Snapdragon 4 Gen 5",
+        "iq9075" to "Qualcomm Dragonwing IQ-9075",
+        "q6690" to "Qualcomm Dragonwing Q-6690",
+        "qcm6490" to "Qualcomm Dragonwing QCM6490",
+        "qcs6490" to "Qualcomm Dragonwing QCS6490",
 
         // MediaTek Dimensity
         "mt6995" to "Dimensity 9500",
+        "mt6995s" to "Dimensity 9500S",
+        "d9500s" to "Dimensity 9500S",
         "mt6991" to "Dimensity 9400",
         "mt6989" to "Dimensity 9300",
         "mt6985" to "Dimensity 9200",
         "mt6983" to "Dimensity 9000",
+        "mt6899p" to "Dimensity 8550",
+        "mt6899s" to "Dimensity 8550",
+        "d8550" to "Dimensity 8550",
         "mt6895" to "Dimensity 8100",
+        "mt6881" to "Dimensity 7500",
+        "d7500" to "Dimensity 7500",
         "mt6893" to "Dimensity 1200",
         "mt6889" to "Dimensity 1000+",
         "mt6877" to "Dimensity 900",
@@ -50,14 +63,51 @@ object SoCUtils {
 
         // Samsung Exynos
         "s5e9945" to "Exynos 2400",
+        "exynos2400" to "Exynos 2400",
         "s5e9925" to "Exynos 2200",
+        "exynos2200" to "Exynos 2200",
         "exynos2100" to "Exynos 2100",
         "exynos990" to "Exynos 990",
         "exynos9820" to "Exynos 9820",
         "s5e8845" to "Exynos 1480",
+        "exynos1480" to "Exynos 1480",
         "s5e8835" to "Exynos 1380",
+        "exynos1380" to "Exynos 1380",
         "s5e8825" to "Exynos 1280",
+        "exynos1280" to "Exynos 1280",
         "s5e8535" to "Exynos 1330",
+        "exynos1330" to "Exynos 1330",
+        "s5e8855" to "Exynos 1580",
+        "exynos1580" to "Exynos 1580",
+        "s5e8865" to "Exynos 1680",
+        "exynos1680" to "Exynos 1680",
+        "s5e9955" to "Exynos 2500",
+        "exynos2500" to "Exynos 2500",
+        "s5e9965" to "Exynos 2600",
+        "exynos2600" to "Exynos 2600",
+        "exynos8890" to "Exynos 8890",
+        "s5e8890" to "Exynos 8890",
+        "exynos8895" to "Exynos 8895",
+        "s5e8895" to "Exynos 8895",
+        "exynos9810" to "Exynos 9810",
+        "s5e9810" to "Exynos 9810",
+        "exynos9825" to "Exynos 9825",
+        "s5e9825" to "Exynos 9825",
+        "exynos9611" to "Exynos 9611",
+        "s5e9611" to "Exynos 9611",
+        "exynos850" to "Exynos 850",
+        "s5e3830" to "Exynos 850",
+        "exynos1080" to "Exynos 1080",
+        "s5e9815" to "Exynos 1080",
+
+        // Huawei Kirin
+        "kirin9030" to "Kirin 9030",
+        "kirin9100" to "Kirin 9100",
+
+        // Xiaomi XRING
+        "o1" to "Xiaomi XRING O1",
+        "xring" to "Xiaomi XRING O1",
+        "xring o1" to "Xiaomi XRING O1",
 
         // Google Tensor
         "gs301" to "Google Tensor G3",
@@ -69,42 +119,72 @@ object SoCUtils {
         "t610" to "Unisoc T610",
         "t612" to "Unisoc T612",
         "t616" to "Unisoc T616",
-        "t700" to "Unisoc T700"
+        "t700" to "Unisoc T700",
+        "t8300" to "Unisoc T8300",
+        "t820" to "Unisoc T820",
+        "t765" to "Unisoc T765",
+        "t760" to "Unisoc T760",
+        "t750" to "Unisoc T750",
+        "t770" to "Unisoc T770"
     )
 
+    @Volatile
+    private var cachedCommercialName: String? = null
+    @Volatile
+    private var cachedWithGpu: Boolean = false
+
     fun getCommercialName(context: Context, gpuRenderer: String? = null): String {
-        val model = getSoCModel().lowercase()
+        val cached = cachedCommercialName
+        if (cached != null && (gpuRenderer == null || cachedWithGpu)) {
+            return cached
+        }
+        synchronized(this) {
+            if (gpuRenderer == null) {
+                cachedCommercialName?.let { return it }
+            } else if (cachedWithGpu) {
+                cachedCommercialName?.let { return it }
+            }
 
-        // 1. Try JSON specifications mapping
-        var name = SpecLoader.getSoCName(context, model) ?: socMap[model] ?: ""
+            val model = getSoCModel().lowercase()
 
-        // 2. Try prefix matches if still empty
-        if (name.isEmpty()) {
-            for ((key, value) in socMap) {
-                if (model.contains(key, ignoreCase = true)) {
-                    name = value
-                    break
+            // 1. Try JSON specifications mapping
+            var name = SpecLoader.getSoCName(context, model) ?: socMap[model] ?: ""
+
+            // 2. Try prefix matches if still empty
+            if (name.isEmpty()) {
+                for ((key, value) in socMap) {
+                    if (model.contains(key, ignoreCase = true)) {
+                        name = value
+                        break
+                    }
                 }
             }
-        }
 
-        // 3. Fallback to high-level info if available (API 31+)
-        if (name.isEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val socModel = Build.SOC_MODEL
-            if (socModel.isNotEmpty() && socModel != Build.UNKNOWN) {
-                name = SpecLoader.getSoCName(context, socModel.lowercase()) ?: socMap[socModel.lowercase()] ?: socModel
+            // 3. Fallback to high-level info if available (API 31+)
+            if (name.isEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val socModel = Build.SOC_MODEL
+                if (socModel.isNotEmpty() && socModel != Build.UNKNOWN) {
+                    name = SpecLoader.getSoCName(context, socModel.lowercase()) ?: socMap[socModel.lowercase()] ?: socModel
+                }
             }
+
+            // 4. Try reading from sysfs
+            if (name.isEmpty()) {
+                val sysfsMachine = readSysfs("/sys/devices/soc0/machine")
+                if (sysfsMachine.isNotEmpty()) name = sysfsMachine
+            }
+
+            if (name.isEmpty()) name = getCpuNameFromProc()
+
+            val refined = refineName(name, gpuRenderer, model)
+            if (refined.isNotEmpty() && refined != Build.UNKNOWN) {
+                cachedCommercialName = refined
+                if (gpuRenderer != null) {
+                    cachedWithGpu = true
+                }
+            }
+            return refined
         }
-
-        // 4. Try reading from sysfs
-        if (name.isEmpty()) {
-            val sysfsMachine = readSysfs("/sys/devices/soc0/machine")
-            if (sysfsMachine.isNotEmpty()) name = sysfsMachine
-        }
-
-        if (name.isEmpty()) name = getCpuNameFromProc()
-
-        return refineName(name, gpuRenderer, model)
     }
 
     private fun refineName(name: String, gpuRenderer: String? = null, socId: String = ""): String {

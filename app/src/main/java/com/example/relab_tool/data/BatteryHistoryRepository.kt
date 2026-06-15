@@ -8,7 +8,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class BatteryHistoryRepository(context: Context) {
-    private val prefs: SharedPreferences = context.getSharedPreferences("battery_history", Context.MODE_PRIVATE)
+    private val prefs: SharedPreferences by lazy { context.getSharedPreferences("battery_history", Context.MODE_PRIVATE) }
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
     fun getBatteryHistory(): List<Triple<Long, Int, Boolean>> {

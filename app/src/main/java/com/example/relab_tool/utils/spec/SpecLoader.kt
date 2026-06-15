@@ -6,6 +6,8 @@ import org.json.JSONObject
 
 object SpecLoader {
 
+    private val arrayCache = java.util.concurrent.ConcurrentHashMap<String, org.json.JSONArray>()
+
     /**
      * Strict SoC ID matching to avoid false positives.
      *
@@ -30,8 +32,7 @@ object SpecLoader {
         )
 
         for (fileName in files) {
-            val json = loadJsonFromAsset(context, fileName) ?: continue
-            val array = JSONArray(json)
+            val array = getJsonArrayFromAsset(context, fileName) ?: continue
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
                 val id = obj.optString("id").lowercase()
@@ -53,13 +54,19 @@ object SpecLoader {
     private fun formatSoCName(fileName: String, obj: JSONObject): String {
         val name = obj.optString("name")
         val brand = when {
-            fileName.contains("snapdragon") -> "Snapdragon"
+            fileName.contains("snapdragon") -> {
+                if (name.startsWith("IQ-", ignoreCase = true) || name.startsWith("Q-", ignoreCase = true) || name.contains("qcs", ignoreCase = true) || name.contains("qcm", ignoreCase = true)) {
+                    "Qualcomm Dragonwing"
+                } else {
+                    "Snapdragon"
+                }
+            }
             fileName.contains("mtk") -> resolveMtkBrand(name)
             fileName.contains("exynos") -> "Exynos"
             fileName.contains("google") -> "Google Tensor"
             fileName.contains("unisoc") -> "Unisoc"
             fileName.contains("hisilicon") -> "Kirin"
-            fileName.contains("xiaomi") -> "Surge"
+            fileName.contains("xiaomi") -> "Xiaomi"
             else -> ""
         }
         return if (brand.isNotEmpty()) "$brand $name" else name
@@ -87,8 +94,7 @@ object SpecLoader {
     }
 
     fun getCameraVendor(context: Context, sensorName: String): String? {
-        val json = loadJsonFromAsset(context, "camera_vendors.json") ?: return null
-        val array = JSONArray(json)
+        val array = getJsonArrayFromAsset(context, "camera_vendors.json") ?: return null
         val lowerName = sensorName.lowercase()
         for (i in 0 until array.length()) {
             val obj = array.getJSONObject(i)
@@ -103,8 +109,7 @@ object SpecLoader {
     }
 
     fun getCpuFamily(context: Context, partId: String, vendorId: String): String? {
-        val json = loadJsonFromAsset(context, "cpu_family.json") ?: return null
-        val array = JSONArray(json)
+        val array = getJsonArrayFromAsset(context, "cpu_family.json") ?: return null
         for (i in 0 until array.length()) {
             val obj = array.getJSONObject(i)
             val vid = obj.optString("vid")
@@ -117,8 +122,7 @@ object SpecLoader {
     }
 
     fun getArmCortexName(context: Context, partId: String): String? {
-        val json = loadJsonFromAsset(context, "cpu_family_arm.json") ?: return null
-        val array = JSONArray(json)
+        val array = getJsonArrayFromAsset(context, "cpu_family_arm.json") ?: return null
         // Ensure partId is hex format for matching if needed, but the JSON seems to use 0x...
         val normalizedPart = if (partId.startsWith("0x")) partId.lowercase() else "0x${partId.lowercase()}"
         
@@ -150,8 +154,7 @@ object SpecLoader {
             .removePrefix("lyt-").removePrefix("lyt")
 
         for (fileName in files) {
-            val json = loadJsonFromAsset(context, fileName) ?: continue
-            val array = JSONArray(json)
+            val array = getJsonArrayFromAsset(context, fileName) ?: continue
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
                 val id = obj.optString("id").lowercase().trim()
@@ -199,8 +202,7 @@ object SpecLoader {
             .filter { it.isLetterOrDigit() }
 
         for (fileName in files) {
-            val json = loadJsonFromAsset(context, fileName) ?: continue
-            val array = JSONArray(json)
+            val array = getJsonArrayFromAsset(context, fileName) ?: continue
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
                 val ids = obj.optString("id").lowercase().trim().split("|")
@@ -232,9 +234,38 @@ object SpecLoader {
      * Returns Triple(resolution string, sensor name, equiv focal length?) or null.
      */
     fun getDeviceCameraResolution(context: Context, focalLength: Float, facing: String): Triple<String, String, Double?>? {
-        val json = loadJsonFromAsset(context, "device_cameras.json") ?: return null
-        val array = JSONArray(json)
+        val override = getDeviceCameraOverride(context, focalLength, facing)
+        return override?.let { Triple(it.res, it.sensor, it.equiv) }
+    }
 
+    /**
+     * Extended camera override data from the curated device database.
+     * Contains all fields that Camera2 API commonly gets wrong.
+     */
+    data class DeviceCameraOverride(
+        val res: String,            // "64 MP"
+        val sensor: String,         // "Samsung S5KGW3"
+        val equiv: Double?,         // 35mm equiv focal length
+        val aperture: Float?,       // f-stop (e.g. 1.79)
+        val pixelSize: Float?,      // μm (e.g. 0.7)
+        val videoMax: String?,      // "4K@30", "8K@24"
+        val sensorSize: String?     // "1/1.97\""
+    )
+
+    /**
+     * Look up camera override from bundled device_cameras.json.
+     * Returns full DeviceCameraOverride or null if device not found.
+     */
+    fun getDeviceCameraOverride(context: Context, focalLength: Float, facing: String): DeviceCameraOverride? {
+        val array = getJsonArrayFromAsset(context, "device_cameras.json") ?: return null
+        return lookupCameraInArray(array, focalLength, facing)
+    }
+
+    /**
+     * Shared lookup logic for both bundled and online JSON arrays.
+     * Matches by Build.DEVICE, Build.MODEL, or full manufacturer+model string.
+     */
+    fun lookupCameraInArray(array: JSONArray, focalLength: Float, facing: String): DeviceCameraOverride? {
         val deviceName = android.os.Build.DEVICE.lowercase()
         val modelName = android.os.Build.MODEL.lowercase()
         val manufacturer = android.os.Build.MANUFACTURER.lowercase()
@@ -267,9 +298,13 @@ object SpecLoader {
                     facing.lowercase().contains(camFacing)) {
                     val res = cam.optString("res") + " MP"
                     val sensor = cam.optString("sensor", "")
-                    val equiv = if (cam.has("equiv")) cam.optDouble("equiv", 0.0) else null
-                    val finalEquiv = if (equiv != null && equiv > 0) equiv else null
-                    return Triple(res, sensor, finalEquiv)
+                    val rawEquiv = if (cam.has("equiv")) cam.optDouble("equiv", 0.0) else null
+                    val equiv = if (rawEquiv != null && rawEquiv > 0) rawEquiv else null
+                    val aperture = if (cam.has("aperture")) cam.optDouble("aperture").toFloat() else null
+                    val pixelSize = if (cam.has("pixel_size")) cam.optDouble("pixel_size").toFloat() else null
+                    val videoMax = if (cam.has("video_max")) cam.optString("video_max") else null
+                    val sensorSize = if (cam.has("sensor_size")) cam.optString("sensor_size") else null
+                    return DeviceCameraOverride(res, sensor, equiv, aperture, pixelSize, videoMax, sensorSize)
                 }
             }
         }
@@ -284,8 +319,7 @@ object SpecLoader {
         )
 
         for (fileName in files) {
-            val json = loadJsonFromAsset(context, fileName) ?: continue
-            val array = JSONArray(json)
+            val array = getJsonArrayFromAsset(context, fileName) ?: continue
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
                 val id = obj.optString("id").lowercase()
@@ -313,8 +347,7 @@ object SpecLoader {
         )
 
         for (fileName in files) {
-            val json = loadJsonFromAsset(context, fileName) ?: continue
-            val array = JSONArray(json)
+            val array = getJsonArrayFromAsset(context, fileName) ?: continue
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
                 val id = obj.optString("id").lowercase()
@@ -334,9 +367,15 @@ object SpecLoader {
         return null
     }
 
-    private fun loadJsonFromAsset(context: Context, fileName: String): String? {
+    private fun getJsonArrayFromAsset(context: Context, fileName: String): JSONArray? {
+        val cached = arrayCache[fileName]
+        if (cached != null) return cached
+
         return try {
-            context.assets.open(fileName).bufferedReader().use { it.readText() }
+            val json = context.assets.open(fileName).bufferedReader().use { it.readText() }
+            val array = JSONArray(json)
+            arrayCache[fileName] = array
+            array
         } catch (e: Exception) {
             null
         }

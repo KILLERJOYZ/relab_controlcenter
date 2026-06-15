@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import com.example.relab_tool.R
 import com.example.relab_tool.ui.theme.DarkModeOption
 import com.example.relab_tool.ui.theme.ThemeViewModel
+import com.example.relab_tool.ui.theme.ShapeLarge
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,9 +33,9 @@ fun ThemeSettingsScreen(
     viewModel: ThemeViewModel,
     onBack: () -> Unit
 ) {
-    val themeMode by viewModel.themeMode.collectAsState()
-    val useDynamicColor by viewModel.useDynamicColor.collectAsState()
-    val seedColor by viewModel.seedColor.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
+    val seedColor by viewModel.seedColor.collectAsStateWithLifecycle()
 
     var showCustomPicker by remember { mutableStateOf(false) }
 
@@ -186,7 +188,7 @@ fun SwatchCard(
         modifier = Modifier
             .width(100.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+        shape = ShapeLarge,
         border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -228,7 +230,7 @@ fun CustomSwatchCard(
         modifier = Modifier
             .width(100.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+        shape = ShapeLarge,
         border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -292,7 +294,7 @@ fun CustomColorBottomSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(80.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(ShapeLarge)
                     .background(currentColor)
             )
 

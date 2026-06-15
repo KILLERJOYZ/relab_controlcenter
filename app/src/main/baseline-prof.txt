@@ -1,0 +1,13 @@
+# Baseline Profile for relab_controlcenter
+Lcom/example/relab_tool/RelabApp;
+Lcom/example/relab_tool/MainActivity;
+Lcom/example/relab_tool/ui/theme/ThemeKt;
+Lcom/example/relab_tool/ui/MainScreenKt;
+Lcom/example/relab_tool/ui/DeviceInfoViewModel;
+Lcom/example/relab_tool/ui/AppInstallerViewModel;
+Lcom/example/relab_tool/ui/ThemeViewModel;
+Lcom/example/relab_tool/ui/cit/CITViewModel;
+Lcom/example/relab_tool/data/PerformanceRepository;
+Lcom/example/relab_tool/data/CameraSpecRepository;
+Lcom/example/relab_tool/data/BatteryHistoryRepository;
+Lcom/example/relab_tool/worker/BatteryMonitoringWorker;

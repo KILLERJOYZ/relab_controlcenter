@@ -10,24 +10,28 @@ import java.util.concurrent.TimeUnit
 
 class BatteryMonitoringWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        val repository = BatteryHistoryRepository(applicationContext)
-        
-        val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
-            applicationContext.registerReceiver(null, ifilter)
-        }
-
-        val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-        val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-        
-        if (level != -1 && scale != -1) {
-            val batteryPct = (level * 100 / scale.toFloat()).toInt()
-            val status = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-            val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+        return try {
+            val repository = BatteryHistoryRepository(applicationContext)
             
-            repository.recordBatteryPoint(batteryPct, isCharging)
-        }
+            val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
+                applicationContext.registerReceiver(null, ifilter)
+            }
 
-        return Result.success()
+            val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+            val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+            
+            if (level != -1 && scale != -1) {
+                val batteryPct = (level * 100 / scale.toFloat()).toInt()
+                val status = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+                val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+                
+                repository.recordBatteryPoint(batteryPct, isCharging)
+            }
+
+            Result.success()
+        } catch (_: Throwable) {
+            Result.success() // Don't retry on OEM-specific failures
+        }
     }
 
     companion object {

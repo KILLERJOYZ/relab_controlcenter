@@ -35,6 +35,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -44,6 +45,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -54,6 +57,7 @@ import coil.request.ImageRequest
 import com.example.relab_tool.R
 import com.example.relab_tool.model.AppInfo
 import com.example.relab_tool.model.InstallationStatus
+import com.example.relab_tool.model.SearchResult
 import kotlinx.coroutines.launch
 import java.util.Locale
 import android.content.Context
@@ -202,54 +206,100 @@ fun MainScreen(viewModel: AppInstallerViewModel, windowSizeClass: WindowSizeClas
             Scaffold(
                 modifier = Modifier.nestedScroll(nestedScrollConnection),
                 topBar = {
-                    LargeTopAppBar(
-                        title = {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = 4.dp, end = 20.dp, bottom = 16.dp)
-                            ) {
-                                Text(
-                                    text = when(pagerState.currentPage) {
-                                        0 -> stringResource(R.string.nav_home)
-                                        1 -> stringResource(R.string.nav_installer)
-                                        2 -> stringResource(R.string.nav_benchmarks)
-                                        3 -> stringResource(R.string.nav_device_info)
-                                        else -> stringResource(R.string.nav_settings)
-                                    },
-                                    style = MaterialTheme.typography.displaySmall,
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = (-1.5).sp
-                                )
-                            }
-                        },
-                        scrollBehavior = scrollBehavior,
-                        colors = TopAppBarDefaults.largeTopAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.background,
-                            scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                            titleContentColor = MaterialTheme.colorScheme.primary
+                    val isCompassActive by deviceInfoViewModel.isSatelliteCompassActive.collectAsStateWithLifecycle()
+                    if (!isCompassActive) {
+                        val collapsedFraction = scrollBehavior.state.collapsedFraction
+                        val titleAlpha = 1f - collapsedFraction
+                        LargeTopAppBar(
+                            modifier = Modifier.graphicsLayer {
+                                if (pagerState.currentPage == 3) {
+                                    alpha = titleAlpha
+                                }
+                            },
+                            title = {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .graphicsLayer { alpha = titleAlpha }
+                                        .padding(start = 4.dp, end = 20.dp, bottom = 16.dp)
+                                ) {
+                                    Text(
+                                        text = when(pagerState.currentPage) {
+                                            0 -> stringResource(R.string.nav_home)
+                                            1 -> stringResource(R.string.nav_installer)
+                                            2 -> stringResource(R.string.nav_benchmarks)
+                                            3 -> stringResource(R.string.nav_device_info)
+                                            else -> stringResource(R.string.nav_settings)
+                                        },
+                                        style = MaterialTheme.typography.displaySmall,
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = (-1.5).sp
+                                    )
+                                }
+                            },
+                            scrollBehavior = scrollBehavior,
+                            colors = TopAppBarDefaults.largeTopAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.background,
+                                scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                                titleContentColor = MaterialTheme.colorScheme.primary
+                            )
                         )
-                    )
+                    }
                 }
             ) { padding ->
-                val dynamicTopPadding = (padding.calculateTopPadding() + with(androidx.compose.ui.platform.LocalDensity.current) { scrollBehavior.state.heightOffset.toDp() }).coerceAtLeast(0.dp)
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.padding(top = dynamicTopPadding, bottom = padding.calculateBottomPadding()).fillMaxSize(),
-                    userScrollEnabled = true
-                ) { page ->
-                    when (page) {
-                        0 -> DashboardTab(
-                            viewModel = deviceInfoViewModel,
-                            windowSizeClass = windowSizeClass,
-                            onNavigateToInfoTab = { tabIndex ->
-                                deviceInfoViewModel.requestInfoTab(tabIndex)
+                val isCompassActive by deviceInfoViewModel.isSatelliteCompassActive.collectAsStateWithLifecycle()
+                val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+                val minTopPadding = if (pagerState.currentPage == 3) {
+                    statusBarPadding
+                } else {
+                    56.dp + statusBarPadding
+                }
+                Box(modifier = Modifier.fillMaxSize()) {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier
+                            .padding(
+                                top = if (isCompassActive) 0.dp else minTopPadding,
+                                bottom = if (isCompassActive) 0.dp else padding.calculateBottomPadding()
+                            )
+                            .offset {
+                                if (isCompassActive) {
+                                    IntOffset.Zero
+                                } else {
+                                    val minTopPaddingPx = minTopPadding.toPx()
+                                    val topPaddingPx = padding.calculateTopPadding().toPx()
+                                    val heightOffsetPx = scrollBehavior.state.heightOffset
+                                    val yCurrentPx = (topPaddingPx + heightOffsetPx).coerceAtLeast(minTopPaddingPx)
+                                    IntOffset(0, (yCurrentPx - minTopPaddingPx).roundToInt())
+                                }
                             }
+                            .fillMaxSize(),
+                        userScrollEnabled = !isCompassActive,
+                        beyondViewportPageCount = 1
+                    ) { page ->
+                        when (page) {
+                            0 -> DashboardTab(
+                                viewModel = deviceInfoViewModel,
+                                windowSizeClass = windowSizeClass,
+                                onNavigateToInfoTab = { tabIndex ->
+                                    deviceInfoViewModel.requestInfoTab(tabIndex)
+                                }
+                            )
+                            1 -> AppInstallerContent(apps = apps, viewModel = viewModel, windowSizeClass = windowSizeClass, isLoaded = isAppsLoaded)
+                            2 -> BenchmarksScreen(viewModel = performanceViewModel, windowSizeClass = windowSizeClass)
+                            3 -> DeviceInfoScreen(viewModel = deviceInfoViewModel, windowSizeClass = windowSizeClass)
+                            4 -> SettingsScreen(onLaunchCIT = onLaunchCIT)
+                        }
+                    }
+
+                    if (pagerState.currentPage == 3 && !isCompassActive) {
+                        val collapsedFraction = scrollBehavior.state.collapsedFraction
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(statusBarPadding)
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = collapsedFraction))
                         )
-                        1 -> AppInstallerContent(apps = apps, viewModel = viewModel, windowSizeClass = windowSizeClass, isLoaded = isAppsLoaded)
-                        2 -> BenchmarksScreen(performanceRepository = performanceRepository, towerInfoProvider = towerInfoProvider)
-                        3 -> DeviceInfoScreen(viewModel = deviceInfoViewModel, windowSizeClass = windowSizeClass)
-                        4 -> SettingsScreen(onLaunchCIT = onLaunchCIT)
                     }
                 }
             }
@@ -340,6 +390,9 @@ fun FloatingNavigationBar(
         shadowElevation = 16.dp,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
+        val callbacks = remember(items, onItemSelected) {
+            items.map { item -> { onItemSelected(item.index) } }
+        }
         Row(
             modifier = Modifier
                 .fillMaxHeight()
@@ -347,11 +400,11 @@ fun FloatingNavigationBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            items.forEach { item ->
+            items.forEachIndexed { idx, item ->
                 FloatingNavItem(
                     item = item,
                     isSelected = selectedIndex == item.index,
-                    onClick = { onItemSelected(item.index) }
+                    onClick = callbacks[idx]
                 )
             }
         }
@@ -472,33 +525,68 @@ fun SearchResultsList(viewModel: DeviceInfoViewModel) {
             Text(stringResource(id = R.string.no_results_found, searchQuery), style = MaterialTheme.typography.bodyLarge)
         }
     } else {
+        // Group results by category
+        val grouped = remember(filteredResults) {
+            filteredResults.groupBy { it.category }
+        }
+
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp, start = 0.dp, end = 0.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            items(filteredResults, key = { it.first + it.second }) { (label, value) ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                    ),
-                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = value,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
-                        )
+            grouped.forEach { (category, results) ->
+                // Category section header
+                item(key = "header_$category") {
+                    Text(
+                        text = category,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp, start = 4.dp)
+                    )
+                }
+                items(results, key = { "${it.category}_${it.label}_${it.value}" }) { result ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        ),
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = result.label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = result.value,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            // Category badge
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                modifier = Modifier.padding(start = 8.dp)
+                            ) {
+                                Text(
+                                    text = result.category,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -578,30 +666,62 @@ fun FloatingNavigationRail(
     selectedIndex: Int,
     onItemSelected: (Int) -> Unit
 ) {
+    val configuration = LocalConfiguration.current
+    val isExpanded = configuration.screenWidthDp >= 840
+    val railWidth = if (isExpanded) 240.dp else 72.dp
+    val cardShape = if (isExpanded) RoundedCornerShape(28.dp) else RoundedCornerShape(36.dp)
+
     Box(
         modifier = Modifier
             .fillMaxHeight()
-            .padding(start = 16.dp, top = 24.dp, bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(), end = 8.dp),
+            .padding(
+                start = 16.dp,
+                top = 24.dp,
+                bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+                end = 8.dp
+            ),
         contentAlignment = Alignment.CenterStart
     ) {
         Surface(
-            modifier = Modifier.width(72.dp).fillMaxHeight(),
-            shape = RoundedCornerShape(36.dp),
+            modifier = Modifier.width(railWidth).fillMaxHeight(),
+            shape = cardShape,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 8.dp,
             shadowElevation = 16.dp,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         ) {
             Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp),
+                verticalArrangement = if (isExpanded) Arrangement.spacedBy(8.dp, Alignment.Top) else Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+                horizontalAlignment = if (isExpanded) Alignment.Start else Alignment.CenterHorizontally
             ) {
-                items.forEach { item ->
+                if (isExpanded) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
+                    )
+                }
+
+                val railCallbacks = remember(items, onItemSelected) {
+                    items.map { item -> { onItemSelected(item.index) } }
+                }
+                items.forEachIndexed { idx, item ->
                     FloatingRailItem(
                         item = item,
                         isSelected = selectedIndex == item.index,
-                        onClick = { onItemSelected(item.index) }
+                        isExpanded = isExpanded,
+                        onClick = railCallbacks[idx]
                     )
                 }
             }
@@ -613,13 +733,14 @@ fun FloatingNavigationRail(
 fun FloatingRailItem(
     item: NavItem,
     isSelected: Boolean,
+    isExpanded: Boolean,
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.9f else if (isSelected) 1.05f else 1f,
+        targetValue = if (isPressed) 0.95f else if (isSelected) 1.02f else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "rail_item_scale"
     )
@@ -629,45 +750,84 @@ fun FloatingRailItem(
         label = "rail_content_color"
     )
 
-    val indicatorScale by animateFloatAsState(
-        targetValue = if (isSelected) 1f else 0f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "rail_indicator_scale"
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f) else Color.Transparent,
+        label = "rail_container_color"
     )
+
+    val shape = RoundedCornerShape(20.dp)
 
     Box(
         modifier = Modifier
-            .size(56.dp)
-            .clip(CircleShape)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .then(
+                if (isExpanded) {
+                    Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                } else {
+                    Modifier.size(56.dp)
+                }
+            )
+            .clip(shape)
+            .background(containerColor)
             .clickable(
                 interactionSource = interactionSource,
                 indication = ripple(bounded = true, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                 onClick = onClick
-            )
-            .graphicsLayer {
-                // Defer scale read into graphicsLayer — RenderThread, zero recomposition
-                scaleX = scale
-                scaleY = scale
-            },
-        contentAlignment = Alignment.Center
+            ),
+        contentAlignment = Alignment.CenterStart
     ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .graphicsLayer {
-                    scaleX = indicatorScale
-                    scaleY = indicatorScale
-                    alpha = indicatorScale
-                }
-                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-        )
-        
-        Icon(
-            imageVector = item.icon,
-            contentDescription = item.title,
-            tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else contentColor,
-            modifier = Modifier.size(26.dp)
-        )
+        if (isExpanded) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = item.title,
+                    tint = if (isSelected) MaterialTheme.colorScheme.primary else contentColor,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else contentColor
+                )
+            }
+        } else {
+            val indicatorScale by animateFloatAsState(
+                targetValue = if (isSelected) 1f else 0f,
+                animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioMediumBouncy),
+                label = "rail_indicator_scale"
+            )
+            
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(48.dp)
+                    .graphicsLayer {
+                        scaleX = indicatorScale
+                        scaleY = indicatorScale
+                        alpha = indicatorScale
+                    }
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+            )
+            
+            Icon(
+                imageVector = item.icon,
+                contentDescription = item.title,
+                tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else contentColor,
+                modifier = Modifier.size(26.dp).align(Alignment.Center)
+            )
+        }
     }
 }
 
@@ -801,57 +961,77 @@ fun AppInstallerContent(apps: List<AppInfo>, viewModel: AppInstallerViewModel, w
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = bottomContentPadding),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomContentPadding),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             categorizedApps.forEach { (localizedCategory, categoryId, chunks) ->
-                stickyHeader {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                item(key = categoryId) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
-                        Icon(
-                            imageVector = when (categoryId) {
-                                "Benchmark" -> Icons.Default.Monitor
-                                "Games" -> Icons.Default.VideogameAsset
-                                "System Services" -> Icons.Default.Build
-                                "Social" -> Icons.AutoMirrored.Filled.Chat
-                                else -> Icons.Default.Settings
-                            },
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = localizedCategory,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-                items(chunks) { chunk ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        chunk.forEach { app ->
-                            Box(modifier = Modifier.weight(1f)) {
-                                if (isGalleryView) {
-                                    AppGalleryCard(app = app, onInstallClick = { appToInstall = app })
-                                } else {
-                                    AppCard(app = app, onInstallClick = { appToInstall = app })
-                                }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            // Category Header inside the Card
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = when (categoryId) {
+                                        "Benchmark" -> Icons.Default.Monitor
+                                        "Games" -> Icons.Default.VideogameAsset
+                                        "System Services" -> Icons.Default.Build
+                                        "Social" -> Icons.AutoMirrored.Filled.Chat
+                                        else -> Icons.Default.Settings
+                                    },
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = localizedCategory,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                             }
-                        }
-                        if (chunk.size < columns) {
-                            repeat(columns - chunk.size) {
-                                Spacer(modifier = Modifier.weight(1f))
+
+                            // App Grid / List
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                chunks.forEach { chunk ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        chunk.forEach { app ->
+                                            Box(modifier = Modifier.weight(1f)) {
+                                                if (isGalleryView) {
+                                                    AppGalleryCard(app = app, onInstallClick = { appToInstall = app })
+                                                } else {
+                                                    AppCard(app = app, onInstallClick = { appToInstall = app })
+                                                }
+                                            }
+                                        }
+                                        if (chunk.size < columns) {
+                                            repeat(columns - chunk.size) {
+                                                Spacer(modifier = Modifier.weight(1f))
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -875,6 +1055,17 @@ fun AppGalleryCard(app: AppInfo, onInstallClick: () -> Unit) {
         }
     }
 
+    // Load application icon asynchronously if installed on device
+    val iconDrawable by produceState<android.graphics.drawable.Drawable?>(initialValue = null, keys = arrayOf(app.packageName)) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                context.packageManager.getApplicationIcon(app.packageName)
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
     val placeholderIcon = when (app.category) {
         "Benchmark" -> Icons.Default.Monitor
         "Games" -> Icons.Default.VideogameAsset
@@ -886,7 +1077,7 @@ fun AppGalleryCard(app: AppInfo, onInstallClick: () -> Unit) {
     val isInstalled = app.status == InstallationStatus.INSTALLED
     val isDownloading = app.status == InstallationStatus.DOWNLOADING
     
-    // Khắc phục First Frame Flash bằng cách sử dụng Animation cho màu sắc và viền
+    // Fix First Frame Flash by using Animation for color and border
     val animatedColor by animateColorAsState(
         targetValue = if (isInstalled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
         animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
@@ -928,7 +1119,14 @@ fun AppGalleryCard(app: AppInfo, onInstallClick: () -> Unit) {
                         .background(if (isInstalled) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (imageModel != null) {
+                    if (iconDrawable != null) {
+                        AsyncImage(
+                            model = iconDrawable,
+                            contentDescription = stringResource(id = R.string.app_name) + " " + appName,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else if (imageModel != null) {
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(imageModel)
@@ -1006,6 +1204,17 @@ fun AppCard(app: AppInfo, onInstallClick: () -> Unit) {
         }
     }
 
+    // Load application icon asynchronously if installed on device
+    val iconDrawable by produceState<android.graphics.drawable.Drawable?>(initialValue = null, keys = arrayOf(app.packageName)) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                context.packageManager.getApplicationIcon(app.packageName)
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
     val placeholderIcon = when (app.category) {
         "Benchmark" -> Icons.Default.Monitor
         "Games" -> Icons.Default.VideogameAsset
@@ -1016,7 +1225,7 @@ fun AppCard(app: AppInfo, onInstallClick: () -> Unit) {
 
     val isInstalled = app.status == InstallationStatus.INSTALLED
     
-    // Khắc phục First Frame Flash bằng cách sử dụng Animation
+    // Fix First Frame Flash by using Animation
     val animatedColor by animateColorAsState(
         targetValue = if (isInstalled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
         animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
@@ -1048,11 +1257,18 @@ fun AppCard(app: AppInfo, onInstallClick: () -> Unit) {
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .clip(CircleShape)
+                        .clip(RoundedCornerShape(12.dp))
                         .background(if (isInstalled) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (imageModel != null) {
+                    if (iconDrawable != null) {
+                        AsyncImage(
+                            model = iconDrawable,
+                            contentDescription = stringResource(id = R.string.app_name) + " " + appName,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else if (imageModel != null) {
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(imageModel)

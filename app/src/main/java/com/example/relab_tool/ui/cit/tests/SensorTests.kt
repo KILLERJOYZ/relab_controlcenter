@@ -52,7 +52,14 @@ fun GyroscopeTest(onResult: (CITTestResult) -> Unit) {
 fun ProximityTest(onResult: (CITTestResult) -> Unit) {
     SensorTestScreen(title = stringResource(id = R.string.proximity_test), sensorType = Sensor.TYPE_PROXIMITY, onResult = onResult) { values ->
         val dist = if (values.isNotEmpty()) values[0] else 0f
-        Text(stringResource(id = R.string.distance_format, dist), style = MaterialTheme.typography.headlineMedium)
+        val isImperial = com.example.relab_tool.utils.UnitFormatter.getMeasuringSystem(LocalContext.current) == "Imperial"
+        val distText = if (isImperial) {
+            val distInInches = dist / 2.54f
+            stringResource(id = R.string.distance_format_imperial, distInInches)
+        } else {
+            stringResource(id = R.string.distance_format, dist)
+        }
+        Text(distText, style = MaterialTheme.typography.headlineMedium)
         Text(if (dist < 2.0f) stringResource(id = R.string.near_covered) else stringResource(id = R.string.far_clear), fontWeight = FontWeight.Bold, color = if (dist < 2.0f) Color.Red else Color(0xFF4CAF50))
     }
 }
@@ -126,8 +133,8 @@ fun SensorTestScreen(
     content: @Composable (FloatArray) -> Unit
 ) {
     val context = LocalContext.current
-    val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
-    val sensor = remember { sensorManager.getDefaultSensor(sensorType) }
+    val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager }
+    val sensor = remember { sensorManager?.getDefaultSensor(sensorType) }
     
     var sensorValues by remember { mutableStateOf(FloatArray(0)) }
 
@@ -139,9 +146,9 @@ fun SensorTestScreen(
                 }
                 override fun onAccuracyChanged(s: Sensor?, accuracy: Int) {}
             }
-            sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
+            sensorManager?.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
             onDispose {
-                sensorManager.unregisterListener(listener)
+                try { sensorManager?.unregisterListener(listener) } catch (_: Throwable) {}
             }
         } else {
             onDispose { }

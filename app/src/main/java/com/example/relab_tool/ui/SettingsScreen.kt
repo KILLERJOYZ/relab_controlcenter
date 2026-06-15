@@ -38,6 +38,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.relab_tool.R
 import com.example.relab_tool.ui.theme.*
 import com.example.relab_tool.worker.StatusNotificationService
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 
 // Top-level data class for palette picker entries
 data class PaletteEntryData(
@@ -95,16 +97,28 @@ fun SettingsMainPage(
     val appLocale         = AppCompatDelegate.getApplicationLocales()[0]?.language
     val isWideScreen      = configuration.screenWidthDp > 600
     val context           = LocalContext.current
-    val isNotifRunning    by StatusNotificationService.isRunning.collectAsState()
+    val isNotifRunning    by StatusNotificationService.isRunning.collectAsStateWithLifecycle()
 
     // Data for report
-    val summary by viewModel.deviceSummary.collectAsState()
-    val system by viewModel.systemInfo.collectAsState()
-    val battery by viewModel.batteryInfo.collectAsState()
+    val summary by viewModel.deviceSummary.collectAsStateWithLifecycle()
+    val system by viewModel.systemInfo.collectAsStateWithLifecycle()
+    val cpu by viewModel.cpuInfo.collectAsStateWithLifecycle()
+    val battery by viewModel.batteryInfo.collectAsStateWithLifecycle()
+    val display by viewModel.displayInfo.collectAsStateWithLifecycle()
+    val memory by viewModel.memoryInfo.collectAsStateWithLifecycle()
+    val soc by viewModel.socInfo.collectAsStateWithLifecycle()
+    val cameras by viewModel.cameras.collectAsStateWithLifecycle()
+    val bluetooth by viewModel.bluetoothInfo.collectAsStateWithLifecycle()
+    val network by viewModel.networkInfo.collectAsStateWithLifecycle()
+    val audio by viewModel.audioInfo.collectAsStateWithLifecycle()
+    val security by viewModel.securityInfo.collectAsStateWithLifecycle()
+
+    val coroutineScope = rememberCoroutineScope()
+    var isGeneratingReport by remember { mutableStateOf(false) }
 
     // Current theme state (read-only for display)
-    val palette    by ThemeSettings.colorPalette.collectAsState()
-    val darkMode   by ThemeSettings.darkMode.collectAsState()
+    val palette    by ThemeSettings.colorPalette.collectAsStateWithLifecycle()
+    val darkMode   by ThemeSettings.darkMode.collectAsStateWithLifecycle()
 
     var showLangDialog by remember { mutableStateOf(false) }
 
@@ -120,13 +134,18 @@ fun SettingsMainPage(
     val currentLangLabel = langOptions.find { it.first == appLocale }?.second
         ?: stringResource(R.string.lang_system)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.TopCenter
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .widthIn(max = 720.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
 
         // ── General ──────────────────────────────────────────────────────────
         SettingsCard(
@@ -218,14 +237,38 @@ fun SettingsMainPage(
                 title    = stringResource(R.string.settings_hardware_report),
                 subtitle = stringResource(R.string.settings_hardware_report_desc),
                 onClick  = {
-                    val file = com.example.relab_tool.utils.ReportGenerator.generateHardwareReport(context, summary, system, battery)
-                    if (file != null) {
-                        val uri = androidx.core.content.FileProvider.getUriForFile(context, "com.relab.controlcenter.fileprovider", file)
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(uri, "application/pdf")
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    coroutineScope.launch {
+                        isGeneratingReport = true
+                        try {
+                            val file = com.example.relab_tool.utils.ReportGenerator.generateHardwareReport(
+                                context   = context,
+                                summary   = summary,
+                                system    = system,
+                                cpu       = cpu,
+                                battery   = battery,
+                                display   = display,
+                                memory    = memory,
+                                soc       = soc,
+                                cameras   = cameras,
+                                bluetooth = bluetooth,
+                                network   = network,
+                                audio     = audio,
+                                security  = security
+                            )
+                            if (file != null) {
+                                val uri = androidx.core.content.FileProvider.getUriForFile(context, "com.relab.controlcenter.fileprovider", file)
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "application/pdf"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(intent, context.getString(R.string.settings_share_report_title)))
+                            }
+                        } catch (e: Exception) {
+                            // Fail-safe logging
+                        } finally {
+                            isGeneratingReport = false
                         }
-                        context.startActivity(Intent.createChooser(intent, context.getString(R.string.settings_open_report)))
                     }
                 }
             )
@@ -289,7 +332,8 @@ fun SettingsMainPage(
             }
         }
 
-        if (!isWideScreen) Spacer(Modifier.height(100.dp))
+            if (!isWideScreen) Spacer(Modifier.height(100.dp))
+        }
     }
 
     // ── Language dialog ───────────────────────────────────────────────────────
@@ -340,6 +384,23 @@ fun SettingsMainPage(
             }
         )
     }
+
+    if (isGeneratingReport) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            title = { Text(stringResource(R.string.settings_hardware_report)) },
+            text = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator()
+                    Text(stringResource(R.string.settings_generating_report))
+                }
+            }
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -347,11 +408,11 @@ fun SettingsMainPage(
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun ThemeSettingsPage(onBack: () -> Unit) {
-    val palette      by ThemeSettings.colorPalette.collectAsState()
-    val darkMode     by ThemeSettings.darkMode.collectAsState()
-    val highContrast by ThemeSettings.highContrast.collectAsState()
-    val accentIdx    by ThemeSettings.customAccentIndex.collectAsState()
-    val customHex    by ThemeSettings.customColorHex.collectAsState()
+    val palette      by ThemeSettings.colorPalette.collectAsStateWithLifecycle()
+    val darkMode     by ThemeSettings.darkMode.collectAsStateWithLifecycle()
+    val highContrast by ThemeSettings.highContrast.collectAsStateWithLifecycle()
+    val accentIdx    by ThemeSettings.customAccentIndex.collectAsStateWithLifecycle()
+    val customHex    by ThemeSettings.customColorHex.collectAsStateWithLifecycle()
 
     var showCustomPicker by remember { mutableStateOf(false) }
 
@@ -365,11 +426,16 @@ fun ThemeSettingsPage(onBack: () -> Unit) {
         PaletteEntryData(ColorPalette.CUSTOM,        stringResource(R.string.palette_custom),   customHex?.let { Color(android.graphics.Color.parseColor(it)) } ?: Color.Transparent, stringResource(R.string.palette_custom_desc)),
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.TopCenter
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .widthIn(max = 720.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
         // ── Back header ───────────────────────────────────────────────────────
         Row(
             modifier = Modifier
@@ -551,6 +617,7 @@ fun ThemeSettingsPage(onBack: () -> Unit) {
             Spacer(Modifier.height(100.dp))
         }
     }
+}
 
     // ── Custom Picker Dialog ──────────────────────────────────────────────────
     if (showCustomPicker) {

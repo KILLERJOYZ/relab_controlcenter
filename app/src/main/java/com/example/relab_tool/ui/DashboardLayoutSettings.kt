@@ -36,6 +36,7 @@ object DashboardLayoutSettings {
         "thermal" to CardSize.SIZE_2x2,
         "touch_sampling" to CardSize.SIZE_2x2,
         "wifi" to CardSize.SIZE_2x2,
+        "satellite_compass" to CardSize.SIZE_2x2,
         "sim_1" to CardSize.SIZE_2x2,
         "sim_2" to CardSize.SIZE_2x2,
         "charging_current" to CardSize.SIZE_2x2,
@@ -60,7 +61,7 @@ object DashboardLayoutSettings {
 
     val defaultOrder = listOf(
         "ram", "cpu", "gpu", "cpu_freqs", "system_health",
-        "thermal", "touch_sampling", "wifi", "sim_1", "sim_2",
+        "thermal", "touch_sampling", "wifi", "satellite_compass", "sim_1", "sim_2",
         "charging_current", "battery_health", "uptime", "disk_io",
         "bt_codec", "ambient_light", "security", "bluetooth_count",
         "storage", "screen", "battery", "refresh_rate", "color_depth",

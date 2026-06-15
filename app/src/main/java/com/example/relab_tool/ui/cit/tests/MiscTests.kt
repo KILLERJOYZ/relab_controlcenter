@@ -39,20 +39,22 @@ fun VibrationTest(onResult: (CITTestResult) -> Unit) {
             Button(
                 onClick = {
                     isVibrating = true
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-                        val vibrator = vibratorManager.defaultVibrator
-                        vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
-                    } else {
-                        @Suppress("DEPRECATION")
-                        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                            val vibrator = vibratorManager?.defaultVibrator
+                            vibrator?.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
                         } else {
                             @Suppress("DEPRECATION")
-                            vibrator.vibrate(500)
+                            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                vibrator?.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
+                            } else {
+                                @Suppress("DEPRECATION")
+                                vibrator?.vibrate(500)
+                            }
                         }
-                    }
+                    } catch (_: Throwable) {}
                 }
             ) {
                 Text(stringResource(R.string.trigger_vibration))
@@ -158,16 +160,23 @@ fun BatteryInfoTest(onResult: (CITTestResult) -> Unit) {
                         else -> context.getString(R.string.unknown)
                     }
 
+                    val tempText = if (com.example.relab_tool.utils.UnitFormatter.getMeasuringSystem(context) == "Imperial") {
+                        val tempF = temp * 1.8f + 32f
+                        context.getString(R.string.temp_label, tempF).replace("°C", "°F").replace("° C", "° F")
+                    } else {
+                        context.getString(R.string.temp_label, temp)
+                    }
+                    
                     batteryInfo = context.getString(R.string.level_label, (level * 100 / scale.toFloat()).toInt()) + "\n" +
                                   context.getString(R.string.status_label, statusString) + "\n" +
-                                  context.getString(R.string.temp_label, temp) + "\n" +
+                                  tempText + "\n" +
                                   context.getString(R.string.voltage_label, volt)
                 }
             }
         }
-        context.registerReceiver(receiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        ContextCompat.registerReceiver(context, receiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
         onDispose {
-            context.unregisterReceiver(receiver)
+            try { context.unregisterReceiver(receiver) } catch (_: Throwable) {}
         }
     }
 

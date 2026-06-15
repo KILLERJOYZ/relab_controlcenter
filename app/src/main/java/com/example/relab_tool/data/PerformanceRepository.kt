@@ -12,13 +12,16 @@ class PerformanceRepository(private val context: Context) {
     private val _isBenchmarking = MutableStateFlow(false)
     val isBenchmarking = _isBenchmarking.asStateFlow()
 
+    private val _isStabilityActive = MutableStateFlow(false)
+    val isStabilityActive = _isStabilityActive.asStateFlow()
+
     private val _benchmarkResult = MutableStateFlow<String?>(null)
     val benchmarkResult = _benchmarkResult.asStateFlow()
 
     private val _throttlingHistory = MutableStateFlow<List<Pair<Long, Int>>>(emptyList())
     val throttlingHistory = _throttlingHistory.asStateFlow()
 
-    fun runCpuBenchmark() = CoroutineScope(Dispatchers.Default).launch {
+    suspend fun runCpuBenchmark() = withContext(Dispatchers.Default) {
         _isBenchmarking.value = true
         _benchmarkResult.value = "Running CPU Benchmark..."
         
@@ -29,6 +32,7 @@ class PerformanceRepository(private val context: Context) {
 
         val time = measureTimeMillis {
             for (i in 0 until size) {
+                ensureActive()
                 for (j in 0 until size) {
                     for (k in 0 until size) {
                         result[i][j] += matrixA[i][k] * matrixB[k][j]
@@ -41,7 +45,7 @@ class PerformanceRepository(private val context: Context) {
         _isBenchmarking.value = false
     }
 
-    fun runRamBenchmark() = CoroutineScope(Dispatchers.Default).launch {
+    suspend fun runRamBenchmark() = withContext(Dispatchers.Default) {
         _isBenchmarking.value = true
         _benchmarkResult.value = "Running RAM Benchmark..."
 
@@ -50,10 +54,12 @@ class PerformanceRepository(private val context: Context) {
         
         val time = measureTimeMillis {
             for (i in 0 until size) {
+                if (i % 1_000_000 == 0) ensureActive()
                 array[i] = (i % 256).toByte()
             }
             var sum = 0L
             for (i in 0 until size) {
+                if (i % 1_000_000 == 0) ensureActive()
                 sum += array[i].toLong()
             }
         }
@@ -64,17 +70,22 @@ class PerformanceRepository(private val context: Context) {
     }
 
     private var stabilityJob: Job? = null
-    fun startStabilityTest() {
+    fun startStabilityTest(scope: CoroutineScope) {
         stabilityJob?.cancel()
         _throttlingHistory.value = emptyList()
-        stabilityJob = CoroutineScope(Dispatchers.IO).launch {
-            while (isActive) {
-                val freq = getCurrentMaxFreq()
-                _throttlingHistory.value = _throttlingHistory.value + (System.currentTimeMillis() to freq)
-                if (_throttlingHistory.value.size > 100) {
-                    _throttlingHistory.value = _throttlingHistory.value.drop(1)
+        _isStabilityActive.value = true
+        stabilityJob = scope.launch(Dispatchers.IO) {
+            try {
+                while (isActive) {
+                    val freq = getCurrentMaxFreq()
+                    _throttlingHistory.value = _throttlingHistory.value + (System.currentTimeMillis() to freq)
+                    if (_throttlingHistory.value.size > 100) {
+                        _throttlingHistory.value = _throttlingHistory.value.drop(1)
+                    }
+                    delay(2000)
                 }
-                delay(2000)
+            } finally {
+                _isStabilityActive.value = false
             }
         }
     }
@@ -82,6 +93,7 @@ class PerformanceRepository(private val context: Context) {
     fun stopStabilityTest() {
         stabilityJob?.cancel()
         stabilityJob = null
+        _isStabilityActive.value = false
     }
 
     private fun getCurrentMaxFreq(): Int {

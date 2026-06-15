@@ -127,5 +127,10 @@
 	{"id": "sm8735|sm8735p", "name": "8s Gen 4", "ddr": "5X", "tp": "4", "tm": "tn4p", "sddr":"_4x4800", "rel":"q2_25" },
 
 	{"id": "sm8850", "name": "8 Elite Gen 5", "ddr": "5X", "tp": "3", "tm": "tn3p", "sddr":"_4x5333", "rel":"q3_25" },
-	{"id": "sm8845", "name": "8 Gen 5", "ddr": "5X", "tp": "3", "tm": "tn3p", "sddr":"_4x4800", "rel":"q4_25" }
+	{"id": "sm8845", "name": "8 Gen 5", "ddr": "5X", "tp": "3", "tm": "tn3p", "sddr":"_4x4800", "rel":"q4_25" },
+	{"id": "sm6850", "name": "6 Gen 5", "tp": "4", "tm": "tn4", "ddr": "5/5X", "sddr": "5_2x3200", "rel": "q2_26"},
+	{"id": "sm4850", "name": "4 Gen 5", "tp": "4", "tm": "tn4", "ddr": "5X", "sddr": "5_2x3200", "rel": "q2_26"},
+	{"id": "iq9075", "name": "IQ-9075", "tp": "4", "tm": "tn4", "ddr": "5X", "sddr": "_4x4200", "rel": "q3_24"},
+	{"id": "q6690", "name": "Q-6690", "tp": "4", "tm": "tn4", "ddr": "5X", "sddr": "_4x4200", "rel": "q3_24"},
+	{"id": "qcm6490", "name": "QCM6490", "tp": "6", "tm": "tn6", "ddr": "4X", "sddr": "_2x2133", "rel": "q3_21"}
 ]

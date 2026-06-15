@@ -3,6 +3,7 @@ package com.example.relab_tool.ui
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.example.relab_tool.databinding.ItemBluetoothFeatureRowBinding
 import com.example.relab_tool.databinding.ItemBluetoothSectionHeaderBinding
@@ -18,12 +19,39 @@ class BluetoothFeaturesAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>()
     private val items = mutableListOf<Any>()
 
     fun submitData(featureGroups: List<com.example.relab_tool.model.BluetoothFeatureGroup>) {
-        items.clear()
+        val oldList = ArrayList(items)
+        val newList = mutableListOf<Any>()
         for (group in featureGroups) {
-            items.add(group.titleRes) // Header as resource ID
-            items.addAll(group.features) // Features
+            newList.add(group.titleRes)
+            newList.addAll(group.features)
         }
-        notifyDataSetChanged()
+
+        val diffResult = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize(): Int = oldList.size
+            override fun getNewListSize(): Int = newList.size
+
+            override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+                val oldItem = oldList[oldItemPosition]
+                val newItem = newList[newItemPosition]
+                return if (oldItem is Int && newItem is Int) {
+                    oldItem == newItem
+                } else if (oldItem is BluetoothFeature && newItem is BluetoothFeature) {
+                    oldItem.nameRes == newItem.nameRes
+                } else {
+                    false
+                }
+            }
+
+            override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+                val oldItem = oldList[oldItemPosition]
+                val newItem = newList[newItemPosition]
+                return oldItem == newItem
+            }
+        })
+
+        items.clear()
+        items.addAll(newList)
+        diffResult.dispatchUpdatesTo(this)
     }
 
     override fun getItemViewType(position: Int): Int {

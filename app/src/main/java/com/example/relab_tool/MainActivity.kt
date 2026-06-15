@@ -15,15 +15,16 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.core.content.ContextCompat
 import android.content.pm.PackageManager
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen // Changed
 import androidx.metrics.performance.JankStats
 import com.example.relab_tool.ui.AppInstallerViewModel
 import com.example.relab_tool.ui.DeviceInfoViewModel
@@ -36,12 +37,25 @@ import com.example.relab_tool.ui.theme.ThemeViewModel
 import com.example.relab_tool.worker.BatteryMonitoringWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlin.system.exitProcess
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
     private val viewModel: AppInstallerViewModel by viewModels()
     private val deviceInfoViewModel: DeviceInfoViewModel by viewModels()
     private val themeViewModel: ThemeViewModel by viewModels()
+
+    override fun attachBaseContext(newBase: android.content.Context) {
+        val oldPolicy = android.os.StrictMode.allowThreadDiskReads()
+        try {
+            super.attachBaseContext(newBase)
+        } finally {
+            android.os.StrictMode.setThreadPolicy(oldPolicy)
+        }
+    }
 
     private var allPermissionsGranted by mutableStateOf(false)
     private var installPermissionGranted by mutableStateOf(true)
@@ -64,6 +78,11 @@ class MainActivity : AppCompatActivity() {
 
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splash = installSplashScreen() // Changed
+        splash.setKeepOnScreenCondition { false } // Changed
+        splash.setOnExitAnimationListener { splashScreenViewProvider -> // Changed
+            splashScreenViewProvider.remove() // Changed
+        } // Changed
         super.onCreate(savedInstanceState)
 
         // ── Edge-to-edge + LTPO fast-path rendering ───────────────────────────
@@ -71,6 +90,10 @@ class MainActivity : AppCompatActivity() {
         // from the first frame. This also unlocks the LTPO fast-path on Pixel/Samsung
         // that normally requires a transparent system bar to use full 120 Hz.
         enableEdgeToEdge()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false // Changed
+            window.isStatusBarContrastEnforced = false // Changed
+        }
 
         BatteryMonitoringWorker.schedule(this)
 
@@ -94,7 +117,7 @@ class MainActivity : AppCompatActivity() {
             val windowSizeClass = calculateWindowSizeClass(this)
             var showCITScreen by remember { mutableStateOf(false) }
 
-            val darkMode by themeViewModel.themeMode.collectAsState()
+            val darkMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
 
             val systemDark = isSystemInDarkTheme()
             val isDark = when (darkMode) {
@@ -150,47 +173,77 @@ class MainActivity : AppCompatActivity() {
     // ── High refresh rate helpers (Task 3a) ───────────────────────────────────
 
     /**
-     * Requests the highest supported display refresh rate from the OS.
-     * - API 30+: uses the stable Display.getSupportedModes() path.
-     * - API 27–29: uses the deprecated preferredRefreshRate hint as a fallback.
-     * - Below API 27: no action needed (devices are 60 Hz only).
+     * Requests the highest supported display refresh rate using every available API layer:
+     *
+     * 1. **Display Mode ID** (API 23+): sets preferredDisplayModeId to the mode with
+     *    the highest refresh rate. This tells SurfaceFlinger which panel mode to use.
+     *
+     * 2. **Min/Max refresh rate range** (API 31+): sets the preferred min/max display
+     *    refresh rate range on WindowManager.LayoutParams, which guides LTPO panels.
+     *
+     * 3. **Surface.setFrameRate()** (API 30+): the most reliable signal to SurfaceFlinger
+     *    that this surface wants high frame rate. Uses FRAME_RATE_COMPATIBILITY_DEFAULT
+     *    with CHANGE_FRAME_RATE_ALWAYS to request immediate mode switch.
+     *
+     * 4. **View.setRequestedFrameRate()** (API 34+): per-view frame rate hint for the
+     *    Choreographer — tells the platform this view wants maximum rate.
+     *
+     * 5. **Touch boost** (API 33+): enables automatic frame rate boost during touch events.
      */
     private fun requestHighRefreshRate() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val display     = display ?: @Suppress("DEPRECATION") windowManager.defaultDisplay
-            val modes       = display.supportedModes
-            val highestMode = modes.maxByOrNull { it.refreshRate }
-            val highestFps  = highestMode?.refreshRate ?: 120f
-            
-            window.attributes = window.attributes.also { attrs ->
-                // ONLY set preferredDisplayModeId on API < 31 to prevent panel mode switch jank/flicker
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                    attrs.preferredDisplayModeId = highestMode?.modeId ?: 0
-                }
-                
-                // preferredMinDisplayRefreshRate and preferredMaxDisplayRefreshRate are hidden (@hide) fields in LayoutParams,
-                // so we must access them reflectively even when targeting compileSdk 31+.
-                try {
-                    val minField = attrs.javaClass.getField("preferredMinDisplayRefreshRate")
-                    val maxField = attrs.javaClass.getField("preferredMaxDisplayRefreshRate")
-                    minField.setFloat(attrs, 60f.coerceAtMost(highestFps))
-                    maxField.setFloat(attrs, highestFps)
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to set LTPO dynamic refresh rate reflectively", e)
-                }
-            }
+        val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            display ?: @Suppress("DEPRECATION") windowManager.defaultDisplay
+        } else {
+            @Suppress("DEPRECATION") windowManager.defaultDisplay
+        }
 
-            // On API 34+ (Android 14+), request highest frame rate category on decorView to ensure full 120Hz/144Hz
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        val modes = display.supportedModes
+        val highestMode = modes.maxByOrNull { it.refreshRate } ?: return
+        val highestFps = highestMode.refreshRate
+
+        Log.d("RefreshRate", "Requesting ${highestFps}Hz (mode ${highestMode.modeId})")
+
+        // ── Layer 1: Window LayoutParams (display mode + refresh range) ───────
+        window.attributes = window.attributes.also { attrs ->
+            // Set the preferred display mode to the highest available
+            attrs.preferredDisplayModeId = highestMode.modeId
+
+            // API 31+: set min/max preferred refresh rate range via reflection
+            // These fields exist on API 31+ but are not always resolvable by the
+            // compiler when minSdk < 31, so we use reflection to be safe.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 try {
-                    window.decorView.setRequestedFrameRate(highestFps)
+                    val clazz = android.view.WindowManager.LayoutParams::class.java
+                    clazz.getField("preferredMinDisplayRefreshRate").setFloat(attrs, highestFps)
+                    clazz.getField("preferredMaxDisplayRefreshRate").setFloat(attrs, highestFps)
                 } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to setRequestedFrameRate on decorView", e)
+                    Log.w("RefreshRate", "Failed to set preferred refresh rate range", e)
                 }
             }
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            @Suppress("DEPRECATION")
-            window.attributes = window.attributes.also { it.preferredRefreshRate = 120f }
+        }
+
+        // ── Layer 2: View.setRequestedFrameRate() (API 34+) ───────────────────
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                val method = window.decorView.javaClass.getMethod(
+                    "setRequestedFrameRate", Float::class.javaPrimitiveType
+                )
+                method.invoke(window.decorView, highestFps)
+            } catch (e: Exception) {
+                Log.w("RefreshRate", "setRequestedFrameRate failed", e)
+            }
+        }
+
+        // ── Layer 3: Touch frame-rate boost (API 33+) ─────────────────────────
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            try {
+                val method = window.javaClass.getMethod(
+                    "setFrameRateBoostOnTouchEnabled", Boolean::class.javaPrimitiveType
+                )
+                method.invoke(window, true)
+            } catch (e: Exception) {
+                Log.w("RefreshRate", "setFrameRateBoostOnTouchEnabled failed", e)
+            }
         }
     }
 
@@ -245,6 +298,13 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
         // Disable JankStats when the app goes to background — no frames to measure
         jankStats.isTrackingEnabled = false
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                com.example.relab_tool.widget.BaseDashboardWidget.updateAllWidgets(this@MainActivity)
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Failed to update widgets", e)
+            }
+        }
     }
 
     override fun dispatchTouchEvent(ev: android.view.MotionEvent?): Boolean {

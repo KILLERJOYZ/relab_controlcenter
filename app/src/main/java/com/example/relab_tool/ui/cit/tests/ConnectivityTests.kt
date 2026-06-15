@@ -94,12 +94,12 @@ fun BluetoothTest(onResult: (CITTestResult) -> Unit) {
     val enabledStr = stringResource(R.string.cit_bt_enabled)
 
     var info by remember { mutableStateOf(waitingStr) }
-    val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-    val bluetoothAdapter = bluetoothManager.adapter
+    val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+    val bluetoothAdapter = bluetoothManager?.adapter
 
     DisposableEffect(hasPermissions) {
         if (hasPermissions && bluetoothAdapter != null) {
-            info = if (!bluetoothAdapter.isEnabled) disabledStr else enabledStr
+            info = try { if (!bluetoothAdapter.isEnabled) disabledStr else enabledStr } catch (_: Throwable) { disabledStr }
         }
         onDispose { }
     }
@@ -133,8 +133,15 @@ fun GPSTest(onResult: (CITTestResult) -> Unit) {
             override fun onLocationResult(result: LocationResult) {
                 val loc = result.lastLocation
                 if (loc != null) {
-                    locationText = context.getString(R.string.cit_gps_location_format,
-                        loc.latitude, loc.longitude, loc.accuracy)
+                    val isImperial = com.example.relab_tool.utils.UnitFormatter.getMeasuringSystem(context) == "Imperial"
+                    locationText = if (isImperial) {
+                        val accuracyInFeet = loc.accuracy * 3.28084f
+                        context.getString(R.string.cit_gps_location_format_imperial,
+                            loc.latitude, loc.longitude, accuracyInFeet)
+                    } else {
+                        context.getString(R.string.cit_gps_location_format,
+                            loc.latitude, loc.longitude, loc.accuracy)
+                    }
                 }
             }
         }

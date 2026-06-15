@@ -1,6 +1,7 @@
 package com.example.relab_tool.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -10,6 +11,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -17,6 +20,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset // Changed
+import androidx.compose.foundation.Canvas // Changed
+import androidx.compose.ui.graphics.Path // Changed
+import androidx.compose.ui.graphics.drawscope.Stroke // Changed
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.StrokeCap
@@ -32,8 +39,24 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.relab_tool.ui.theme.DarkBackground
-import com.example.relab_tool.ui.theme.LightBackground
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
+import com.example.relab_tool.R
+import com.example.relab_tool.ui.theme.*
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.icons.outlined.Info
+
+interface CardInteractionHandler {
+    fun showCardInfo(cardId: String)
+    fun triggerLongPress(cardId: String)
+}
+
+val LocalCardInteractionHandler = staticCompositionLocalOf<CardInteractionHandler?> { null }
 
 // ── Contrast utility ────────────────────────────────────────────────────────
 // Picks white or black text to guarantee ≥ 4.5:1 WCAG contrast against [background].
@@ -83,18 +106,16 @@ fun contrastColor(background: Color): Color {
     return if (lum > 0.45f) Color(0xFF111111) else Color.White
 }
 
-// Dim variant for secondary labels — still readable at 70% alpha on any bg.
-@Composable
-private fun contrastColorSecondary(background: Color): Color {
-    return contrastColor(background).copy(alpha = 0.70f)
-}
-
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun InfoGroupCard(
     title: String,
     icon: ImageVector,
     containerColor: Color = MaterialTheme.colorScheme.surface,
     contentColor: Color = MaterialTheme.colorScheme.primary,
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    cardId: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
@@ -106,33 +127,128 @@ fun InfoGroupCard(
     val textOnBg = contrastColor(bg)
     // Preserve the hue of contentColor when it has good contrast; otherwise use safe default.
     val accentColor = if (containerColor == MaterialTheme.colorScheme.surface) contentColor else textOnBg
+    val handler = LocalCardInteractionHandler.current
+
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = androidx.compose.animation.core.spring(dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy),
+        label = "scale"
+    )
+
+    val cardModifier = modifier
+        .fillMaxWidth()
+        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .then(
+            if (onClick != null || (cardId != null && handler != null)) {
+                Modifier
+                    .clip(ShapeCard)
+                    .combinedClickable(
+                        interactionSource = interactionSource,
+                        indication = ripple(bounded = true),
+                        onClick = { onClick?.invoke() },
+                        onLongClick = {
+                            if (cardId != null && handler != null) {
+                                handler.triggerLongPress(cardId)
+                            }
+                        }
+                    )
+            } else {
+                Modifier
+            }
+        )
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        modifier = cardModifier,
+        shape = ShapeCard,
         colors = CardDefaults.cardColors(containerColor = bg),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, null, tint = accentColor, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = accentColor
-                )
+        Box(modifier = Modifier.fillMaxWidth()) {
+            if (cardId != null && handler != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                        .size(18.dp)
+                        .alpha(0.5f)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            handler.showCardInfo(cardId)
+                        }
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = "Info",
+                        tint = textOnBg,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            // Provide computed contrast colors down the tree via CompositionLocal
-            // so InfoRow children automatically get the right colors.
-            CompositionLocalProvider(
-                LocalContentColor provides contrastColor(bg)
-            ) {
-                content()
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(icon, null, tint = accentColor, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = accentColor,
+                        modifier = Modifier.padding(end = if (cardId != null) 24.dp else 0.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                // Provide computed contrast colors down the tree via CompositionLocal
+                // so InfoRow children automatically get the right colors.
+                CompositionLocalProvider(
+                    LocalContentColor provides contrastColor(bg)
+                ) {
+                    content()
+                }
             }
         }
+    }
+}
+@Composable
+fun translateValue(value: String): String {
+    return when (value.trim()) {
+        "Unknown" -> stringResource(R.string.unknown)
+        "Supported" -> stringResource(R.string.supported)
+        "Not supported", "Not Supported" -> stringResource(R.string.not_supported)
+        "Enabled" -> stringResource(R.string.enabled)
+        "Disabled" -> stringResource(R.string.disabled)
+        "Yes" -> stringResource(R.string.yes)
+        "No" -> stringResource(R.string.no)
+        "None", "none" -> stringResource(R.string.misc_none)
+        
+        "Charging" -> stringResource(R.string.status_charging)
+        "Discharging" -> stringResource(R.string.status_discharging)
+        "Full" -> stringResource(R.string.status_full)
+        "Not Charging", "Not charging" -> stringResource(R.string.status_not_charging)
+        
+        "Good" -> stringResource(R.string.health_good)
+        "Overheat" -> stringResource(R.string.health_overheat)
+        "Dead" -> stringResource(R.string.health_dead)
+        "Over Voltage", "Over voltage" -> stringResource(R.string.health_over_voltage)
+        "Cold" -> stringResource(R.string.health_cold)
+        
+        "Connected" -> stringResource(R.string.status_connected)
+        "Disconnected" -> stringResource(R.string.status_disconnected)
+        "Removable" -> stringResource(R.string.status_removable)
+        "Secondary" -> stringResource(R.string.status_secondary)
+        
+        "Encrypted" -> stringResource(R.string.status_encrypted)
+        "Not encrypted", "Not Encrypted" -> stringResource(R.string.status_not_encrypted)
+        "Rooted" -> stringResource(R.string.status_rooted)
+        "Not rooted", "Not Rooted" -> stringResource(R.string.status_not_rooted)
+        "Enforcing" -> stringResource(R.string.status_enforcing)
+        "Locked" -> stringResource(R.string.status_locked)
+        "Unlocked" -> stringResource(R.string.status_unlocked)
+        
+        else -> value
     }
 }
 
@@ -160,7 +276,7 @@ fun InfoRow(label: String, value: String, trailing: (@Composable () -> Unit)? = 
             }
         }
         Text(
-            value,
+            translateValue(value),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
             color = textColor,
@@ -170,6 +286,7 @@ fun InfoRow(label: String, value: String, trailing: (@Composable () -> Unit)? = 
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DashboardStatusCard(
     modifier: Modifier = Modifier,
@@ -182,8 +299,11 @@ fun DashboardStatusCard(
     progress: Float? = null,
     isCharging: Boolean = false,
     size: CardSize = CardSize.SIZE_2x2,
+    history: List<Float>? = null, // Changed
+    cardId: String? = null,
     onClick: (() -> Unit)? = null
 ) {
+    val localizedValue = translateValue(value)
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by androidx.compose.animation.core.animateFloatAsState(
@@ -195,182 +315,316 @@ fun DashboardStatusCard(
     val bg = containerColor.copy(alpha = 1f)
     // Always compute the highest-contrast text color for this background.
     val safeContent = contrastColor(bg)
+    val handler = LocalCardInteractionHandler.current
+
+    val chartPath = remember { Path() }
+    val chartFillPath = remember { Path() }
+
+    val maxWattage = remember(history) { (history?.maxOrNull() ?: 1f).coerceAtLeast(10f) }
+    val minWattage = remember(history) { (history?.minOrNull() ?: 0f).coerceAtMost(0f) }
+    val range = remember(maxWattage, minWattage) { (maxWattage - minWattage).coerceAtLeast(1f) }
 
     val cardContent: @Composable ColumnScope.() -> Unit = {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(bg)
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            when (size) {
-                CardSize.SIZE_1x1 -> {
+        Box(modifier = Modifier.fillMaxSize().background(bg)) { // Changed
+            if (cardId != null && handler != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(18.dp)
+                        .alpha(0.5f)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            handler.showCardInfo(cardId)
+                        }
+                ) {
                     Icon(
-                        icon,
-                        null,
-                        modifier = Modifier.size(24.dp),
-                        tint = safeContent.copy(alpha = 0.9f)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    AutoSizeText(
-                        text = value,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        textAlign = TextAlign.Center,
-                        color = safeContent,
-                        maxLines = 1
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = "Info",
+                        tint = safeContent,
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
-                CardSize.SIZE_2x1 -> {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+            }
+
+            if (history != null && history.isNotEmpty() && size >= CardSize.SIZE_2x2) { // Changed
+                val chartColor = safeContent.copy(alpha = 0.15f) // Changed
+                val lineColor = safeContent.copy(alpha = 0.35f) // Changed
+                Canvas( // Changed
+                    modifier = Modifier // Changed
+                        .fillMaxWidth() // Changed
+                        .height(if (size == CardSize.SIZE_4x4) 140.dp else 60.dp) // Changed
+                        .align(Alignment.BottomCenter) // Changed
+                ) { // Changed
+                    if (minWattage < 0) { // Changed
+                        val zeroY = this.size.height - ((0f - minWattage) / range * this.size.height) // Changed
+                        drawLine( // Changed
+                            color = safeContent.copy(alpha = 0.1f), // Changed
+                            start = Offset(0f, zeroY), // Changed
+                            end = Offset(this.size.width, zeroY), // Changed
+                            strokeWidth = 1.dp.toPx() // Changed
+                        ) // Changed
+                    } // Changed
+                    chartPath.reset()
+                    val stepX = if (history.size > 1) this.size.width / (history.size - 1) else this.size.width // Changed
+                    history.forEachIndexed { i, v -> // Changed
+                        val x = i * stepX // Changed
+                        val y = this.size.height - ((v - minWattage) / range * this.size.height) // Changed
+                        if (i == 0) chartPath.moveTo(x, y) else chartPath.lineTo(x, y) // Changed
+                    } // Changed
+                    if (history.size > 1) { // Changed
+                        chartFillPath.reset()
+                        chartFillPath.addPath(chartPath) // Changed
+                        chartFillPath.lineTo((history.size - 1) * stepX, this@Canvas.size.height) // Changed
+                        chartFillPath.lineTo(0f, this@Canvas.size.height) // Changed
+                        chartFillPath.close() // Changed
+                        drawPath(chartFillPath, chartColor) // Changed
+                        drawPath(chartPath, lineColor, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round)) // Changed
+                    } // Changed
+                } // Changed
+            } // Changed
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                when (size) {
+                    CardSize.SIZE_1x1 -> {
                         Icon(
                             icon,
                             null,
                             modifier = Modifier.size(24.dp),
                             tint = safeContent.copy(alpha = 0.9f)
                         )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = safeContent.copy(alpha = 0.7f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            if (isCharging) {
+                                Icon(
+                                    Icons.Default.Bolt,
+                                    null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = safeContent
+                                )
+                                Spacer(modifier = Modifier.width(2.dp))
+                            }
                             AutoSizeText(
-                                text = value,
-                                style = MaterialTheme.typography.bodyMedium,
+                                text = localizedValue,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Black,
+                                textAlign = TextAlign.Center,
                                 color = safeContent,
                                 maxLines = 1
                             )
                         }
                     }
-                }
-                CardSize.SIZE_2x2 -> {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            icon,
-                            null,
-                            modifier = Modifier.size(20.dp),
-                            tint = safeContent.copy(alpha = 0.9f)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                    CardSize.SIZE_2x1 -> {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                icon,
+                                null,
+                                modifier = Modifier.size(24.dp),
+                                tint = safeContent.copy(alpha = 0.9f)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = safeContent.copy(alpha = 0.7f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Start
+                                ) {
+                                    if (isCharging) {
+                                        Icon(
+                                            Icons.Default.Bolt,
+                                            null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = safeContent
+                                        )
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                    }
+                                    AutoSizeText(
+                                        text = localizedValue,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Black,
+                                        color = safeContent,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    CardSize.SIZE_2x2 -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                icon,
+                                null,
+                                modifier = Modifier.size(20.dp),
+                                tint = safeContent.copy(alpha = 0.9f)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = safeContent.copy(alpha = 0.85f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (isCharging) {
+                                Icon(
+                                    Icons.Default.Bolt,
+                                    null,
+                                    modifier = Modifier.size(28.dp),
+                                    tint = safeContent
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            AutoSizeText(
+                                text = localizedValue,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Black,
+                                textAlign = TextAlign.Center,
+                                color = safeContent,
+                                letterSpacing = (-0.5).sp,
+                                maxLines = 1
+                            )
+                        }
+                        if (progress != null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier
+                                    .fillMaxWidth(0.85f)
+                                    .height(8.dp)
+                                    .clip(CircleShape),
+                                color = safeContent,
+                                trackColor = safeContent.copy(alpha = 0.15f),
+                                strokeCap = StrokeCap.Round
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = title,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.ExtraBold,
+                            text = subtext,
+                            style = MaterialTheme.typography.labelSmall,
                             color = safeContent.copy(alpha = 0.85f),
-                            maxLines = 1,
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (isCharging) {
-                            Icon(
-                                Icons.Default.Bolt,
-                                null,
-                                modifier = Modifier.size(28.dp),
-                                tint = safeContent
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                        }
-                        AutoSizeText(
-                            text = value,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Black,
-                            textAlign = TextAlign.Center,
-                            color = safeContent,
-                            letterSpacing = (-0.5).sp,
-                            maxLines = 1
-                        )
-                    }
-                    if (progress != null) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier
-                                .fillMaxWidth(0.85f)
-                                .height(8.dp)
-                                .clip(CircleShape),
-                            color = safeContent,
-                            trackColor = safeContent.copy(alpha = 0.15f),
-                            strokeCap = StrokeCap.Round
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = subtext,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = safeContent.copy(alpha = 0.85f),
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                CardSize.SIZE_4x2, CardSize.SIZE_4x4 -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(icon, null, modifier = Modifier.size(24.dp), tint = safeContent)
+                    CardSize.SIZE_4x2, CardSize.SIZE_4x4 -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(icon, null, modifier = Modifier.size(24.dp), tint = safeContent.copy(alpha = 0.9f))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = safeContent)
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = safeContent.copy(alpha = 0.85f),
+                                textAlign = TextAlign.Center
+                            )
                         }
-                        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = safeContent)
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    if (progress != null) {
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(10.dp)
-                                .clip(CircleShape),
-                            color = safeContent,
-                            trackColor = safeContent.copy(alpha = 0.15f),
-                            strokeCap = StrokeCap.Round
-                        )
                         Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (isCharging) {
+                                Icon(
+                                    Icons.Default.Bolt,
+                                    null,
+                                    modifier = Modifier.size(28.dp),
+                                    tint = safeContent
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            AutoSizeText(
+                                text = localizedValue,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Black,
+                                color = safeContent,
+                                maxLines = 1,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                        if (progress != null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier
+                                    .fillMaxWidth(0.85f)
+                                    .height(10.dp)
+                                    .clip(CircleShape),
+                                color = safeContent,
+                                trackColor = safeContent.copy(alpha = 0.15f),
+                                strokeCap = StrokeCap.Round
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        } else {
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                        Text(
+                            text = subtext,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = safeContent.copy(alpha = 0.8f),
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
                     }
-                    Text(subtext, style = MaterialTheme.typography.bodyMedium, color = safeContent.copy(alpha = 0.8f), modifier = Modifier.fillMaxWidth())
                 }
             }
-        }
+        } // Changed
     }
 
     val cardModifier = modifier.fillMaxSize().graphicsLayer { scaleX = scale; scaleY = scale }
 
-    if (onClick != null) {
-        ElevatedCard(
-            onClick = onClick,
-            modifier = cardModifier,
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.elevatedCardColors(containerColor = bg, contentColor = safeContent),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-            interactionSource = interactionSource,
-            content = cardContent
-        )
-    } else {
-        ElevatedCard(
-            modifier = cardModifier,
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.elevatedCardColors(containerColor = bg, contentColor = safeContent),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-            content = cardContent
-        )
-    }
+    val finalModifier = cardModifier.then(
+        if (onClick != null || (cardId != null && handler != null)) {
+            Modifier.combinedClickable(
+                interactionSource = interactionSource,
+                indication = ripple(bounded = true),
+                onClick = { onClick?.invoke() },
+                onLongClick = {
+                    if (cardId != null && handler != null) {
+                        handler.triggerLongPress(cardId)
+                    }
+                }
+            )
+        } else Modifier
+    )
+
+    ElevatedCard(
+        modifier = finalModifier,
+        shape = ShapeCard,
+        colors = CardDefaults.elevatedCardColors(containerColor = bg, contentColor = safeContent),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        content = cardContent
+    )
 }
 
 @Composable
@@ -502,7 +756,7 @@ fun DashboardCounterCard(
         ElevatedCard(
             onClick = onClick,
             modifier = cardModifier,
-            shape = RoundedCornerShape(24.dp),
+            shape = ShapeCard,
             colors = CardDefaults.elevatedCardColors(containerColor = bg, contentColor = safeContent),
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
             interactionSource = interactionSource,
@@ -511,7 +765,7 @@ fun DashboardCounterCard(
     } else {
         ElevatedCard(
             modifier = cardModifier,
-            shape = RoundedCornerShape(24.dp),
+            shape = ShapeCard,
             colors = CardDefaults.elevatedCardColors(containerColor = bg, contentColor = safeContent),
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
             content = cardContent
@@ -531,25 +785,32 @@ fun DashboardFeatureCard(
     title: String,
     icon: ImageVector,
     isSupported: Boolean,
-    style: FeatureCardStyle = FeatureCardStyle.SQUARE
+    style: FeatureCardStyle = FeatureCardStyle.SQUARE,
+    dangerWhenActive: Boolean = false // Changed — when true and isSupported=true, card shows red (risk)
 ) {
-    val bg = (if (isSupported)
-        MaterialTheme.colorScheme.primaryContainer
-    else
-        MaterialTheme.colorScheme.surfaceVariant).copy(alpha = 1f)
+    val isDanger = dangerWhenActive && isSupported // Changed
+
+    val bg = when { // Changed
+        isDanger    -> MaterialTheme.colorScheme.errorContainer // Changed — red background when active risk
+        isSupported -> MaterialTheme.colorScheme.primaryContainer // Changed — green when supported/good
+        else        -> MaterialTheme.colorScheme.surfaceVariant  // Changed — gray when off/not supported
+    }.copy(alpha = 1f) // Changed
 
     // Guaranteed readable contrast on both light and dark palettes
     val safeContent = contrastColor(bg)
     val safeContentDim = safeContent.copy(alpha = if (isSupported) 0.9f else 0.55f)
-    val checkColor = if (isSupported) MaterialTheme.colorScheme.primary
-        .let { if (it.luminance() > 0.35f && bg.luminance() > 0.35f) Color(0xFF1A6B2B) else it }
-    else safeContentDim
+    val checkColor = when { // Changed
+        isDanger    -> MaterialTheme.colorScheme.error // Changed — red icon when active risk
+        isSupported -> MaterialTheme.colorScheme.primary
+            .let { if (it.luminance() > 0.35f && bg.luminance() > 0.35f) it.copy(red = it.red * 0.6f, green = it.green * 0.6f, blue = it.blue * 0.6f) else it }
+        else        -> safeContentDim
+    } // Changed
 
     when (style) {
         FeatureCardStyle.COMPACT_ROW -> {
             ElevatedCard(
                 modifier = modifier.height(24.dp),
-                shape = RoundedCornerShape(8.dp),
+                shape = ShapeSmall,
                 colors = CardDefaults.elevatedCardColors(containerColor = bg, contentColor = safeContent),
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp)
             ) {
@@ -586,7 +847,7 @@ fun DashboardFeatureCard(
         FeatureCardStyle.RECTANGLE -> {
             ElevatedCard(
                 modifier = modifier.height(40.dp),
-                shape = RoundedCornerShape(12.dp),
+                shape = ShapeMedium,
                 colors = CardDefaults.elevatedCardColors(containerColor = bg, contentColor = safeContent),
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp)
             ) {
@@ -623,7 +884,7 @@ fun DashboardFeatureCard(
         FeatureCardStyle.SQUARE -> {
             ElevatedCard(
                 modifier = modifier.aspectRatio(1f),
-                shape = RoundedCornerShape(24.dp),
+                shape = ShapeCard,
                 colors = CardDefaults.elevatedCardColors(containerColor = bg, contentColor = safeContent),
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp)
             ) {
@@ -681,7 +942,7 @@ fun DashboardSponsorCard(
     ElevatedCard(
         onClick = onClick,
         modifier = modifier.height(100.dp),
-        shape = RoundedCornerShape(24.dp),
+        shape = ShapeCard,
         colors = CardDefaults.elevatedCardColors(containerColor = bg, contentColor = safeContent),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp)
     ) {
@@ -716,7 +977,7 @@ fun BadgeTag(text: String, color: Color) {
     val bg = color.copy(alpha = 1f)
     Surface(
         color = bg,
-        shape = RoundedCornerShape(4.dp),
+        shape = ShapeExtraSmall,
         modifier = Modifier.padding(start = 4.dp)
     ) {
         Text(
@@ -728,3 +989,99 @@ fun BadgeTag(text: String, color: Color) {
         )
     }
 }
+
+@Composable
+fun HardwareCapabilityCard(
+    icon: ImageVector,
+    label: String,
+    isSupported: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val bg = if (isSupported) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+    
+    val contentColor = if (isSupported) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    
+    val iconTint = if (isSupported) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        contentColor.copy(alpha = 0.5f)
+    }
+    
+    Card(
+        modifier = modifier.aspectRatio(1f),
+        shape = ShapeExtraLarge,
+        colors = CardDefaults.cardColors(containerColor = bg)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(28.dp)
+                )
+                if (isSupported) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .background(color = MaterialTheme.colorScheme.primary, shape = CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f),
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 14.sp,
+                    lineHeight = 16.sp
+                ),
+                color = contentColor,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+

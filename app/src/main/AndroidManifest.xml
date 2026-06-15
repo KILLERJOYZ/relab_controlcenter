@@ -23,6 +23,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- Gaming mode keeps CPU active via partial WakeLock -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- CIT Tests Required Permissions -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -65,7 +67,6 @@
         <package android:name="com.microsoft.xboxone.smartglass" />
         <package android:name="com.huawei.maps.app" />
         <package android:name="com.xiaoji.egggame" />
-        <package android:name="com.pujie.scene" />
         <package android:name="eu.tsoml.graphicssettings" />
         <package android:name="com.aefyr.sai" />
         <package android:name="org.localsend.localsend_app" />
@@ -85,6 +86,7 @@
     <application
         android:name=".RelabApp"
         android:allowBackup="true"
+        android:hardwareAccelerated="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -93,15 +95,29 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:extractNativeLibs="false"
-        android:theme="@style/Theme.Relab_tool">
+        android:theme="@style/Theme.Relab_tool"
+        android:resizeableActivity="true">
+
+        <meta-data android:name="android.max_aspect" android:value="2.4" />
+        <!-- Tell the WindowManager this app prefers high refresh rate at all times.
+             Prevents LTPO panels from dropping to 60Hz during idle states. -->
+        <meta-data android:name="android.graphics.GAME_MODE_SUPPORTED" android:value="true" />
+        <!-- Samsung DeX: keep density consistent when entering desktop mode -->
+        <meta-data android:name="com.samsung.android.keepalive.density" android:value="true" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.Relab_tool">
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density"
+            android:preferMinimalPostProcessing="true"
+            android:resizeableActivity="true"
+            android:theme="@style/Theme.Relab_tool.Starting">
+            <layout
+                android:minHeight="400dp"
+                android:minWidth="320dp" /> <!-- Changed line -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
@@ -155,6 +171,60 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".worker.AssistiveTouchService"
+            android:exported="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+        </service>
+
+        <!-- App Widgets -->
+        <receiver android:name=".widget.DashboardWidget1x1"
+            android:exported="true"
+            android:label="Control Center 1x1">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_1x1" />
+        </receiver>
+
+        <receiver android:name=".widget.DashboardWidget2x2"
+            android:exported="true"
+            android:label="Control Center 2x2">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_2x2" />
+        </receiver>
+
+        <receiver android:name=".widget.DashboardWidget4x2"
+            android:exported="true"
+            android:label="Control Center 4x2">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_4x2" />
+        </receiver>
+
+        <receiver android:name=".widget.DashboardWidget4x4"
+            android:exported="true"
+            android:label="Control Center 4x4">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_4x4" />
         </receiver>
     </application>
 

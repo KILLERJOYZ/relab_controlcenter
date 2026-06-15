@@ -65,7 +65,7 @@ class StatusNotificationService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
         createNotificationChannel()
     }
 
@@ -156,9 +156,9 @@ class StatusNotificationService : Service() {
         }
 
         // RAM
-        val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
         val memoryInfo = ActivityManager.MemoryInfo()
-        activityManager.getMemoryInfo(memoryInfo)
+        activityManager?.getMemoryInfo(memoryInfo) ?: return DeviceStats(0, 0.0, 0.0, 0, 0.0, 0.0, 0, 0, 0, 0)
         val ramUsedBytes = memoryInfo.totalMem - memoryInfo.availMem
         val ramTotalGb = memoryInfo.totalMem / (1024.0 * 1024 * 1024)
         val ramUsedGb = ramUsedBytes / (1024.0 * 1024 * 1024)

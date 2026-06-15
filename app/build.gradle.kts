@@ -13,8 +13,8 @@ android {
         applicationId = "com.relab.controlcenter"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3"
+        versionCode = 4
+        versionName = "0.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -42,6 +42,7 @@ android {
     buildFeatures {
         compose = true
         viewBinding = true
+        buildConfig = true
     }
 
     // Compose compiler settings (Kotlin 2.0+ plugin block)
@@ -60,6 +61,19 @@ android {
         jniLibs {
             useLegacyPackaging = false
         }
+    }
+
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+            all {
+                it.useJUnitPlatform()
+            }
+        }
+    }
+
+    lint {
+        baseline = file("lint-baseline.xml")
     }
 }
 
@@ -83,6 +97,7 @@ dependencies {
     // AndroidX
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
+    implementation("androidx.core:core-splashscreen:1.0.1") // Changed line
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -134,6 +149,11 @@ dependencies {
 
     // Tests
     testImplementation(libs.junit)
+    testImplementation(libs.junit5.api)
+    testRuntimeOnly(libs.junit5.engine)
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.3")
+    testImplementation(libs.turbine)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

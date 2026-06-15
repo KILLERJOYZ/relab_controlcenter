@@ -15,6 +15,7 @@ import com.example.relab_tool.R
 import com.example.relab_tool.model.AppInfo
 import com.example.relab_tool.model.InstallationStatus
 import com.example.relab_tool.utils.NetworkUtils
+import com.example.relab_tool.data.ApkCrawler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import java.io.File
 
 class AppInstallerViewModel(application: Application) : AndroidViewModel(application) {
@@ -33,8 +37,9 @@ class AppInstallerViewModel(application: Application) : AndroidViewModel(applica
     private val _isLoaded = MutableStateFlow(false)
     val isLoaded: StateFlow<Boolean> = _isLoaded.asStateFlow()
 
-    private val downloadManager = application.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+    private val downloadManager = application.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
     private val packageManager = application.packageManager
+    private val crawler = ApkCrawler(application)
 
     private val downloadIds = mutableMapOf<Long, String>() // downloadId -> packageName
 
@@ -44,11 +49,11 @@ class AppInstallerViewModel(application: Application) : AndroidViewModel(applica
             val packageName = downloadIds[id] ?: return
             
             val query = DownloadManager.Query().setFilterById(id)
-            val cursor = downloadManager.query(query)
+            val cursor = downloadManager?.query(query) ?: return
             if (cursor.moveToFirst()) {
                 val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
                 if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                    val uri = downloadManager.getUriForDownloadedFile(id)
+                    val uri = downloadManager?.getUriForDownloadedFile(id)
                     if (uri != null) {
                         _apps.update { currentApps ->
                             currentApps.map { 
@@ -142,7 +147,7 @@ class AppInstallerViewModel(application: Application) : AndroidViewModel(applica
             AppInfo(nameRes = R.string.app_xbox, packageName = "com.microsoft.xboxone.smartglass", category = "Utilities", apkUrl = ""),
             AppInfo(nameRes = R.string.app_petal_maps, packageName = "com.huawei.maps.app", category = "Utilities", apkUrl = "https://appgallery.cloud.huawei.com/appdl/C102457337"), 
             AppInfo(nameRes = R.string.app_gamehub, packageName = "com.xiaoji.egggame", category = "Utilities", apkUrl = "https://d.apkpure.com/b/APK/com.xiaoji.egggame?version=latest"),
-            AppInfo(nameRes = R.string.app_scene, packageName = "com.pujie.scene", category = "Utilities", iconUrl = "res:ic_scene", apkUrl = "https://download.omarea.com/scene8/scene_8.3.7.apk"),
+            AppInfo(nameRes = R.string.app_scene, packageName = "com.omarea.vtools", category = "Utilities", apkUrl = "https://download.omarea.com/scene8/scene_8.3.7.apk"),
             AppInfo(nameRes = R.string.app_gfx_tool, packageName = "eu.tsoml.graphicssettings", category = "Utilities", apkUrl = "https://d.apkpure.com/b/APK/eu.tsoml.graphicssettings?version=latest"),
             AppInfo(nameRes = R.string.app_sai, packageName = "com.aefyr.sai", category = "Utilities", apkUrl = "https://github.com/Aefyr/SAI/releases/download/4.5/SAI-4.5.apk"),
             AppInfo(nameRes = R.string.app_localsend, packageName = "org.localsend.localsend_app", category = "Utilities", apkUrl = "https://github.com/localsend/localsend/releases/download/v1.17.0/LocalSend-1.17.0-android-arm64v8.apk"),
@@ -174,6 +179,26 @@ class AppInstallerViewModel(application: Application) : AndroidViewModel(applica
             }
             refreshStatuses()
             _isLoaded.value = true
+
+            // Fetch missing icons from internet (Google Play Store) in parallel
+            try {
+                coroutineScope {
+                    val currentList = _apps.value
+                    val updatedList = currentList.map { app ->
+                        async {
+                            if (app.iconUrl.isNullOrEmpty()) {
+                                val fetchedIcon = crawler.getAppIconUrl(app.packageName)
+                                if (fetchedIcon != null) {
+                                    app.copy(iconUrl = fetchedIcon)
+                                } else app
+                            } else app
+                        }
+                    }.awaitAll()
+                    _apps.value = updatedList
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AppInstaller", "Error fetching internet icons", e)
+            }
         }
         application.registerReceiver(onDownloadComplete, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), Context.RECEIVER_EXPORTED)
         
@@ -280,7 +305,8 @@ class AppInstallerViewModel(application: Application) : AndroidViewModel(applica
             .setAllowedOverRoaming(true)
             .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "${app.packageName}.apk")
 
-        val id = downloadManager.enqueue(request)
+        val dm = downloadManager ?: return
+        val id = dm.enqueue(request)
         downloadIds[id] = app.packageName
         
         _apps.update { currentApps ->
@@ -298,7 +324,7 @@ class AppInstallerViewModel(application: Application) : AndroidViewModel(applica
                 val downloadId = downloadIds.entries.find { it.value == app.packageName }?.key
                 if (downloadId != null) {
                     val query = DownloadManager.Query().setFilterById(downloadId)
-                    val cursor = downloadManager.query(query)
+                    val cursor = downloadManager?.query(query) ?: return@map app
                     if (cursor.moveToFirst()) {
                         val downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
                         val total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
@@ -325,6 +351,6 @@ class AppInstallerViewModel(application: Application) : AndroidViewModel(applica
 
     override fun onCleared() {
         super.onCleared()
-        getApplication<Application>().unregisterReceiver(onDownloadComplete)
+        try { getApplication<Application>().unregisterReceiver(onDownloadComplete) } catch (_: Throwable) {}
     }
 }

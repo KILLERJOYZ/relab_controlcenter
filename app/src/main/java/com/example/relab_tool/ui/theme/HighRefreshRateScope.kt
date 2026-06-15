@@ -1,24 +1,26 @@
 package com.example.relab_tool.ui.theme
 
 import android.os.Build
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalView
 
 /**
- * Wraps any high-motion surface (scrollable list, carousel, gesture surface,
- * animated transition) and requests the highest available frame rate category
+ * Wraps any composable subtree and requests the highest available frame rate
  * from the system while this composable is in the composition.
  *
- * On API 35+ (Android 15): uses View.frameRateCategory = FRAME_RATE_CATEGORY_HIGH,
- * which is the declarative, LTPO-aware approach — the platform picks the optimal
- * rate (up to 120 Hz) and drops back down automatically when idle.
+ * **API 34+ (Android 14):** uses `View.setRequestedFrameRate()` with the
+ * device's maximum refresh rate — the most direct, per-view signal to the platform.
  *
- * On API 31–34: no-op — MainActivity.requestHighRefreshRate() already sets the
- * preferred display mode at the window level via Display.getSupportedModes(), which
- * covers those versions adequately.
+ * **API 35+ (Android 15):** also sets `frameRateCategory = FRAME_RATE_CATEGORY_HIGH`
+ * which is the declarative, LTPO-aware approach. The platform picks the optimal
+ * rate (up to 120/144 Hz) and drops back automatically when idle.
  *
- * On API < 31: no-op.
+ * On API < 34: no-op — `MainActivity.requestHighRefreshRate()` sets the preferred
+ * display mode at the window level which is sufficient.
+ *
+ * All API calls use reflection to avoid compilation errors when minSdk < 34.
  *
  * Usage:
  *   HighRefreshRateScope {
@@ -27,19 +29,61 @@ import androidx.compose.ui.platform.LocalView
  */
 @Composable
 fun HighRefreshRateScope(content: @Composable () -> Unit) {
-    if (Build.VERSION.SDK_INT >= 35) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
         val view = LocalView.current
         DisposableEffect(view) {
-            // Using reflection to call setFrameRateCategory to avoid compilation issues
-            // (Unresolved reference) on environments where API 35 is not fully recognized.
-            val setFrameRateCategory = runCatching {
-                view.javaClass.getMethod("setFrameRateCategory", Int::class.javaPrimitiveType)
-            }.getOrNull()
+            val display = try {
+                view.display ?: view.context.display
+            } catch (_: Exception) {
+                null
+            }
+            val maxFps = display?.supportedModes
+                ?.maxByOrNull { it.refreshRate }?.refreshRate ?: 120f
 
-            setFrameRateCategory?.invoke(view, 2) // 2 = View.FRAME_RATE_CATEGORY_HIGH
+            // Layer 1: View.setRequestedFrameRate (API 34+)
+            try {
+                val method = view.javaClass.getMethod(
+                    "setRequestedFrameRate", Float::class.javaPrimitiveType
+                )
+                method.invoke(view, maxFps)
+            } catch (e: Exception) {
+                Log.w("HighRefreshRate", "setRequestedFrameRate failed", e)
+            }
+
+            // Layer 2: View.setFrameRateCategory (API 35+)
+            if (Build.VERSION.SDK_INT >= 35) {
+                try {
+                    val setCategory = view.javaClass.getMethod(
+                        "setFrameRateCategory", Int::class.javaPrimitiveType
+                    )
+                    // 4 = FRAME_RATE_CATEGORY_HIGH_HINT, fallback to 2 = FRAME_RATE_CATEGORY_HIGH
+                    try {
+                        setCategory.invoke(view, 4)
+                    } catch (_: Exception) {
+                        setCategory.invoke(view, 2)
+                    }
+                } catch (e: Exception) {
+                    Log.w("HighRefreshRate", "setFrameRateCategory failed", e)
+                }
+            }
 
             onDispose {
-                setFrameRateCategory?.invoke(view, 1) // 1 = View.FRAME_RATE_CATEGORY_NORMAL
+                // Reset to system default on dispose
+                try {
+                    val method = view.javaClass.getMethod(
+                        "setRequestedFrameRate", Float::class.javaPrimitiveType
+                    )
+                    method.invoke(view, 0f) // 0 = system default
+                } catch (_: Exception) {}
+
+                if (Build.VERSION.SDK_INT >= 35) {
+                    try {
+                        val setCategory = view.javaClass.getMethod(
+                            "setFrameRateCategory", Int::class.javaPrimitiveType
+                        )
+                        setCategory.invoke(view, 0) // 0 = FRAME_RATE_CATEGORY_DEFAULT
+                    } catch (_: Exception) {}
+                }
             }
         }
     }

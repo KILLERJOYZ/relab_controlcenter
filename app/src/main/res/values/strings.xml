@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Relab Control Center</string>
     <string name="nav_home">Home</string>
@@ -6,15 +7,12 @@
     <string name="nav_device_info">Device Info</string>
     <string name="nav_settings">Settings</string>
     <string name="tab_bluetooth">Bluetooth</string>
-
-
     <string name="app_hub_title">App Hub</string>
     <string name="updates">Updates</string>
     <string name="refresh">Refresh</string>
     <string name="up_to_date">Up to date</string>
     <string name="download">Download</string>
     <string name="update">Update</string>
-
     <string name="install_title">Install %1$s</string>
     <string name="install_choose_source">Choose an installation source:</string>
     <string name="install_apkpure">Install APK (APKPure)</string>
@@ -26,18 +24,15 @@
     <string name="install_all_pending">Install All Pending APKs</string>
     <string name="view_gallery">Gallery View</string>
     <string name="view_list">List View</string>
-
     <string name="cat_benchmark">Benchmark</string>
     <string name="cat_games">Games</string>
     <string name="cat_utilities">Utilities</string>
     <string name="cat_system">System Services</string>
     <string name="cat_social">Social &amp; Communication</string>
     <string name="cat_social_short">Social</string>
-
     <string name="status_installed">Installed</string>
     <string name="status_install_apk">Install APK</string>
     <string name="status_install">Install</string>
-
     <string name="tab_device">Device</string>
     <string name="tab_system">System</string>
     <string name="tab_soc">SoC</string>
@@ -53,7 +48,11 @@
     <string name="tab_thermal">Thermal</string>
     <string name="tab_sensors">Sensors</string>
     <string name="tab_apps">Apps</string>
-
+    <string name="tab_location">Location</string>
+    <string name="gps_status">GPS Status</string>
+    <string name="location_specs">Positioning Specs</string>
+    <string name="no_location_permission">Location permission is required to view GPS and positioning data.</string>
+    <string name="grant_permission">Grant Permission</string>
     <string name="drm_status">DRM Status</string>
     <string name="cpu_frequencies">CPU Core Frequencies</string>
     <string name="cpu_utilisation">CPU</string>
@@ -75,7 +74,6 @@
     <string name="unit_bps">%1$s/s</string>
     <string name="core_format">Core %1$d</string>
     <string name="offline">Offline</string>
-
     <string name="hardware_info">Hardware Info</string>
     <string name="resolution">Resolution</string>
     <string name="platform">Platform</string>
@@ -93,14 +91,12 @@
     <string name="wifi">Wi-Fi</string>
     <string name="sound">Sound</string>
     <string name="flash">Flash</string>
-
     <string name="system_identifiers">System Identifiers</string>
     <string name="android_id">Android ID</string>
     <string name="gsf_id">GSF ID</string>
     <string name="board">Board</string>
     <string name="hardware">Hardware</string>
     <string name="build">Build</string>
-
     <string name="brand">Brand</string>
     <string name="manufacturer">Manufacturer</string>
     <string name="model">Model</string>
@@ -133,7 +129,6 @@
     <string name="language">Language</string>
     <string name="timezone">Timezone</string>
     <string name="uptime">Uptime</string>
-
     <string name="cpu">CPU</string>
     <string name="vendor">Vendor</string>
     <string name="cores">Cores</string>
@@ -161,14 +156,12 @@
     <string name="gpu_extensions">Extensions</string>
     <string name="open_gl_es">OpenGL ES</string>
     <string name="vulkan_version">Vulkan</string>
-
     <string name="camera_permission_title">Camera</string>
     <string name="camera_permission_msg_1">- The app detects actual sensor resolution (before pixel binning) using the sensor database and Camera2 API.</string>
     <string name="camera_permission_msg_2">- Camera permission helps detect the sensor model and get more accurate resolution data.</string>
     <string name="allow">Allow</string>
     <string name="close">Close</string>
     <string name="no_cameras">No cameras detected or permission denied</string>
-
     <string name="phys_res">Physical resolution</string>
     <string name="binned_res">Binned resolution</string>
     <string name="binning_factor">Binning factor</string>
@@ -220,7 +213,6 @@
     <string name="hw_sensors">Hardware Sensors</string>
     <string name="supported_hw">Supported Camera hardware</string>
     <string name="camera_disclaimer">There will be inconsistency between sensor resolution here and actual resolution provided by manufacturers due to Android Camera2 API limitation. Check the manufacturer for more details.</string>
-
     <string name="health_specs">Health &amp; Specs</string>
     <string name="health">Health</string>
     <string name="capacity">Capacity</string>
@@ -228,12 +220,10 @@
     <string name="cycle_count">Cycle Count</string>
     <string name="battery_history_title">Battery Capacity History</string>
     <string name="charging_speed">Charging Speed</string>
-
     <string name="internal_storage">Internal Storage</string>
     <string name="external_storage">External Storage</string>
     <string name="used_format">Used: %1$s</string>
     <string name="total_format">Total: %1$s</string>
-
     <string name="connection">Connection</string>
     <string name="type">Type</string>
     <string name="ssid">SSID</string>
@@ -248,25 +238,27 @@
     <string name="connecting">Connecting</string>
     <string name="suspended">Suspended</string>
     <string name="no_network">No network connection detected</string>
-
     <string name="mime">Mime</string>
     <string name="vendor_id">Vendor ID</string>
     <string name="product_id">Product ID</string>
     <string name="class_label">Class</string>
     <string name="no_usb">No USB devices connected</string>
+    <string name="usb_connection_status">Connection Status</string>
+    <string name="usb_standard">USB Standard</string>
+    <string name="usb_otg_devices">OTG Connected Devices</string>
+    <string name="usb_video_output">Video Output</string>
+    <string name="usb_security">USB Security</string>
+    <string name="usb_no_otg_devices">No OTG devices connected</string>
     <string name="thermal_zones">Thermal Zones</string>
-
     <string name="check_updates">Check Updates on APKPure</string>
     <string name="tag_game">GAME</string>
     <string name="tag_system">SYSTEM</string>
     <string name="version">Version</string>
     <string name="target_sdk">Target SDK</string>
     <string name="update_apkpure">Update via APKPure</string>
-
     <string name="settings_language">Language</string>
     <string name="lang_english">English</string>
     <string name="lang_vietnamese">Vietnamese</string>
-
     <string name="permission_title">Permissions Required</string>
     <string name="permission_desc">To provide accurate device information, this app needs the following permissions:</string>
     <string name="perm_camera">Camera: To detect sensor model and physical resolution.</string>
@@ -278,7 +270,6 @@
     <string name="grant_permissions">Grant Permissions</string>
     <string name="exit_app">Exit</string>
     <string name="lang_system">System Default</string>
-
     <string name="usb_storage">USB Storage Support</string>
     <string name="usb_accessory">USB Accessory Support</string>
     <string name="iris_scanner">Iris Scanner</string>
@@ -288,20 +279,16 @@
     <string name="secure_nfc">Secure NFC Support</string>
     <string name="nfc_support">NFC Support</string>
     <string name="gps_support">GPS</string>
-
-    <!-- CIT Strings -->
     <string name="cit_fail">FAIL</string>
     <string name="cit_pass">PASS</string>
     <string name="cit_not_tested">NOT TESTED</string>
     <string name="cit_go_back">Go Back</string>
-
     <string name="hardware_button_test_title">Hardware Button Test</string>
     <string name="press_physical_buttons">Press Physical Buttons</string>
     <string name="power_button_detect_note">Note: Power button may not be detectable on all devices.</string>
     <string name="volume_up">Volume Up</string>
     <string name="volume_down">Volume Down</string>
     <string name="power_button">Power Button</string>
-
     <string name="accelerometer_test">Accelerometer Test</string>
     <string name="gyroscope_test">Gyroscope Test</string>
     <string name="proximity_test">Proximity Test</string>
@@ -315,32 +302,25 @@
     <string name="cover_sensor_instruction">Cover the sensor to see the value drop.</string>
     <string name="pressure_format">Pressure: %1$.1f hPa</string>
     <string name="sensor_not_available">Sensor not available on this device.</string>
-
     <string name="touchscreen_test_complete">Touchscreen Test Complete</string>
     <string name="perform_gestures_instruction">Perform the following gestures:</string>
-
     <string name="earpiece_test_title">Earpiece Test</string>
     <string name="earpiece_test_instruction">Hold the device to your ear. Do you hear a 440Hz tone?</string>
     <string name="loudspeaker_test_title">Loudspeaker Test</string>
     <string name="loudspeaker_test_instruction">Do you hear a loud 440Hz tone from the bottom speakers?</string>
-
     <string name="vibration_test_title">Vibration Test</string>
     <string name="trigger_vibration">TRIGGER VIBRATION</string>
     <string name="vibration_test_instruction">Did you feel the vibration?</string>
     <string name="ready_to_scan">Ready to scan</string>
     <string name="ready">Ready</string>
-
     <string name="front_camera_test">Front Camera Test</string>
     <string name="rear_camera_test">Rear Camera Test</string>
     <string name="camera_permission_required_msg">Camera permission required.</string>
     <string name="flashlight_test_title">Flashlight Test</string>
-
     <string name="tap_to_change_color">Tap to change color</string>
     <string name="lcd_test_complete">LCD Test Complete</string>
     <string name="display_test_instruction">Did all colors render correctly without dead pixels?</string>
-
     <string name="scanning_wifi">Scanning Wi-Fi...</string>
-
     <string name="cit_lcd_color_test">LCD Color Test</string>
     <string name="cit_brightness">Brightness</string>
     <string name="cit_touchscreen">Touchscreen</string>
@@ -359,11 +339,9 @@
     <string name="cit_device_info">Device Info</string>
     <string name="hardware_diagnostics">Hardware Diagnostics</string>
     <string name="back">Back</string>
-
     <string name="color_depth">Color Depth</string>
     <string name="fps_format">%.0f FPS</string>
     <string name="google_widevine">Google Widevine</string>
-
     <string name="time_to_full">Time to full</string>
     <string name="charged_format">Charged %1$d%%</string>
     <string name="calculating_charge_time">Calculating charge time…</string>
@@ -375,13 +353,11 @@
     <string name="source">Source</string>
     <string name="battery_wear">Battery Wear</string>
     <string name="actual_capacity">Actual Capacity</string>
-
     <string name="aspect_ratio">Aspect Ratio</string>
     <string name="ppi">PPI</string>
     <string name="supported_rates">Supported Rates</string>
     <string name="color_space">Color Space</string>
     <string name="orientation_label">Orientation</string>
-
     <string name="internal">Internal</string>
     <string name="external">External</string>
     <string name="ram_type_label">RAM Type</string>
@@ -395,8 +371,13 @@
     <string name="total_label">%1$s Total</string>
     <string name="used_label">%1$s Used</string>
     <string name="free_label">%1$s Free</string>
-
     <string name="wifi_standard">Standard</string>
+    <string name="wifi_4">Wi-Fi 4</string>
+    <string name="wifi_5">Wi-Fi 5</string>
+    <string name="wifi_6">Wi-Fi 6</string>
+    <string name="wifi_6e">Wi-Fi 6E</string>
+    <string name="wifi_7">Wi-Fi 7</string>
+    <string name="wifi_8">Wi-Fi 8</string>
     <string name="wifi_5ghz">5 GHz Support</string>
     <string name="wifi_6ghz">6 GHz Support</string>
     <string name="wifi_direct">Wi-Fi Direct</string>
@@ -408,7 +389,6 @@
     <string name="bandwidth">Bandwidth</string>
     <string name="signal_strength">Signal Strength</string>
     <string name="security_label">Security</string>
-
     <string name="network_operator">Network Operator</string>
     <string name="sim_operator_format">SIM %1$d Operator</string>
     <string name="cellular_details">Cellular Details</string>
@@ -420,26 +400,29 @@
     <string name="roaming_label">Roaming</string>
     <string name="enabled">Enabled</string>
     <string name="disabled">Disabled</string>
-
     <string name="search_device_info">Search Device Info</string>
     <string name="search_placeholder">Search parameters, hardware, sensors…</string>
     <string name="search_instruction">Type to search across all device specs</string>
     <string name="no_results_found">No results found for \"%1$s\"</string>
-
     <string name="settings_general">General</string>
+    <string name="settings_measuring_system">Measuring System</string>
+    <string name="measuring_system_metric_desc">Metric (Celsius, meters, kilometers)</string>
+    <string name="measuring_system_imperial_desc">Imperial (Fahrenheit, yards, miles)</string>
+    <string name="unit_metric">Metric</string>
+    <string name="unit_imperial">Imperial</string>
+    <string name="distance_format_imperial">Distance: %1$.1f in</string>
+    <string name="cit_gps_location_format_imperial">Lat: %1$.5f\nLon: %2$.5f\nAccuracy: %3$.1f ft</string>
     <string name="status_notification">Status Notification</string>
     <string name="status_notification_desc">Show live stats in notification center</string>
     <string name="settings_advanced">Advanced</string>
     <string name="cit_title">Hardware Diagnostics (CIT)</string>
     <string name="cit_desc">Run isolated hardware tests</string>
-
     <string name="high_refresh_support">High Refresh Support</string>
     <string name="wide_color_gamut">Wide Color Gamut</string>
     <string name="not_supported">Not Supported</string>
     <string name="supported">Supported</string>
     <string name="standard_rgb">Standard RGB</string>
     <string name="p3_display">P3 Display</string>
-
     <string name="unknown">Unknown</string>
     <string name="back_logical">BACK (Logical)</string>
     <string name="back_label">BACK</string>
@@ -450,31 +433,26 @@
     <string name="external_camera_label">EXTERNAL</string>
     <string name="none_label">none</string>
     <string name="na">N/A</string>
-
     <string name="sensor_x">X</string>
     <string name="sensor_y">Y</string>
     <string name="sensor_z">Z</string>
     <string name="sensor_values_format">X: %1$.2f\nY: %2$.2f\nZ: %3$.2f</string>
     <string name="gyro_values_format">X: %1$.2f rad/s\nY: %2$.2f rad/s\nZ: %3$.2f rad/s</string>
     <string name="mag_values_format">X: %1$.2f μT\nY: %2$.2f μT\nZ: %3$.2f μT</string>
-
     <string name="aperture_label">Aperture</string>
     <string name="focal_length_format">%1$.1f mm</string>
-
     <string name="downloading_format">Downloading %1$s</string>
     <string name="back_physical">BACK (Physical)</string>
     <string name="front_physical">FRONT (Physical)</string>
     <string name="actual_format">Actual: %1$.2f mm</string>
     <string name="equiv_35mm">35mm Equivalent</string>
     <string name="lens_opening">Lens Opening</string>
-
     <string name="mic_test_title">Microphone Test</string>
     <string name="mic_press_to_record">Press Start to Record (3s)</string>
     <string name="mic_recording">Recording… Speak now!</string>
     <string name="mic_playing">Playing back…</string>
     <string name="mic_start_test">Start Test</string>
     <string name="mic_hear_yourself">Did you hear yourself?</string>
-
     <string name="headphone_jack_test_title">Headphone Jack Test</string>
     <string name="headphone_plugged">PLUGGED IN</string>
     <string name="headphone_not_detected">NOT DETECTED</string>
@@ -510,7 +488,6 @@
     <string name="app_webview">Android System WebView</string>
     <string name="app_wechat">WeChat</string>
     <string name="app_qq">QQ</string>
-    <!-- Theme Settings -->
     <string name="settings_theme">Theme</string>
     <string name="theme_style">Color Palette</string>
     <string name="theme_follow_system">Follow System</string>
@@ -526,8 +503,6 @@
     <string name="theme_accessibility">Accessibility</string>
     <string name="theme_high_contrast">High Contrast</string>
     <string name="theme_high_contrast_desc">Increases text and border contrast for better readability</string>
-
-    <!-- Theme palette names -->
     <string name="palette_dynamic">Dynamic</string>
     <string name="palette_dynamic_desc">Material You</string>
     <string name="palette_ocean">Ocean</string>
@@ -542,8 +517,6 @@
     <string name="palette_mono_desc">Blue-Grey</string>
     <string name="palette_custom">Custom</string>
     <string name="palette_custom_desc">Pick a color</string>
-
-    <!-- Camera Capabilities -->
     <string name="cam_eis">EIS</string>
     <string name="cam_eis_desc">Electronic Image Stabilization</string>
     <string name="cam_ois_desc">Optical Image Stabilization</string>
@@ -559,8 +532,6 @@
     <string name="cam_burst_desc">Burst Capture</string>
     <string name="cam_multicam">Multi-Cam</string>
     <string name="cam_multicam_desc">Multi-Camera Support</string>
-
-    <!-- Camera Spec labels -->
     <string name="cam_core_capabilities">Core Capabilities</string>
     <string name="cam_technical_params">Technical Parameters</string>
     <string name="cam_supported_modes">Supported Modes</string>
@@ -593,12 +564,9 @@
     <string name="cam_mode_white_balance">White Balance</string>
     <string name="cam_mode_scene">Scene</string>
     <string name="cam_mode_focus">Focus</string>
-
-    <!-- Navigation / UI -->
     <string name="nav_back">Back</string>
     <string name="misc_available">Available</string>
     <string name="misc_none">None</string>
-    <!-- Search index labels -->
     <string name="android_version">Android Version</string>
     <string name="build_id">Build ID</string>
     <string name="security_patch">Security Patch</string>
@@ -619,7 +587,6 @@
     <string name="facebook_group">FB Group</string>
     <string name="youtube">YouTube</string>
     <string name="tiktok">TikTok</string>
-
     <string name="install_permission_title">Install Permission Required</string>
     <string name="install_permission_desc">To install applications from the App Hub, the app needs permission to install from unknown sources.</string>
     <string name="grant_install_permission">Grant Permission</string>
@@ -644,7 +611,6 @@
     <string name="status_charging">Charging</string>
     <string name="status_full">Full</string>
     <string name="status_not_charging">Not Charging</string>
-
     <string name="reading_battery">Reading battery…</string>
     <string name="level_label">Level: %1$d%%</string>
     <string name="status_label">Status: %1$s</string>
@@ -656,7 +622,6 @@
     <string name="auth_success">SUCCESS: Fingerprint recognized!</string>
     <string name="auth_failed">FAILED: Fingerprint not recognized</string>
     <string name="scan_fingerprint">SCAN FINGERPRINT</string>
-
     <string name="model_label">Model: %1$s</string>
     <string name="manufacturer_label">Manufacturer: %1$s</string>
     <string name="device_label">Device: %1$s</string>
@@ -665,7 +630,6 @@
     <string name="sdk_label">SDK: %1$s</string>
     <string name="hardware_label">Hardware: %1$s</string>
     <string name="board_label">Board: %1$s</string>
-
     <string name="health_good">Good</string>
     <string name="health_overheat">Overheat</string>
     <string name="health_dead">Dead</string>
@@ -703,10 +667,10 @@
     <string name="unit_min_sec_short">%1$ds</string>
     <string name="unit_bit">bit</string>
     <string name="unit_bit_suffix">-%1$s</string>
-    <string name="color_1_07_billion">1.07 Billion Colors</string>
-    <string name="color_1_07_billion_sim">1.07 Billion Colors (Simulated)</string>
-    <string name="color_16_7_million_p3">16.7 Million Colors (P3)</string>
-    <string name="color_16_7_million_srgb">16.7 Million Colors (SRGB)</string>
+    <string name="color_1_07_billion">1.07B (10-bit)</string>
+    <string name="color_1_07_billion_sim">1.07B (Simulated)</string>
+    <string name="color_16_7_million_p3">16.7M (DCI-P3)</string>
+    <string name="color_16_7_million_srgb">16.7M (sRGB)</string>
     <string name="bt_low_energy_supported">5.0+ (LE Supported)</string>
     <string name="sensor_frequency_format">%1$d Hz</string>
     <string name="unit_ma_short">%1$s mA</string>
@@ -726,21 +690,19 @@
     <string name="bt_feature_audio">LE Audio Support</string>
     <string name="bt_group_v4">Bluetooth 4 Features</string>
     <string name="bt_group_v5">Bluetooth 5 Features</string>
-
-    <!-- Camera Facing/Role -->
+    <string name="bt_tap_to_manage">Tap to open settings</string>
+    <string name="bt_device_name">Device Name</string>
+    <string name="bt_mac_address">MAC Address</string>
     <string name="facing_front">FRONT</string>
     <string name="facing_back">BACK</string>
     <string name="facing_external">EXTERNAL</string>
     <string name="facing_unknown">Unknown</string>
-
     <string name="role_front">Front</string>
     <string name="role_ultra_wide">Ultra Wide</string>
     <string name="role_wide">Wide</string>
     <string name="role_main">Main</string>
     <string name="role_telephoto">Telephoto</string>
     <string name="role_super_tele">Super Tele</string>
-
-    <!-- OS Names -->
     <string name="os_stock_android">Stock Android</string>
     <string name="os_one_ui">One UI</string>
     <string name="os_miui">MIUI</string>
@@ -774,7 +736,6 @@
     <string name="os_dotos">dotOS</string>
     <string name="os_paranoid_android">Paranoid Android</string>
     <string name="os_custom_ui">Custom UI</string>
-
     <string name="wifi_standard_default">802.11 b/a/g/n/ac/ax</string>
     <string name="apn_label">APN</string>
     <string name="cellular_perm_error">Cellular information requires Phone permission or hardware support.</string>
@@ -791,8 +752,6 @@
     <string name="notif_ram">💾 RAM</string>
     <string name="notif_disk">📁 Disk</string>
     <string name="notif_bat">🔋 Bat</string>
-
-    <!-- BenchmarksScreen -->
     <string name="bench_system_performance">System Performance</string>
     <string name="bench_realtime_overlay">Real-time Overlay</string>
     <string name="bench_overlay_desc">Show FPS/CPU/GPU over apps</string>
@@ -808,21 +767,15 @@
     <string name="bench_signal_format">Signal: %1$d dBm</string>
     <string name="bench_current_max_mhz">Current Max: %1$d MHz</string>
     <string name="bench_run">Run</string>
-
-    <!-- SettingsScreen — Reports section -->
     <string name="settings_reports">Reports &amp; Audits</string>
     <string name="settings_hardware_report">Hardware Audit Report</string>
     <string name="settings_hardware_report_desc">Generate a professional PDF of your device specs</string>
     <string name="settings_open_report">Open Report</string>
-
-    <!-- SettingsScreen — Root Tools section -->
     <string name="settings_root_tools">Root Tools (Power User)</string>
     <string name="settings_charge_limiter">Battery Charge Limiter</string>
     <string name="settings_charge_limit_format">Current Limit: %1$d%%</string>
     <string name="settings_cpu_governor">CPU Governor Tuner</string>
     <string name="settings_cpu_governor_desc">Switch to Performance profile</string>
-
-    <!-- ConnectivityTests -->
     <string name="cit_wifi_ssid_format">SSID: %1$s\nRSSI: %2$d dBm\nLink Speed: %3$d Mbps</string>
     <string name="cit_wifi_not_connected">Not connected to any Wi-Fi network.</string>
     <string name="cit_bt_waiting_permissions">Waiting for permissions…</string>
@@ -835,15 +788,85 @@
     <string name="cit_nfc_disabled">NFC is disabled in settings.</string>
     <string name="cit_nfc_detected_format">NFC Tag Detected!\nID: %1$s</string>
     <string name="cit_test_suffix"> Test</string>
-
-    <!-- TouchTests gestures -->
     <string name="gesture_swipe_up">Swipe Up</string>
     <string name="gesture_swipe_down">Swipe Down</string>
     <string name="gesture_swipe_left">Swipe Left</string>
     <string name="gesture_swipe_right">Swipe Right</string>
     <string name="gesture_pinch_zoom">Pinch/Zoom</string>
     <string name="touch_cells_format">%1$d / %2$d</string>
-
+    <string name="label_ram">RAM</string>
+    <string name="unit_mhz_label">MHz</string>
+    <string name="done">Done</string>
+    <string name="status_ok">OK</string>
+    <string name="smart_prefix">SMART: %1$s</string>
+    <string name="cpu_cluster_label">Cluster %1$d</string>
+    <string name="scheduler_label">Scheduler: %1$s</string>
+    <string name="governor_label">Governor: %1$s</string>
+    <string name="current_usage_format">Current: %1$d%%</string>
+    <string name="cpu_load_format">CPU Load: %1$d%%</string>
+    <string name="gpu_load_format">GPU Load: %1$d%%</string>
+    <string name="vulkan_support_yes">Vulkan Support: Yes</string>
+    <string name="free_ram_format">Free RAM: %1$d MB</string>
+    <string name="total_capacity_format">Total Capacity: %1$.1f GB</string>
+    <string name="status_stable">Status: Stable</string>
+    <string name="last_charge_full_format">Last charge to 100%%: %1$dh %2$dm ago</string>
+    <string name="stopped_charging_minutes_format">Stopped charging %1$d minutes ago</string>
+    <string name="stopped_charging_hours_format">Stopped charging %1$dh %2$dm ago</string>
+    <string name="total_data_points_format">Total data points: %1$d (~%2$.1f minutes)</string>
+    <string name="peak_speed_watt_format">%1$.2f W</string>
+    <string name="satellites_count_format">%1$d satellites</string>
+    <string name="satellite_compass_title">Satellite Compass</string>
+    <string name="satellite_lock_info">Satellite Lock Info</string>
+    <string name="satellite_compass_desc">Track position and lock best satellite in real-time</string>
+    <string name="countdown_refresh_format">Refresh: %1$d:%2$02d</string>
+    <string name="waiting_satellite_lock">Waiting for best satellite lock…</string>
+    <string name="searching_satellites">Searching for satellites…</string>
+    <string name="constellation_distribution">Constellation distribution:</string>
+    <string name="satellite_list">Satellite list:</string>
+    <string name="calibration_guide">Calibration Guide</string>
+    <string name="cn0_signal_ratio">C/N0 (Signal Ratio)</string>
+    <string name="satellite_label">Satellite</string>
+    <string name="azimuth_label">Azimuth</string>
+    <string name="elevation_label">Elevation</string>
+    <string name="relative_bearing_label">Relative Bearing</string>
+    <string name="latitude">Latitude</string>
+    <string name="longitude">Longitude</string>
+    <string name="altitude_wgs84">Altitude (WGS84)</string>
+    <string name="altitude_msl">Altitude MSL (Sea Level)</string>
+    <string name="speed">Speed</string>
+    <string name="hv_accuracy">H/V Accuracy</string>
+    <string name="satellite_count">Satellite Count</string>
+    <string name="location_provider">Provider</string>
+    <string name="total_satellites_detected">Total Satellites Detected</string>
+    <string name="satellites_used_in_fix">Satellites Used in Fix</string>
+    <string name="satellites_with_signal">Satellites with Signal (C/N0 &gt; 0)</string>
+    <string name="sat_col_id">ID</string>
+    <string name="sat_col_constellation">Constellation</string>
+    <string name="sat_col_cn0">C/N0</string>
+    <string name="sat_col_elevation">Elev</string>
+    <string name="sat_col_azimuth">Azim</string>
+    <string name="sat_col_used">Used</string>
+    <string name="constellation_beidou">BeiDou</string>
+    <string name="constellation_other">Other</string>
+    <string name="constellation_gps">GPS</string>
+    <string name="constellation_sbas">SBAS</string>
+    <string name="constellation_glonass">GLONASS</string>
+    <string name="constellation_qzss">QZSS</string>
+    <string name="constellation_galileo">Galileo</string>
+    <string name="constellation_irnss">IRNSS</string>
+    <string name="unit_db_hz">dB-Hz</string>
+    <string name="sat_used_in_fix_label">Used in fix</string>
+    <string name="sat_not_used_label">Not used</string>
+    <string name="turn_right">Turn right</string>
+    <string name="turn_left">Turn left</string>
+    <string name="turn_instruction_format">%1$s %2$d° · Look up %3$d°</string>
+    <string name="device_heading_label">Device Heading</string>
+    <string name="all_satellites_panel">All Satellites</string>
+    <string name="satellite_visible_count">%1$d visible</string>
+    <string name="satellite_used_count">%1$d used in fix</string>
+    <string name="cd_resize">Resize</string>
+    <string name="cd_open_compass">Open compass</string>
+    <string name="cd_countdown">Countdown</string>
     <string name="storage_smart_status">Storage S.M.A.R.T. Status</string>
     <string name="storage_healthy_operational">Healthy (Operational)</string>
     <string name="theme_dynamic_color">Dynamic Color</string>
@@ -869,6 +892,702 @@
     <string name="unit_lux">%1$.1f lux</string>
     <string name="unit_hpa">%1$.1f hPa</string>
     <string name="unit_v_precise">%1$.2f V</string>
+    <string name="tab_audio">Audio</string>
+    <string name="audio_low_latency">Low Latency Audio</string>
+    <string name="audio_pro">Professional Audio Support</string>
+    <string name="audio_midi">MIDI Support</string>
+    <string name="audio_unprocessed">Unprocessed Audio Source</string>
+    <string name="audio_output">Output</string>
+    <string name="audio_sample_rate">Sample Rate</string>
+    <string name="audio_buffer_size">Buffer Size</string>
+    <string name="audio_bit_depth">Bit Depth</string>
+    <string name="audio_output_route">Output Route</string>
+    <string name="audio_codecs">Audio Codecs</string>
+    <string name="video_codecs">Video Codecs</string>
+    <string name="audio_sample_rate_supported">Supported Sample Rates</string>
+    <string name="audio_latency_ms">Audio Latency</string>
+    <string name="audio_codec_supported">Supported Codecs</string>
+    <string name="audio_frames">%1$s frames</string>
+    <string name="audio_route_speaker">Speaker</string>
+    <string name="audio_route_headphones">Headphones</string>
+    <string name="audio_route_bluetooth">Bluetooth</string>
+    <string name="audio_route_usb">USB Audio</string>
+    <string name="tab_security">Security</string>
+    <string name="sec_overview">Security Overview</string>
+    <string name="sec_score">Security Score</string>
+    <string name="sec_status">Overall Status</string>
+    <string name="sec_status_good">Good</string>
+    <string name="sec_status_warning">Warning</string>
+    <string name="sec_status_danger">Danger</string>
+    <string name="sec_system_status">System Status</string>
+    <string name="sec_biometrics">Biometric Authentication</string>
+    <string name="sec_play_integrity">Play Integrity Status</string>
+    <string name="sec_encryption_storage">Encryption &amp; Storage</string>
+    <string name="sec_network_conn">Network &amp; Connection</string>
+    <string name="sec_perm_audit">Permission Audit</string>
+    <string name="sec_apps">Applications</string>
+    <string name="sec_meets_basic">Basic Integrity</string>
+    <string name="sec_meets_device">Device Integrity</string>
+    <string name="sec_meets_strong">Strong Integrity</string>
+    <string name="sec_failure_reason">Failure Reason</string>
+    <string name="sec_vpn_active">Active VPN</string>
+    <string name="sec_private_dns">Private DNS</string>
+    <string name="sec_wifi_mac_rand">WiFi MAC Randomization</string>
+    <string name="sec_cleartext_traffic">Cleartext Traffic (HTTP)</string>
+    <string name="sec_https_required">HTTPS Connections Enforced</string>
+    <string name="sec_keystore_type">Keystore Type</string>
+    <string name="sec_hw_keystore">Hardware-backed Keystore</string>
+    <string name="sec_encryption_alg">Encryption Algorithm</string>
+    <string name="sec_dev_options">Developer Options</string>
+    <string name="sec_adb_enabled">USB Debugging (ADB)</string>
+    <string name="sec_wireless_debugging">Wireless Debugging</string>
+    <string name="sec_unknown_sources">Unknown Source Apps</string>
+    <string name="sec_non_play_store">Non-Play Store Apps</string>
+    <string name="sec_apps_camera">Apps with Camera Access</string>
+    <string name="sec_apps_mic">Apps with Microphone Access</string>
+    <string name="sec_apps_location">Apps with Location Access</string>
+    <string name="sec_apps_contacts_sms">Apps with Contacts/SMS Access</string>
+    <string name="sec_accessibility_services">Active Accessibility Services</string>
+    <string name="sec_device_admins">Active Device Admins</string>
+    <string name="sec_system_alerts">Overlay Permission (Alert Window)</string>
+    <string name="sec_enforce">Enforcing</string>
+    <string name="sec_permissive">Permissive</string>
+    <string name="sec_locked">Locked</string>
+    <string name="sec_unlocked">Unlocked</string>
+    <string name="sec_verified_boot">Verified Boot Status</string>
+    <string name="sec_secure_enclave">Secure Enclave / StrongBox</string>
+    <string name="sec_updates">OS Update Features</string>
+    <string name="sec_treble">Project Treble</string>
+    <string name="sec_mainline">Project Mainline</string>
+    <string name="sec_dynamic_partitions">Dynamic Partitions</string>
+    <string name="sec_seamless_updates">Seamless Updates (A/B)</string>
+    <string name="sec_active_slot">Active Partition Slot</string>
+    <string name="sec_avb_version">AVB Version</string>
+    <string name="sec_avb_status">Verified Boot Status</string>
+    <string name="sec_dm_verity">dm-verity</string>
+    <string name="sec_root_access">Root Access</string>
+    <string name="sec_selinux">SELinux status</string>
+    <string name="sec_encryption">Encryption status</string>
+    <string name="sec_fingerprint_supp">Fingerprint support</string>
+    <string name="sec_face_supp">Face unlock support</string>
+    <string name="sec_iris_supp">Iris scanner support</string>
+    <string name="sec_biometric_class">Biometric Security Level</string>
+    <string name="sec_secure_enclave_strongbox">Secure Enclave / StrongBox</string>
+    <string name="cpu_cluster_prime">Prime</string>
+    <string name="cpu_cluster_gold">Gold</string>
+    <string name="cpu_cluster_silver">Silver</string>
+    <string name="cpu_cluster_core">Core</string>
+    <string name="cores_format">%1$d cores</string>
+    <string name="clusters_format">%1$d clusters</string>
+    <string name="cluster_single">1 cluster</string>
+    <string name="max_freq_format">Max Freq: %1$d MHz</string>
+    <string name="battery_level">Battery Level</string>
+    <string name="battery_status">Battery Status</string>
+    <string name="power_source">Power Source</string>
+    <string name="battery_temperature">Battery Temperature</string>
+    <string name="battery_wattage">Battery Wattage</string>
+    <string name="charge_counter">Charge Counter</string>
+    <string name="battery_voltage">Battery Voltage</string>
+    <string name="available_ram">Available RAM</string>
+    <string name="zram_total">zRAM Total</string>
+    <string name="zram_used">zRAM Used</string>
+    <string name="internal_free">Internal Free</string>
+    <string name="internal_used">Internal Used</string>
+    <string name="system_usage">System Usage</string>
+    <string name="apps_usage">Apps Usage</string>
+    <string name="highest_resolution">Highest Resolution</string>
+    <string name="x_dpi">X DPI</string>
+    <string name="y_dpi">Y DPI</string>
+    <string name="screen_timeout">Screen Timeout</string>
+    <string name="widevine_level">Widevine Level</string>
+    <string name="gpu_vendor">GPU Vendor</string>
+    <string name="gpu_architecture">GPU Architecture</string>
+    <string name="gpu_bus_width">GPU Bus Width</string>
+    <string name="gpu_clock_speed">GPU Clock Speed</string>
+    <string name="gpu_full_version">GPU Full Version</string>
+    <string name="instruction_sets">Instruction Sets</string>
+    <string name="cpu_big_little">big.LITTLE Architecture</string>
+    <string name="network_state">Network State</string>
+    <string name="network_connected">Connected</string>
+    <string name="wifi_channel">Channel</string>
+    <string name="wifi_bandwidth">Bandwidth</string>
+    <string name="mac_address">MAC Address</string>
+    <string name="wifi_p2p">Wi-Fi P2P</string>
+    <string name="wifi_hotspot">Mobile Hotspot</string>
+    <string name="cellular_state">Cellular State</string>
+    <string name="multi_sim">Multi-SIM Support</string>
+    <string name="phone_count">Phone Count</string>
+    <string name="device_type">Device Type</string>
+    <string name="cellular_operator">Operator</string>
+    <string name="cellular_interface">Interface</string>
+    <string name="usb_mode">USB Mode</string>
+    <string name="usb_version">USB Version</string>
+    <string name="connector_type">Connector Type</string>
+    <string name="max_bandwidth">Max Bandwidth</string>
+    <string name="otg_support">OTG Support</string>
+    <string name="host_mode">Host Mode</string>
+    <string name="displayport_alt">DisplayPort Alt Mode</string>
+    <string name="hdmi_alt">HDMI Alt Mode</string>
+    <string name="max_video_resolution">Max Video Resolution</string>
+    <string name="thunderbolt">Thunderbolt</string>
+    <string name="adb_status">ADB Status</string>
+    <string name="usb_tethering">USB Tethering</string>
+    <string name="restricted_usb">Restricted USB</string>
+    <string name="drm_description">Description</string>
+    <string name="max_hdcp_level">Max HDCP Level</string>
+    <string name="current_hdcp_level">Current HDCP Level</string>
+    <string name="drm_system_id">System ID</string>
+    <string name="bt_state">Bluetooth State</string>
+    <string name="bt_version">Bluetooth Version</string>
+    <string name="sensor_vendor">Sensor Vendor</string>
+    <string name="sensor_power">Sensor Power</string>
+    <string name="sensor_resolution">Sensor Resolution</string>
+    <string name="codec_name">Codec Name</string>
+    <string name="codec_mime_type">MIME Type</string>
+    <string name="codec_type">Codec Type</string>
+    <string name="thermal_zone">Thermal Zone</string>
+    <string-array name="synonyms_wifi">
+        <item>wifi</item>
+        <item>wi-fi</item>
+        <item>wlan</item>
+        <item>wireless</item>
+        <item>hotspot</item>
+    </string-array>
+    <string-array name="synonyms_cpu">
+        <item>cpu</item>
+        <item>processor</item>
+        <item>soc</item>
+        <item>chipset</item>
+        <item>snapdragon</item>
+        <item>mediatek</item>
+        <item>exynos</item>
+        <item>dimensity</item>
+        <item>tensor</item>
+        <item>kirin</item>
+    </string-array>
+    <string-array name="synonyms_display">
+        <item>display</item>
+        <item>screen</item>
+        <item>monitor</item>
+        <item>panel</item>
+        <item>lcd</item>
+        <item>oled</item>
+        <item>amoled</item>
+    </string-array>
+    <string-array name="synonyms_battery">
+        <item>battery</item>
+        <item>charging</item>
+        <item>power</item>
+        <item>watt</item>
+        <item>charge</item>
+    </string-array>
+    <string-array name="synonyms_memory">
+        <item>memory</item>
+        <item>ram</item>
+        <item>storage</item>
+        <item>disk</item>
+        <item>flash</item>
+        <item>ufs</item>
+        <item>emmc</item>
+    </string-array>
+    <string-array name="synonyms_camera">
+        <item>camera</item>
+        <item>lens</item>
+        <item>photo</item>
+        <item>megapixel</item>
+        <item>selfie</item>
+        <item>rear</item>
+        <item>front</item>
+    </string-array>
+    <string-array name="synonyms_bluetooth">
+        <item>bluetooth</item>
+        <item>bt</item>
+        <item>ble</item>
+        <item>wireless</item>
+    </string-array>
+    <string-array name="synonyms_network">
+        <item>network</item>
+        <item>cellular</item>
+        <item>mobile data</item>
+        <item>lte</item>
+        <item>5g</item>
+        <item>4g</item>
+        <item>sim</item>
+        <item>carrier</item>
+    </string-array>
+    <string-array name="synonyms_security">
+        <item>security</item>
+        <item>encryption</item>
+        <item>root</item>
+        <item>selinux</item>
+        <item>bootloader</item>
+        <item>safetynet</item>
+        <item>integrity</item>
+    </string-array>
+    <string-array name="synonyms_audio">
+        <item>audio</item>
+        <item>sound</item>
+        <item>speaker</item>
+        <item>music</item>
+        <item>codec</item>
+        <item>dolby</item>
+    </string-array>
+    <string-array name="synonyms_gpu">
+        <item>gpu</item>
+        <item>graphics</item>
+        <item>adreno</item>
+        <item>mali</item>
+        <item>immortalis</item>
+        <item>opengl</item>
+        <item>vulkan</item>
+    </string-array>
+    <string-array name="synonyms_sensor">
+        <item>sensor</item>
+        <item>accelerometer</item>
+        <item>gyroscope</item>
+        <item>proximity</item>
+        <item>barometer</item>
+        <item>compass</item>
+        <item>magnetometer</item>
+    </string-array>
+    <string-array name="synonyms_usb">
+        <item>usb</item>
+        <item>otg</item>
+        <item>type-c</item>
+        <item>thunderbolt</item>
+        <item>displayport</item>
+    </string-array>
+    <string name="android_version_format">Android %1$s</string>
+    <string name="version_label">Version</string>
+    <string name="ui_version_label">UI Version</string>
+    <string name="current_percent_format">Current: %1$d%%</string>
+    <string name="wattage_label">Wattage</string>
+    <string name="selinux_format">SELinux: %1$s\n%2$s: %3$s</string>
+    <string name="ppi_label">PPI</string>
+    <string name="partition_label">Partition</string>
+    <string name="channel_label">Channel</string>
+    <string name="vendor_label">Vendor</string>
+    <string name="sim_slot_format">SIM %1$d</string>
+    <string name="carrier_label">Carrier</string>
+    <string name="state_label">State</string>
+    <string name="cellular_requires_permission">Cellular information requires Phone permission or hardware support.</string>
+    <string name="pdop_label">PDOP</string>
+    <string name="ehv_dop_label">E H/V DOP</string>
+    <string name="constellation_beidou_en">BeiDou</string>
+    <string name="status_supported">Supported</string>
+    <string name="status_not_supported">Not Supported</string>
+    <string name="status_encrypted">Encrypted</string>
+    <string name="status_not_encrypted">Not encrypted</string>
+    <string name="status_rooted">Rooted</string>
+    <string name="status_not_rooted">Not rooted</string>
+    <string name="status_device_is_rooted">Device is rooted</string>
+    <string name="status_bootloader_unlocked">Bootloader is unlocked</string>
+    <string name="status_enforcing">Enforcing</string>
+    <string name="status_locked">Locked</string>
+    <string name="status_unlocked">Unlocked</string>
+    <string name="status_connected">Connected</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="status_removable">Removable</string>
+    <string name="status_secondary">Secondary</string>
+    <string name="status_single_sim">Single SIM</string>
+    <string name="external_drive">External Drive</string>
+    <string name="audio_speaker">Speaker</string>
+    <string name="audio_earpiece">Earpiece</string>
+    <string name="audio_headphones">Headphones</string>
+    <string name="audio_bluetooth">Bluetooth</string>
+    <string name="audio_usb">USB Audio</string>
+    <string name="audio_stereo">Stereo</string>
+    <string name="usb_class_interface_specific">Interface Specific</string>
+    <string name="usb_class_audio">Audio</string>
+    <string name="usb_class_communication">Communication</string>
+    <string name="usb_class_hid">HID (Human Interface Device)</string>
+    <string name="usb_class_physical">Physical</string>
+    <string name="usb_class_still_image">Still Image</string>
+    <string name="usb_class_printer">Printer</string>
+    <string name="usb_class_mass_storage">Mass Storage</string>
+    <string name="usb_class_hub">Hub</string>
+    <string name="usb_class_cdc_data">CDC Data</string>
+    <string name="usb_class_smart_card">Smart Card</string>
+    <string name="usb_class_content_security">Content Security</string>
+    <string name="usb_class_video">Video</string>
+    <string name="usb_class_wireless_controller">Wireless Controller</string>
+    <string name="usb_class_miscellaneous">Miscellaneous</string>
+    <string name="usb_class_app_specific">Application Specific</string>
+    <string name="usb_class_vendor_specific">Vendor Specific</string>
+    <string name="usb_class_unknown_format">Unknown (%1$d)</string>
+    <string name="cam_cap_manual_sensor">Manual Sensor</string>
+    <string name="cam_cap_manual_post">Manual Post-Processing</string>
+    <string name="cam_cap_raw">RAW</string>
+    <string name="cam_cap_burst">Burst</string>
+    <string name="cam_cap_logical_multi">Logical Multi-Camera</string>
+    <string name="cam_ae_off">Off</string>
+    <string name="cam_ae_auto">Auto</string>
+    <string name="cam_ae_auto_flash">Auto Flash</string>
+    <string name="cam_ae_always_flash">Always Flash</string>
+    <string name="cam_ae_redeye">Auto Flash Red-Eye</string>
+    <string name="cam_af_manual">Manual</string>
+    <string name="cam_af_auto">Auto</string>
+    <string name="cam_af_macro">Macro</string>
+    <string name="cam_af_continuous_video">Continuous Video</string>
+    <string name="cam_af_continuous_picture">Continuous Picture</string>
+    <string name="cam_af_edof">EDOF</string>
+    <string name="cam_awb_off">Off</string>
+    <string name="cam_awb_auto">Auto</string>
+    <string name="cam_awb_incandescent">Incandescent</string>
+    <string name="cam_awb_fluorescent">Fluorescent</string>
+    <string name="cam_awb_warm_fluorescent">Warm Fluorescent</string>
+    <string name="cam_awb_daylight">Daylight</string>
+    <string name="cam_awb_cloudy">Cloudy</string>
+    <string name="cam_awb_twilight">Twilight</string>
+    <string name="cam_awb_shade">Shade</string>
+    <string name="cam_scene_off">Off</string>
+    <string name="cam_scene_face_priority">Face Priority</string>
+    <string name="cam_scene_action">Action</string>
+    <string name="cam_scene_portrait">Portrait</string>
+    <string name="cam_scene_landscape">Landscape</string>
+    <string name="cam_scene_night">Night</string>
+    <string name="cam_scene_night_portrait">Night Portrait</string>
+    <string name="cam_scene_theatre">Theatre</string>
+    <string name="cam_scene_beach">Beach</string>
+    <string name="cam_scene_snow">Snow</string>
+    <string name="cam_scene_sunset">Sunset</string>
+    <string name="cam_scene_steady_photo">Steady Photo</string>
+    <string name="cam_scene_fireworks">Fireworks</string>
+    <string name="cam_scene_sports">Sports</string>
+    <string name="cam_scene_party">Party</string>
+    <string name="cam_scene_candlelight">Candlelight</string>
+    <string name="cam_scene_barcode">Barcode</string>
+    <string name="cam_scene_hdr">HDR</string>
+    <string name="cam_other">Other</string>
+    <string name="binning_full_readout">Full Readout</string>
+    <string name="binning_2x2">2×2 Binning</string>
+    <string name="binning_4x4">4×4 Binning</string>
+    <string name="binning_nona">Nona Binning</string>
+    <string name="cam_scene_disabled">Disabled</string>
+    <string name="cam_scene_high_speed_video">High Speed Video</string>
+    <string name="cam_af_off">Off</string>
+    <string name="cam_af_continuous_video_short">continuous-video</string>
+    <string name="cam_af_continuous_picture_short">continuous-picture</string>
+    <string name="cam_ae_auto_redeye">Auto Red-Eye</string>
+    <string name="power_source_wireless">Wireless</string>
+    <string name="power_source_battery">Battery</string>
+    <string name="focal_length_actual_format">Actual: %.2f mm</string>
+    <string name="at_title">AssistiveTouch</string>
+    <string name="at_desc">Floating shortcut button with quick actions</string>
+    <string name="at_accessibility_desc">Enables the AssistiveTouch floating button overlay for quick access to system actions like Home, Back, Screenshot, and more.</string>
+    <string name="at_settings_tools">Tools</string>
+    <string name="at_action_home">Home</string>
+    <string name="at_action_back">Back</string>
+    <string name="at_action_recents">Recents</string>
+    <string name="at_action_notifications">Notifications</string>
+    <string name="at_action_quick_settings">Quick Settings</string>
+    <string name="at_action_screenshot">Screenshot</string>
+    <string name="at_action_lock_screen">Lock Screen</string>
+    <string name="at_action_volume">Volume</string>
+    <string name="at_action_brightness">Brightness</string>
+    <string name="at_action_custom">Custom</string>
+    <string name="at_menu_items">Menu Items</string>
+    <string name="at_item_count">Number of Items</string>
+    <string name="at_active_actions">Active Actions</string>
+    <string name="at_available_actions">Available Actions</string>
+    <string name="at_appearance">Appearance</string>
+    <string name="at_button_size">Button Size</string>
+    <string name="at_button_color">Button Color</string>
+    <string name="at_size_small">Small</string>
+    <string name="at_size_medium">Medium</string>
+    <string name="at_size_large">Large</string>
+    <string name="at_custom_action">Custom Action</string>
+    <string name="at_select_app">Select App</string>
+    <string name="at_no_app_selected">No app selected</string>
+    <string name="at_add">Add</string>
+    <string name="at_remove">Remove</string>
+    <string name="at_configure">Configure</string>
+    <string name="at_enable_accessibility">Enable Accessibility Service</string>
+    <string name="at_accessibility_prompt">AssistiveTouch needs Accessibility Service permission to perform system actions like Home, Back, and Screenshot.\n\nPlease enable \"Relab Control Center\" in Accessibility settings.</string>
+    <string name="at_overlay_permission">Overlay Permission Required</string>
+    <string name="at_overlay_prompt">AssistiveTouch needs permission to display over other apps to show the floating button.</string>
+    <string name="at_open_settings">Open Settings</string>
+    <string name="thermal_status_format">Thermal Status: %1$s</string>
+    <string name="thermal_state_throttled">Throttled</string>
+    <string name="thermal_state_normal">Normal</string>
+    <string name="cpu_temperature">CPU Temperature</string>
+    <string name="by_cluster">By Cluster</string>
+    <string name="by_core">By Core</string>
+    <string name="cpu_cluster_prime_label">Prime</string>
+    <string name="cpu_cluster_performance_label">Performance</string>
+    <string name="cpu_cluster_efficiency_label">Efficiency</string>
+    <string name="core_index_format">Core %1$d</string>
+    <string name="gpu_frequency">GPU Frequency</string>
+    <string name="gpu_load">GPU Load</string>
+    <string name="gpu_memory_used">GPU Memory in Use</string>
+    <string name="gpu_temperature">GPU Temperature</string>
+    <string name="frame_rate">Frame Rate</string>
+    <string name="features_format">%1$d / %2$d Features</string>
+    <string name="settings_share_report_title">Share Hardware Report</string>
+    <string name="settings_generating_report">Generating PDF report, please wait...</string>
+    <string name="apps_total">Total Apps</string>
+    <string name="apps_installed">Installed Apps</string>
+    <string name="apps_system">System Apps</string>
+    <string name="filter_all">All</string>
+    <string name="filter_installed">Installed</string>
+    <string name="filter_system">System</string>
+    <string name="wireless_charging">Wireless Charging</string>
+    <string name="cpu_cores_detail">CPU Cores Details</string>
+
+    <!-- System Status & Camera Technical Specs Card Details -->
+    <string name="card_details_what_is_it">What is it?</string>
+    <string name="card_details_how_it_works">How it works</string>
+    <string name="card_details_why_it_matters">Why it matters</string>
+    <string name="card_sys_status_title">System Status</string>
+    <string name="card_sys_status_explanation">Displays critical system-level security parameters including root status, SELinux enforcement, storage encryption, bootloader lock status, and verity configurations.</string>
+    <string name="card_sys_status_how_it_works">Queries secure system properties, Android Keystore flags, kernel status nodes, and bootloader lock state APIs provided by the hardware abstraction layer.</string>
+    <string name="card_sys_status_why_it_matters">Ensures the integrity of the operating system. Unlocked bootloaders or active root access can make the device vulnerable to security threats and restrict payment applications.</string>
+    <string name="card_cam_specs_title">Technical Specs</string>
+    <string name="card_cam_specs_explanation">Detailed physical and optical characteristics of the camera hardware, such as image resolution, sensor size, pixel size, ISO range, shutter speeds, and crop factors.</string>
+    <string name="card_cam_specs_how_it_works">Queries camera hardware capabilities using the Android Camera2 API to read physical sensor dimensions, focus ranges, and supported exposure settings.</string>
+    <string name="card_cam_specs_why_it_matters">Helps photography enthusiasts understand the optical performance, light sensitivity, and capture capabilities of the lens and sensor combination.</string>
+
+    <string name="card_details_explanation_template">Displays details and status information about %1$s.</string>
+    <string name="card_details_how_it_works_template">Queries the Android operating system APIs, hardware properties, and system files for %1$s details.</string>
+    <string name="card_details_why_it_matters_template">Helps monitor %1$s specifications, verify configurations, and diagnose hardware health.</string>
+
+    <string name="card_explanation_device_model">Identifies the unique marketing name, hardware brand, and manufacturer of your device.</string>
+    <string name="card_how_it_works_device_model">Queries standard build properties configured by the device manufacturer.</string>
+    <string name="card_why_it_matters_device_model">Helps check device authenticity, look up manuals, or find compatible accessories.</string>
+    <string name="card_explanation_android_version">The current version of the Android operating system running on your phone.</string>
+    <string name="card_how_it_works_android_version">Retrieves the version release string from the Android system build properties.</string>
+    <string name="card_why_it_matters_android_version">Determines application compatibility and defines access to system features and security APIs.</string>
+    <string name="card_explanation_os_version">The custom user interface layer or skin configured by your phone manufacturer.</string>
+    <string name="card_how_it_works_os_version">Detects specific manufacturer build properties to determine custom UI versions.</string>
+    <string name="card_why_it_matters_os_version">Determines system UI themes, multitasking layouts, and pre-installed features.</string>
+    <string name="card_explanation_soc">The System-on-Chip containing CPU cores, graphics GPU, and memory controllers.</string>
+    <string name="card_how_it_works_soc">Reads internal kernel logs and hardware properties to identify the chipset model.</string>
+    <string name="card_why_it_matters_soc">The primary driver of computing speed, graphics performance, and battery efficiency.</string>
+    <string name="card_explanation_battery_main">Displays battery state of charge, capacity, health, and current power source.</string>
+    <string name="card_how_it_works_battery_main">Monitors voltage, temperature, and current from the battery controller using BatteryManager.</string>
+    <string name="card_why_it_matters_battery_main">Crucial to monitor battery capacity degradation, charging health, and optimize power savings.</string>
+
+    <string name="category_explanation_identity">Marketing name, manufacturer, brand, motherboard, and hardware identification parameters of the device.</string>
+    <string name="category_how_it_works_identity">Reads system build configuration values, manufacturer registries, and hardware identifier files.</string>
+    <string name="category_why_it_matters_identity">Essential for verifying device authenticity, matching accessories, and identifying specific hardware revisions.</string>
+    <string name="category_explanation_system">Android operating system properties, Linux kernel version, system build identifiers, and Google Play services availability.</string>
+    <string name="category_how_it_works_system">Queries the Linux system kernel info (/proc/version), build descriptors, and GMS package registries.</string>
+    <string name="category_why_it_matters_system">Determines app compatibility, software support lifecycle, runtime library versions, and overall system security features.</string>
+    <string name="category_explanation_ui">Custom user interface shell, software overlay, or launcher skin configured by the device manufacturer.</string>
+    <string name="category_how_it_works_ui">Detects custom OS framework build variables (e.g., One UI, HyperOS, ColorOS) from system properties.</string>
+    <string name="category_why_it_matters_ui">Controls custom multitasking options, user interface styling, navigation gestures, and custom vendor features.</string>
+    <string name="category_explanation_cpu">Processor architecture specifications, CPU core configurations, cluster frequencies, fabrication technology, and instruction sets.</string>
+    <string name="category_how_it_works_cpu">Parses processor register files (/proc/cpuinfo), reads core speed nodes, and queries supported ABI architectures.</string>
+    <string name="category_why_it_matters_cpu">Directly determines processing speeds, multitasking efficiency, thermal outputs, and app execution speed.</string>
+    <string name="category_explanation_gpu">Graphics processing hardware, GPU clock speeds, driver versions, and supported rendering capabilities like Vulkan and OpenGL.</string>
+    <string name="category_how_it_works_gpu">Queries OpenGL rendering context, Vulkan driver properties, and GPU load statistics from graphics controllers.</string>
+    <string name="category_why_it_matters_gpu">Controls 3D rendering speeds, gaming framerates, UI transitions, and video playback acceleration.</string>
+    <string name="category_explanation_display">Detailed display panel parameters, resolution grids, refresh frequencies, color depth bits, and density configuration specs.</string>
+    <string name="category_how_it_works_display">Queries WindowManager, active display frameworks, and graphics driver capabilities.</string>
+    <string name="category_why_it_matters_display">Influences screen sharpness, text readability, visual animation smoothness, color range accuracy, and battery consumption.</string>
+    <string name="category_explanation_memory">Volatile memory (RAM) capacity, zRAM swap space, internal storage partitions, block sizes, and filesystem formats (EXT4/F2FS).</string>
+    <string name="category_how_it_works_memory">Queries system memory info (/proc/meminfo), disk mounts, and block allocation tables.</string>
+    <string name="category_why_it_matters_memory">Determines how many apps can stay active in the background, file transfer speeds, and storage longevity.</string>
+    <string name="category_explanation_battery">Battery charge levels, chemical health metrics, current input voltages, charging wattage, temperatures, and power sources.</string>
+    <string name="category_how_it_works_battery">Monitors BatteryManager API and registers broadcast receivers for system power supply nodes.</string>
+    <string name="category_why_it_matters_battery">Crucial for preventing cell damage, checking charging efficiency, and monitoring lithium battery degradation over time.</string>
+    <string name="category_explanation_wifi">Wireless network card properties, local frequencies, router connection statistics, IP addressing, and DNS resolvers.</string>
+    <string name="category_how_it_works_wifi">Queries Android WifiManager and ConnectivityManager APIs to scan network states and DHCP info.</string>
+    <string name="category_why_it_matters_wifi">Determines local signal quality, local network throughput, IP configurations, and router connection speeds.</string>
+    <string name="category_explanation_bluetooth">Bluetooth adapter status, protocol versions, paired hardware lists, and active profile connections.</string>
+    <string name="category_how_it_works_bluetooth">Queries the local BluetoothAdapter system service to list capabilities, MAC addresses, and paired devices.</string>
+    <string name="category_why_it_matters_bluetooth">Manages short-range connections to wireless audio, wearables, keyboards, and file transfer services.</string>
+    <string name="category_explanation_cellular">Cellular modem parameters, SIM card registers, carrier networks, cell towers, roaming states, and mobile network bands.</string>
+    <string name="category_how_it_works_cellular">Queries the TelephonyManager API and reads system SIM slot information.</string>
+    <string name="category_why_it_matters_cellular">Determines mobile voice and data reception strength, APN profiles, carrier compatibility, and roaming registers.</string>
+    <string name="category_explanation_drm_codecs">Digital Rights Management licenses (Widevine levels) and hardware-accelerated media decoders and encoders.</string>
+    <string name="category_how_it_works_drm_codecs">Queries the MediaDrm system service and lists MediaCodec codec capabilities registered in the OS.</string>
+    <string name="category_why_it_matters_drm_codecs">Determines if your device supports high-definition streaming on Netflix/YouTube, and improves video playing efficiency.</string>
+    <string name="category_explanation_sensors">List of physical micro-sensors (accelerometer, gyroscope, light, pressure) and their polling frequencies.</string>
+    <string name="category_how_it_works_sensors">Queries Android SensorManager to retrieve all available hardware sensor devices.</string>
+    <string name="category_why_it_matters_sensors">Enables automatic screen rotation, activity tracking, compass orientation, and gaming motion controls.</string>
+    <string name="category_explanation_usb">USB controller configs, OTG host features, and currently connected external USB peripherals.</string>
+    <string name="category_how_it_works_usb">Interfaces with UsbManager service to query connected USB devices and class interfaces.</string>
+    <string name="category_why_it_matters_usb">Enables connecting external flash drives, mouse, keyboards, or accessories directly to the device.</string>
+    <string name="category_explanation_thermal">Real-time thermal sensor zone temperatures on the motherboard and major microchips.</string>
+    <string name="category_how_it_works_thermal">Reads temperature values from system thermal zone files in /sys/class/thermal.</string>
+    <string name="category_why_it_matters_thermal">Prevents hardware damage by triggering cooling throttles when CPU/GPU gets too hot.</string>
+    <string name="category_explanation_security">System security patches, root access flags, SELinux enforcement, storage encryption keys, and Play Integrity trust levels.</string>
+    <string name="category_how_it_works_security">Checks system binaries, reads SELinux context status, and performs Google Play Integrity checks.</string>
+    <string name="category_why_it_matters_security">Ensures operating system integrity, data safety, and prevents unauthorized access to user data.</string>
+    <string name="category_explanation_camera">Optical properties of camera lenses, aperture settings, sensor pixel sizes, video qualities, and shooting modes.</string>
+    <string name="category_how_it_works_camera">Queries Camera2 API for physical lens parameters and supported modes.</string>
+    <string name="category_why_it_matters_camera">Determines photo detail, low-light image quality, field of view, and video capabilities.</string>
+
+    <string name="card_explanation_cores">The number of independent physical processing units (cores) within the Central Processing Unit (CPU).</string>
+    <string name="card_how_it_works_cores">Reads active CPU core configurations from system kernel interface nodes (/sys/devices/system/cpu).</string>
+    <string name="card_why_it_matters_cores">More CPU cores allow the device to execute multiple applications and tasks concurrently, leading to better multi-threaded performance and multitasking.</string>
+    <string name="card_explanation_gpu">The Graphics Processing Unit, a dedicated hardware processor designed for rendering 3D graphics, user interface animations, and visual effects.</string>
+    <string name="card_how_it_works_gpu">Queries the active system OpenGL ES context and Vulkan driver properties to identify the exact GPU model.</string>
+    <string name="card_why_it_matters_gpu">A faster GPU handles gaming, UI animations, video rendering, and display refreshes smoother and more efficiently.</string>
+    <string name="card_explanation_battery_temp">The real-time internal temperature of the lithium battery cell, measured in Celsius or Fahrenheit.</string>
+    <string name="card_how_it_works_battery_temp">Monitors hardware thermistor sensors connected to the battery charging chip via the BatteryManager API.</string>
+    <string name="card_why_it_matters_battery_temp">Keeping battery temperature within safe limits prevents thermal runaway, charging issues, and long-term chemical capacity degradation.</string>
+    <string name="card_explanation_battery_wattage">The instantaneous power consumption or charging rate of the battery, measured in Watts (Voltage multiplied by Current).</string>
+    <string name="card_how_it_works_battery_wattage">Reads real-time battery voltage and current draw from the micro-fuel gauge chip via BatteryManager.</string>
+    <string name="card_why_it_matters_battery_wattage">Helps track active charging speeds, diagnostic power adapters, cable compatibility, and background power drain.</string>
+    <string name="card_explanation_battery_power">The current power source feeding energy to the device, such as AC charger, USB port, or wireless pad.</string>
+    <string name="card_how_it_works_battery_power">Retrieves the power source status broadcasted by the Android battery service framework.</string>
+    <string name="card_why_it_matters_battery_power">Helps diagnose charging issues and explains why charging might be slow on standard USB ports compared to fast wall chargers.</string>
+    <string name="card_explanation_battery_wireless">Indicates whether the battery is currently charging wirelessly via electromagnetic induction.</string>
+    <string name="card_how_it_works_battery_wireless">Detects if the wireless induction coil system is active and receiving power from a compatible transmitter pad.</string>
+    <string name="card_why_it_matters_battery_wireless">Wireless charging is convenient but slower and generates more heat than traditional wired charging methods.</string>
+    <string name="card_explanation_display_resolution">The total number of distinct pixels across the screen\'s width and height, representing detail capability.</string>
+    <string name="card_how_it_works_display_resolution">Queries the active WindowManager service for the physical pixel layout of the main display screen.</string>
+    <string name="card_why_it_matters_display_resolution">Higher resolutions render text, images, and games with greater sharpness and clarity, though they consume slightly more power.</string>
+    <string name="card_explanation_display_color_depth">The bit depth used to represent colors on the screen, typically 8-bit (16.7 million colors) or 10-bit (1.07 billion colors).</string>
+    <string name="card_how_it_works_display_color_depth">Reads the graphics frame buffer configurations and active display controller color profiles.</string>
+    <string name="card_why_it_matters_display_color_depth">Higher color depth reduces color banding, providing smoother gradients and more realistic media reproduction.</string>
+    <string name="card_explanation_display_refresh_rate">The number of times the screen redraws its image per second, measured in Hertz (Hz).</string>
+    <string name="card_how_it_works_display_refresh_rate">Queries the active Display system window configuration for current refresh rate frequencies.</string>
+    <string name="card_why_it_matters_display_refresh_rate">Higher refresh rates (e.g. 90Hz, 120Hz) make animations, list scrolling, and gaming look incredibly fluid and smooth.</string>
+    <string name="card_explanation_display_size">The diagonal measurement of the physical display panel, measured in inches from corner to corner.</string>
+    <string name="card_how_it_works_display_size">Calculates physical screen size using the screen\'s resolution and pixels-per-inch density metrics.</string>
+    <string name="card_why_it_matters_display_size">Determines the screen real estate, aspect ratio, hand usability, and display scaling configurations.</string>
+    <string name="card_explanation_display_gamut">The color space gamut support (like DCI-P3 or sRGB) indicating the range of colors the display panel can reproduce.</string>
+    <string name="card_how_it_works_display_gamut">Queries the display driver properties for wide color gamut capability flags.</string>
+    <string name="card_why_it_matters_display_gamut">A wider color gamut enables more vivid, lifelike colors, which is essential for accurate photo editing and HDR content.</string>
+    <string name="card_explanation_bluetooth_version">The core Bluetooth standard specification version supported by the device\'s wireless chipset.</string>
+    <string name="card_how_it_works_bluetooth_version">Queries the system Bluetooth manager service for hardware controller capabilities.</string>
+    <string name="card_why_it_matters_bluetooth_version">Newer Bluetooth versions (like 5.x) offer longer range, faster data transfers, and better battery efficiency for wireless audio.</string>
+    <string name="card_explanation_bluetooth_paired">The number and list of wireless accessories that have completed a secure pairing handshake with this device.</string>
+    <string name="card_how_it_works_bluetooth_paired">Queries the local Bluetooth adapter database for saved cryptographic pairing keys.</string>
+    <string name="card_why_it_matters_bluetooth_paired">Allows quick, secure connections to your audio equipment, smartwatches, and other accessories.</string>
+    <string name="card_explanation_bluetooth_connected">The list of Bluetooth devices that are currently active and transmitting or receiving data.</string>
+    <string name="card_how_it_works_bluetooth_connected">Queries active Bluetooth profiles (like A2DP audio or BLE) for established connections.</string>
+    <string name="card_why_it_matters_bluetooth_connected">Shows which specific speaker, headphone, or smartwatch is actively communicating with your phone.</string>
+    <string name="card_explanation_wifi_card">The wireless network interface card, showing connection details like frequency, RSSI, and protocol standard.</string>
+    <string name="card_how_it_works_wifi_card">Queries the system WifiManager service for connection details and receiver signal strength.</string>
+    <string name="card_why_it_matters_wifi_card">Helps diagnose signal strength issues, channel interference, and wireless network performance.</string>
+    <string name="card_explanation_cellular_card">The cellular modem status, including signal reception strength, network generation (4G/5G), and registration status.</string>
+    <string name="card_how_it_works_cellular_card">Reads signal information and registration states from the TelephonyManager service.</string>
+    <string name="card_why_it_matters_cellular_card">Essential for tracking mobile voice and data coverage, connection reliability, and cellular provider registration.</string>
+    <string name="card_explanation_apps_installed">The total count of user-installed and system applications loaded on the device.</string>
+    <string name="card_how_it_works_apps_installed">Queries the Android Package Manager to retrieve the list of all active packages.</string>
+    <string name="card_why_it_matters_apps_installed">Helps audit device storage footprint, background app load, and identify potential bloatware or malware.</string>
+    <string name="card_explanation_security_patch">The release date of the Google Android security patch level currently installed on the firmware.</string>
+    <string name="card_how_it_works_security_patch">Reads the security patch release version string from system build properties.</string>
+    <string name="card_why_it_matters_security_patch">Indicates the level of protection against known vulnerabilities, exploits, and security flaws.</string>
+    <string name="card_explanation_cameras_aperture">The size of the lens opening (f-number) which controls how much light reaches the camera sensor.</string>
+    <string name="card_how_it_works_cameras_aperture">Queries camera lens characteristics using the Android Camera2 API.</string>
+    <string name="card_why_it_matters_cameras_aperture">Wider apertures (lower f-number like f/1.8) let in more light for night photography and create a beautiful shallow depth of field (bokeh).</string>
+    <string name="card_explanation_cameras_focal">The focal length of the camera lens, determining the angle of view and magnification.</string>
+    <string name="card_how_it_works_cameras_focal">Queries physical lens specifications from the Camera2 characteristics database.</string>
+    <string name="card_why_it_matters_cameras_focal">Differentiates wide-angle lenses (short focal length) from telephoto lenses (long focal length) for zoom capability.</string>
+    <string name="card_explanation_cameras_pixel">The physical size of individual pixels on the image sensor, measured in micrometers (microns).</string>
+    <string name="card_how_it_works_cameras_pixel">Calculates pixel size using the camera\'s physical sensor dimensions and resolution grid.</string>
+    <string name="card_why_it_matters_cameras_pixel">Larger pixels capture more photons, resulting in significantly better low-light performance and less image noise.</string>
+    <string name="card_explanation_cameras_resolution">The maximum image resolution of the camera sensor, measured in Megapixels (MP).</string>
+    <string name="card_how_it_works_cameras_resolution">Reads the maximum image capture size configurations supported by the camera lens.</string>
+    <string name="card_why_it_matters_cameras_resolution">Higher resolutions capture finer details, allowing you to crop and enlarge photos without losing clarity.</string>
+    <string name="card_explanation_cameras_video">The maximum video recording resolution and framerate capability of the camera sensor.</string>
+    <string name="card_how_it_works_cameras_video">Queries supported video profiles and stream configurations from the Camera2 API.</string>
+    <string name="card_why_it_matters_cameras_video">Determines capability to capture ultra-high-definition video (like 4K or 8K) and high frame rates for slow motion.</string>
+    <string name="card_explanation_group_hardware_platform">The hardware board name and platform chipset identifier code name configured by the chip designer.</string>
+    <string name="card_how_it_works_group_hardware_platform">Queries system boot properties and kernel board variables (ro.board.platform).</string>
+    <string name="card_why_it_matters_group_hardware_platform">Helps developers identify the exact baseboard chipset for firmware updates and low-level customization.</string>
+    <string name="card_explanation_group_system">Detailed Android operating system configurations, including runtime, uptime, and library variables.</string>
+    <string name="card_how_it_works_group_system">Reads core system properties, Linux kernel version info, and runtime libraries.</string>
+    <string name="card_why_it_matters_group_system">Defines application compatibility, system lifecycle, runtime features, and basic OS configurations.</string>
+    <string name="card_explanation_group_build_details">The compilation descriptors, signature tags, and specific build version identifier of the ROM.</string>
+    <string name="card_how_it_works_group_build_details">Queries system properties configured by the build compiler (ro.build.display.id).</string>
+    <string name="card_why_it_matters_group_build_details">Crucial for identifying the exact firmware version, tracking updates, and debugging software bugs.</string>
+    <string name="card_explanation_group_screen">Overall display metric settings, density configurations, and layout scale factors.</string>
+    <string name="card_how_it_works_group_screen">Queries active window screen dimensions and density properties from resources config.</string>
+    <string name="card_why_it_matters_group_screen">Ensures the operating system scales UI buttons, text, and graphics properly across different physical display sizes.</string>
+    <string name="card_explanation_group_system_identifiers">Unique identifiers used to verify the specific device build and hardware authenticity.</string>
+    <string name="card_how_it_works_group_system_identifiers">Queries standard build serial codes and unique fingerprint strings defined in system build parameters.</string>
+    <string name="card_why_it_matters_group_system_identifiers">Used by system update servers to deliver correct OTA updates and verify Google service certification.</string>
+    <string name="card_explanation_group_miscellaneous">Various system statistics, including bootloader status, JVM runtime type, and uptime counter.</string>
+    <string name="card_how_it_works_group_miscellaneous">Queries system runtime properties and checks system clock boot parameters.</string>
+    <string name="card_why_it_matters_group_miscellaneous">Provides insights into the overall runtime stability, boot state, and system configurations.</string>
+    <string name="card_explanation_group_filesystem_details">The storage filesystem structures, partition formats, and block write configurations of the storage chip.</string>
+    <string name="card_how_it_works_group_filesystem_details">Reads storage mount registers and filesystems (like F2FS or EXT4) listed in the kernel mount tables.</string>
+    <string name="card_why_it_matters_group_filesystem_details">Different filesystems affect reading and writing speeds, application launching times, and long-term storage endurance.</string>
+    <string name="card_explanation_group_connection">The active network connectivity channels routing data traffic on the device.</string>
+    <string name="card_how_it_works_group_connection">Monitors the system network connectivity service for active routing interfaces.</string>
+    <string name="card_why_it_matters_group_connection">Shows how the system routes traffic, managing handoffs between mobile data and Wi-Fi to keep connections active.</string>
+    <string name="card_explanation_group_wifi_details">Advanced Wi-Fi connection configurations, local IP routing, and wireless chip parameters.</string>
+    <string name="card_how_it_works_group_wifi_details">Queries current Wi-Fi connection descriptors and network configuration files.</string>
+    <string name="card_why_it_matters_group_wifi_details">Useful for debugging network connection drops, verifying signal strength, and checking IP setup.</string>
+    <string name="card_explanation_group_wifi_dhcp">Dynamic Host Configuration Protocol lease settings, DNS servers, and network gateway addresses.</string>
+    <string name="card_how_it_works_group_wifi_dhcp">Reads active DHCP server allocations and DNS configurations from WifiManager.</string>
+    <string name="card_why_it_matters_group_wifi_dhcp">Diagnoses connection issues caused by IP conflicts, invalid routing gateways, or slow DNS resolvers.</string>
+    <string name="card_explanation_group_sim_status">SIM card status, including country codes, carrier locks, and subscription states.</string>
+    <string name="card_how_it_works_group_sim_status">Queries subscription info and slot status using TelephonyManager.</string>
+    <string name="card_why_it_matters_group_sim_status">Identifies if the SIM is registered correctly and helps troubleshoot mobile reception or activation issues.</string>
+    <string name="card_explanation_group_carrier_details">Mobile network operator name, country code, and network registration status.</string>
+    <string name="card_how_it_works_group_carrier_details">Reads network operator details from the active cell towers registered to the SIM.</string>
+    <string name="card_why_it_matters_group_carrier_details">Verifies which carrier network you are connected to and whether you are currently roaming.</string>
+    <string name="card_explanation_group_sec_biometrics">The security status of physical biometric unlock systems (fingerprint and facial recognition).</string>
+    <string name="card_how_it_works_group_sec_biometrics">Queries biometric hardware presence and enrollment status from the BiometricManager service.</string>
+    <string name="card_why_it_matters_group_sec_biometrics">Confirms that biometric locks are properly set up to protect your private data and secure banking apps.</string>
+    <string name="card_explanation_group_sec_play_integrity">Google Play Integrity status, verifying if the device runs a trusted, certified Android build.</string>
+    <string name="card_how_it_works_group_sec_play_integrity">Performs system checkups to verify if the OS integrity matches certified Google build records.</string>
+    <string name="card_why_it_matters_group_sec_play_integrity">Required by security-sensitive apps (like banking, streaming, and mobile payments) to protect against fraud.</string>
+    <string name="card_explanation_group_sec_encryption_storage">Shows the storage encryption state, securing files against physical data extraction.</string>
+    <string name="card_how_it_works_group_sec_encryption_storage">Queries the system storage manager to check if File-Based Encryption (FBE) is active.</string>
+    <string name="card_why_it_matters_group_sec_encryption_storage">Ensures that your personal data, passwords, and files remain completely private and secure even if the device is lost.</string>
+    <string name="card_explanation_group_sec_network_conn">The security status of active network connections, checking for VPN usage or customized secure DNS.</string>
+    <string name="card_how_it_works_group_sec_network_conn">Inspects active network interfaces and queries system DNS configuration rules.</string>
+    <string name="card_why_it_matters_group_sec_network_conn">Helps ensure that your network traffic is encrypted and protected against snooping on public networks.</string>
+    <string name="card_explanation_group_sec_perm_audit">An audit of apps granted highly sensitive system permissions, like Camera, Location, and Microphone.</string>
+    <string name="card_how_it_works_group_sec_perm_audit">Queries the system Package Manager to search for applications with active sensitive permissions.</string>
+    <string name="card_why_it_matters_group_sec_perm_audit">Allows you to easily review which applications have access to your private sensors, helping prevent privacy leaks.</string>
+    <string name="card_explanation_group_sec_apps">App security monitoring, tracking sideloaded apps and active device administrator applications.</string>
+    <string name="card_how_it_works_group_sec_apps">Scans package installers and lists applications registered as device administrators.</string>
+    <string name="card_why_it_matters_group_sec_apps">Allows you to review potential security threats from apps that bypass standard App stores or hold elevated system control.</string>
+    <string name="card_explanation_group_sec_dev_options">The status of Developer Options, USB Debugging (ADB), and bootloader lock settings.</string>
+    <string name="card_how_it_works_group_sec_dev_options">Reads system settings flags to verify developer mode configurations.</string>
+    <string name="card_why_it_matters_group_sec_dev_options">Enabling USB debugging allows command-line computer access to the device, which should be disabled for safety when not in use.</string>
+    <string name="card_explanation_group_health_specs">Battery design specs, charge cycle count, and calculated capacity state.</string>
+    <string name="card_how_it_works_group_health_specs">Reads the hardware fuel gauge\'s historical charge cycles and original capacity specs.</string>
+    <string name="card_why_it_matters_group_health_specs">Determines the battery health degradation by comparing current capacity to original specifications.</string>
+    <string name="card_explanation_group_tab_memory">Volatile Random Access Memory (RAM) specs and active zRAM swap storage utilization.</string>
+    <string name="card_how_it_works_group_tab_memory">Reads RAM variables from kernel memory allocation stats (/proc/meminfo).</string>
+    <string name="card_why_it_matters_group_tab_memory">Determines multitasking capability, indicating how many apps can stay active in the background without reloading.</string>
+    <string name="card_explanation_group_internal_storage">The hardware flash storage layout, total capacity, and active partition free space.</string>
+    <string name="card_how_it_works_group_internal_storage">Queries file system disk space properties for the user storage directory.</string>
+    <string name="card_why_it_matters_group_internal_storage">Indicates available space for photos, apps, and documents. Running out of space slows down the operating system.</string>
+    <string name="card_explanation_group_battery_history">Historical records of battery usage patterns, charge levels, and voltage profiles over time.</string>
+    <string name="card_how_it_works_group_battery_history">Collects battery status logs from system stats database registries.</string>
+    <string name="card_why_it_matters_group_battery_history">Helps identify which applications or hardware features are causing excessive battery drain.</string>
+    <string name="card_explanation_group_cpu">Detailed CPU architecture configuration, ABI support, and clock frequency bounds.</string>
+    <string name="card_how_it_works_group_cpu">Reads processor specifications and frequency settings from kernel parameters.</string>
+    <string name="card_why_it_matters_group_cpu">Shows the capabilities of the CPU chip, indicating which software instructions and architectures are natively supported.</string>
+    <string name="card_explanation_group_instructions">Supported instruction sets and CPU features (like NEON, AES encryption, SHA).</string>
+    <string name="card_how_it_works_group_instructions">Queries CPU feature register flags from the system hardware identification lists.</string>
+    <string name="card_why_it_matters_group_instructions">Enables faster video rendering, gaming physics, and cryptographic calculations through hardware acceleration.</string>
+    <string name="card_explanation_group_technology">The fabrication technology node (measured in nanometers) used to manufacture the chipset.</string>
+    <string name="card_how_it_works_group_technology">Queries board database specifications and chip hardware identifiers.</string>
+    <string name="card_why_it_matters_group_technology">Smaller fabrication nodes (like 4nm or 3nm) mean smaller transistors, which are significantly more energy-efficient and run cooler.</string>
+    <string name="card_explanation_group_bluetooth">Advanced Bluetooth profiles, supported services, and hardware adapter addresses.</string>
+    <string name="card_how_it_works_group_bluetooth">Queries the local Bluetooth controller services for active configuration profiles.</string>
+    <string name="card_why_it_matters_group_bluetooth">Determines which audio codecs, wireless controllers, and wearable data exchange features are supported.</string>
+    <string name="card_explanation_group_thermal">Motherboard thermal sensors monitoring real-time temperatures of critical components.</string>
+    <string name="card_how_it_works_group_thermal">Reads active sensor values from system thermal zone registries (/sys/class/thermal).</string>
+    <string name="card_why_it_matters_group_thermal">Helps prevent hardware damage by checking if the system is throttling performance to cool down overheating chips.</string>
+    <string name="card_explanation_group_sec_updates">Google Play system update levels and dynamic security component versions.</string>
+    <string name="card_how_it_works_group_sec_updates">Queries package manager updates for critical security framework libraries.</string>
+    <string name="card_why_it_matters_group_sec_updates">Enables critical security fixes to be installed directly from Google without requiring a full phone software update.</string>
+    <string name="card_explanation_group_drm">Digital Rights Management configurations, including Widevine certification levels.</string>
+    <string name="card_how_it_works_group_drm">Queries the MediaDrm API for Widevine DRM keys and security levels.</string>
+    <string name="card_why_it_matters_group_drm">Determines media streaming capabilities. Widevine L1 is required to play high-definition (HD) media in apps like Netflix.</string>
+    <string name="card_explanation_group_codecs">The list of hardware and software-based media encoders and decoders registered in the OS.</string>
+    <string name="card_how_it_works_group_codecs">Queries the system MediaCodecList database for supported audio and video formats.</string>
+    <string name="card_why_it_matters_group_codecs">Hardware codecs decode videos (like H.264 or AV1) with extremely low battery consumption, saving power during playback.</string>
+    <string name="card_explanation_group_usb">USB connection configurations, active controller settings, and connected peripherals.</string>
+    <string name="card_how_it_works_group_usb">Queries the system USB manager service for connected hardware interfaces.</string>
+    <string name="card_why_it_matters_group_usb">Enables using USB accessories (OTG) such as flash drives, mouse, keyboards, or MIDI tools.</string>
+    <string name="card_explanation_group_sensors">Complete inventory of physical sensors (gyroscope, accelerometer, barometer, light) available.</string>
+    <string name="card_how_it_works_group_sensors">Queries the Android SensorManager to retrieve descriptions of all registered sensors.</string>
+    <string name="card_why_it_matters_group_sensors">Allows applications to read movement, tilt, brightness, and atmospheric pressure for UI, gaming, and navigation.</string>
+    <string name="card_explanation_group_camera_modes">The camera software capabilities (HDR, Night Mode, Portrait, Burst) supported.</string>
+    <string name="card_how_it_works_group_camera_modes">Queries camera capabilities and shooting modes from the Camera2 characteristics.</string>
+    <string name="card_why_it_matters_group_camera_modes">Determines visual capture features, allowing the user to take advanced photographs under various lighting conditions.</string>
 </resources>
-
-

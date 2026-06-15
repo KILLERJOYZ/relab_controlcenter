@@ -225,15 +225,17 @@ fun HeadphoneTest(onResult: (CITTestResult) -> Unit) {
                 }
             }
         }
-        context.registerReceiver(receiver, IntentFilter(Intent.ACTION_HEADSET_PLUG))
+        ContextCompat.registerReceiver(context, receiver, IntentFilter(Intent.ACTION_HEADSET_PLUG), ContextCompat.RECEIVER_NOT_EXPORTED)
         
         // Initial check
-        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-        isPlugged = devices.any { it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET }
+        try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            isPlugged = devices.any { it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET }
+        } catch (_: Throwable) {}
 
         onDispose {
-            context.unregisterReceiver(receiver)
+            try { context.unregisterReceiver(receiver) } catch (_: Throwable) {}
         }
     }
 

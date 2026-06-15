@@ -29,34 +29,45 @@ import com.example.relab_tool.data.PerformanceRepository
 import com.example.relab_tool.data.TowerInfoProvider
 import com.example.relab_tool.utils.NetworkUtils
 import com.example.relab_tool.worker.PerformanceOverlayService
+import com.example.relab_tool.ui.theme.*
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
 fun BenchmarksScreen(
-    performanceRepository: PerformanceRepository,
-    towerInfoProvider: TowerInfoProvider
+    viewModel: PerformanceViewModel,
+    windowSizeClass: WindowSizeClass = WindowSizeClass.calculateFromSize(androidx.compose.ui.unit.DpSize(400.dp, 800.dp))
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val isWideScreen = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
     
     // Performance states
-    val isBenchmarking by performanceRepository.isBenchmarking.collectAsStateWithLifecycle()
-    val benchmarkResult by performanceRepository.benchmarkResult.collectAsStateWithLifecycle()
-    val throttlingHistory by performanceRepository.throttlingHistory.collectAsStateWithLifecycle()
+    val isBenchmarking by viewModel.performanceRepository.isBenchmarking.collectAsStateWithLifecycle()
+    val benchmarkResult by viewModel.performanceRepository.benchmarkResult.collectAsStateWithLifecycle()
+    val throttlingHistory by viewModel.performanceRepository.throttlingHistory.collectAsStateWithLifecycle()
     
-    var isOverlayActive by remember { mutableStateOf(false) }
-    var isStabilityActive by remember { mutableStateOf(false) }
+    val isOverlayActive by PerformanceOverlayService.isServiceRunningFlow.collectAsStateWithLifecycle()
+    val isStabilityActive by viewModel.performanceRepository.isStabilityActive.collectAsStateWithLifecycle()
 
     // Connectivity states
     var downloadSpeed by remember { mutableStateOf(0.0) }
     var testProgress by remember { mutableStateOf(0f) }
     var isTesting by remember { mutableStateOf(false) }
-    val towers = remember { towerInfoProvider.getTowerInfo() }
+    val towers by viewModel.towers.collectAsStateWithLifecycle()
+
+    val bottomContentPadding = if (isWideScreen) 16.dp else 100.dp
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().then(
+            if (isWideScreen) Modifier.widthIn(max = 840.dp) else Modifier
+        ),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = if (isWideScreen) Alignment.CenterHorizontally else Alignment.Start
     ) {
         // --- PERFORMANCE SECTION ---
         item {
@@ -64,7 +75,7 @@ fun BenchmarksScreen(
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = ShapeCard) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     // Overlay Toggle
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -78,14 +89,12 @@ fun BenchmarksScreen(
                                 if (active) {
                                     if (Settings.canDrawOverlays(context)) {
                                         context.startService(Intent(context, PerformanceOverlayService::class.java))
-                                        isOverlayActive = true
                                     } else {
                                         val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
                                         context.startActivity(intent)
                                     }
                                 } else {
                                     context.stopService(Intent(context, PerformanceOverlayService::class.java))
-                                    isOverlayActive = false
                                 }
                             }
                         )
@@ -100,8 +109,7 @@ fun BenchmarksScreen(
                         Switch(
                             checked = isStabilityActive,
                             onCheckedChange = { active ->
-                                isStabilityActive = active
-                                if (active) performanceRepository.startStabilityTest() else performanceRepository.stopStabilityTest()
+                                if (active) viewModel.startStabilityTest() else viewModel.stopStabilityTest()
                             }
                         )
                     }
@@ -111,7 +119,7 @@ fun BenchmarksScreen(
 
         if (throttlingHistory.isNotEmpty()) {
             item {
-                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                Card(modifier = Modifier.fillMaxWidth(), shape = ShapeCard) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         StabilityGraph(history = throttlingHistory)
                     }
@@ -120,20 +128,20 @@ fun BenchmarksScreen(
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = ShapeCard) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     BenchmarkItem(
                         title = stringResource(R.string.bench_cpu_test),
                         description = stringResource(R.string.bench_cpu_desc),
                         isLoading = isBenchmarking,
-                        onRun = { performanceRepository.runCpuBenchmark() }
+                        onRun = { viewModel.runCpuBenchmark() }
                     )
                     HorizontalDivider()
                     BenchmarkItem(
                         title = stringResource(R.string.bench_ram_test),
                         description = stringResource(R.string.bench_ram_desc),
                         isLoading = isBenchmarking,
-                        onRun = { performanceRepository.runRamBenchmark() }
+                        onRun = { viewModel.runRamBenchmark() }
                     )
                 }
             }
@@ -141,7 +149,7 @@ fun BenchmarksScreen(
 
         if (benchmarkResult != null) {
             item {
-                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                Card(modifier = Modifier.fillMaxWidth(), shape = ShapeCard, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
                     Text(text = benchmarkResult!!, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                 }
             }
@@ -154,7 +162,7 @@ fun BenchmarksScreen(
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = ShapeCard) {
                 Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = if (downloadSpeed > 0) "%.1f Mbps".format(downloadSpeed) else stringResource(R.string.ready),
@@ -194,7 +202,7 @@ fun BenchmarksScreen(
             
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = ShapeMedium,
                 colors = CardDefaults.cardColors(
                     containerColor = containerColor,
                     contentColor = contentColor
@@ -212,7 +220,7 @@ fun BenchmarksScreen(
             }
         }
         
-        item { Spacer(modifier = Modifier.height(100.dp)) }
+        item { Spacer(modifier = Modifier.height(bottomContentPadding)) }
     }
 }
 

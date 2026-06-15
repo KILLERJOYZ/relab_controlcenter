@@ -3,6 +3,7 @@ package com.example.relab_tool.model
 data class CameraSpec(
     val id: String,
     val facing: String,                  // "BACK (Logical)", "FRONT", "EXTERNAL"
+    val cameraRole: String,              // "Main", "Ultra Wide", "Telephoto", "Front", "Multi-Cam"
     val isLogical: Boolean,
 
     // Resolution block

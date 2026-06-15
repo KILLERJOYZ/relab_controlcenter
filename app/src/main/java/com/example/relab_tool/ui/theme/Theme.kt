@@ -10,6 +10,8 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.graphics.toColorInt
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 // ── Composition local for system reduced-motion flag ──────────────────────────
 
 /**
@@ -100,11 +102,11 @@ fun Relab_toolTheme(content: @Composable () -> Unit) {
     val systemDark   = isSystemInDarkTheme()
     val context      = LocalContext.current
 
-    val palette      by ThemeSettings.colorPalette.collectAsState()
-    val darkMode     by ThemeSettings.darkMode.collectAsState()
-    val highContrast by ThemeSettings.highContrast.collectAsState()
-    val accentIdx    by ThemeSettings.customAccentIndex.collectAsState()
-    val customHex    by ThemeSettings.customColorHex.collectAsState()
+    val palette      by ThemeSettings.colorPalette.collectAsStateWithLifecycle()
+    val darkMode     by ThemeSettings.darkMode.collectAsStateWithLifecycle()
+    val highContrast by ThemeSettings.highContrast.collectAsStateWithLifecycle()
+    val accentIdx    by ThemeSettings.customAccentIndex.collectAsStateWithLifecycle()
+    val customHex    by ThemeSettings.customColorHex.collectAsStateWithLifecycle()
 
     val isDark = when (darkMode) {
         DarkModeOption.FOLLOW_SYSTEM -> systemDark
@@ -215,7 +217,12 @@ fun Relab_toolTheme(content: @Composable () -> Unit) {
             colorScheme = colorScheme,
             shapes      = AppShapes,      // M3 Expressive shape tokens
             typography  = Typography,     // Full 15-role M3 Expressive type scale
-            content     = content,
-        )
+        ) {
+            // Apply high refresh rate hints at the root of the Compose tree
+            // so every screen benefits from maximum panel frame rate
+            HighRefreshRateScope {
+                content()
+            }
+        }
     }
 }

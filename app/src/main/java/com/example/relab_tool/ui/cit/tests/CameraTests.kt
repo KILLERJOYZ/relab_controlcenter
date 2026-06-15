@@ -103,15 +103,15 @@ fun CameraPreviewScreen(title: String, lensFacing: Int, onResult: (CITTestResult
 @Composable
 fun FlashlightTest(onResult: (CITTestResult) -> Unit) {
     val context = LocalContext.current
-    val cameraManager = remember { context.getSystemService(Context.CAMERA_SERVICE) as CameraManager }
+    val cameraManager = remember { context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager }
     var isOn by remember { mutableStateOf(false) }
     var cameraId by remember { mutableStateOf<String?>(null) }
     
     DisposableEffect(Unit) {
         try {
-            val list = cameraManager.cameraIdList
+            val list = cameraManager?.cameraIdList ?: emptyArray()
             for (id in list) {
-                val characteristics = cameraManager.getCameraCharacteristics(id)
+                val characteristics = cameraManager?.getCameraCharacteristics(id) ?: continue
                 val hasFlash = characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) ?: false
                 val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
                 if (hasFlash && facing == CameraCharacteristics.LENS_FACING_BACK) {
@@ -119,13 +119,13 @@ fun FlashlightTest(onResult: (CITTestResult) -> Unit) {
                     break
                 }
             }
-        } catch (e: Exception) { }
+        } catch (_: Throwable) { }
 
         onDispose {
             cameraId?.let { id ->
                 try {
-                    cameraManager.setTorchMode(id, false)
-                } catch (e: Exception) {}
+                    cameraManager?.setTorchMode(id, false)
+                } catch (_: Throwable) {}
             }
         }
     }
@@ -139,8 +139,8 @@ fun FlashlightTest(onResult: (CITTestResult) -> Unit) {
                     cameraId?.let { id ->
                         try {
                             isOn = !isOn
-                            cameraManager.setTorchMode(id, isOn)
-                        } catch (e: Exception) {}
+                            cameraManager?.setTorchMode(id, isOn)
+                        } catch (_: Throwable) {}
                     }
                 }
             ) {

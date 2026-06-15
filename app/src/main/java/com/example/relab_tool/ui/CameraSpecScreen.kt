@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -13,6 +11,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.automirrored.outlined.*
+import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
+import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.relab_tool.R
 import com.example.relab_tool.model.CameraSpec
 import java.util.*
@@ -40,8 +41,8 @@ import com.example.relab_tool.ui.DashboardStatusCard
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CameraSpecScreen(viewModel: CameraSpecViewModel) {
-    val cameraSpecs by viewModel.cameraSpecs.collectAsState()
-    val selectedIdx by viewModel.selectedCameraIndex.collectAsState()
+    val cameraSpecs by viewModel.cameraSpecs.collectAsStateWithLifecycle()
+    val selectedIdx by viewModel.selectedCameraIndex.collectAsStateWithLifecycle()
     
     CameraSpecContent(
         cameraSpecs = cameraSpecs,
@@ -75,88 +76,117 @@ fun CameraSpecContent(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CameraSelector(specs: List<CameraSpec>, selectedIdx: Int, onSelect: (Int) -> Unit) {
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        itemsIndexed(specs) { index, spec ->
-            val isSelected = index == selectedIdx
-            
-            // System color palette for selected, muted surface for others
-            val containerColor = if (isSelected) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            }
-            
-            val contentColor = if (isSelected) {
-                MaterialTheme.colorScheme.onPrimary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            }
-            
-            val accentColor = if (isSelected) {
-                MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
-            }
+    val carouselState = rememberCarouselState(initialItem = selectedIdx) { specs.size }
 
-            Card(
-                modifier = Modifier
-                    .width(220.dp)
-                    .height(130.dp)
-                    .clickable { onSelect(index) },
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = containerColor,
-                    contentColor = contentColor
-                ),
-                elevation = CardDefaults.cardElevation(if (isSelected) 8.dp else 0.dp)
+    @Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
+    val pagerState = carouselState.pagerState
+
+    LaunchedEffect(selectedIdx) {
+        if (pagerState.currentPage != selectedIdx) {
+            pagerState.animateScrollToPage(selectedIdx)
+        }
+    }
+
+    HorizontalMultiBrowseCarousel(
+        state = carouselState,
+        preferredItemWidth = 160.dp,
+        itemSpacing = 12.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(126.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp)
+    ) { index ->
+        val spec = specs[index]
+        val isSelected = index == selectedIdx
+        CameraRoleCard(
+            modifier = Modifier.maskClip(RoundedCornerShape(20.dp)),
+            spec = spec,
+            isSelected = isSelected,
+            onSelect = { onSelect(index) }
+        )
+    }
+}
+
+@Composable
+fun CameraRoleCard(
+    modifier: Modifier = Modifier,
+    spec: CameraSpec,
+    isSelected: Boolean,
+    onSelect: () -> Unit
+) {
+    val containerColor = if (isSelected)
+        MaterialTheme.colorScheme.primary
+    else
+        MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (isSelected)
+        MaterialTheme.colorScheme.onPrimary
+    else
+        MaterialTheme.colorScheme.onSurfaceVariant
+    val subColor = contentColor.copy(alpha = if (isSelected) 0.80f else 0.65f)
+
+    Card(
+        modifier = modifier
+            .height(110.dp)
+            .clickable { onSelect() },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = containerColor,
+            contentColor = contentColor
+        ),
+        elevation = CardDefaults.cardElevation(if (isSelected) 6.dp else 0.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize().padding(14.dp)) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
-                        Column {
-                            Text(
-                                text = "%.1f MP - %s".format(Locale.US, spec.physicalResolutionMp, spec.facing.substringBefore(" (")),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = contentColor
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = spec.binnedResolutionSize,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = accentColor,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        
-                        Text(
-                            text = spec.focalLength35mmEquiv?.let { stringResource(id = R.string.focal_length_format, it) } ?: stringResource(id = R.string.na),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = contentColor
+                // Top: role badge
+                Surface(
+                    color = contentColor.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = spec.cameraRole.uppercase(),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = contentColor,
+                        fontSize = 9.sp
+                    )
+                }
+                // Bottom: resolution + focal length
+                Column {
+                    Text(
+                        text = "%.1f MP".format(Locale.US, spec.physicalResolutionMp),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = contentColor
+                    )
+                    Text(
+                        text = spec.focalLength35mmEquiv?.let { "%.0f mm".format(Locale.US, it) } ?: spec.binnedResolutionSize,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = subColor,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            // Selected checkmark
+            if (isSelected) {
+                Surface(
+                    modifier = Modifier.align(Alignment.TopEnd).size(20.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(14.dp)
                         )
-                    }
-                    
-                    if (isSelected) {
-                        Surface(
-                            modifier = Modifier.align(Alignment.BottomEnd).size(24.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Default.Check,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
                     }
                 }
             }
@@ -164,18 +194,45 @@ fun CameraSelector(specs: List<CameraSpec>, selectedIdx: Int, onSelect: (Int) ->
     }
 }
 
+
 @Composable
 fun CameraDetails(camera: CameraSpec) {
+    val isWideScreen = LocalConfiguration.current.screenWidthDp > 600
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        item { MainHighlights(camera) }
-        item { CapabilitiesSection(camera) }
-        item { DetailedSpecSection(camera) }
-        item { CameraModesSection(camera) }
-        item { Camera2ApiLevelCard(camera.camera2ApiLevel) }
+        if (isWideScreen) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        MainHighlights(camera)
+                        CapabilitiesSection(camera)
+                        CameraModesSection(camera)
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        DetailedSpecSection(camera)
+                        Camera2ApiLevelCard(camera.camera2ApiLevel)
+                    }
+                }
+            }
+        } else {
+            item { MainHighlights(camera) }
+            item { CapabilitiesSection(camera) }
+            item { DetailedSpecSection(camera) }
+            item { CameraModesSection(camera) }
+            item { Camera2ApiLevelCard(camera.camera2ApiLevel) }
+        }
         item { Spacer(modifier = Modifier.height(40.dp)) }
     }
 }
@@ -184,31 +241,37 @@ fun CameraDetails(camera: CameraSpec) {
 fun MainHighlights(camera: CameraSpec) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         DashboardStatusCard(
-            modifier = Modifier.weight(1f).height(130.dp),
+            modifier = Modifier.weight(1f).height(160.dp),
             title = stringResource(id = R.string.aperture),
             icon = Icons.Outlined.BrightnessLow,
             value = camera.aperture?.let { "f/$it" } ?: stringResource(id = R.string.na),
             subtext = stringResource(R.string.cam_lens_opening),
             containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            size = CardSize.SIZE_2x2,
+            cardId = "cameras_aperture"
         )
         DashboardStatusCard(
-            modifier = Modifier.weight(1f).height(130.dp),
+            modifier = Modifier.weight(1f).height(160.dp),
             title = stringResource(id = R.string.focal_length),
             icon = Icons.Outlined.Straighten,
             value = camera.focalLength35mmEquiv?.let { stringResource(id = R.string.focal_length_format, it) } ?: stringResource(id = R.string.na),
-            subtext = camera.focalLengthMm?.let { "Actual: %.2f mm".format(Locale.US, it) } ?: stringResource(id = R.string.focal_length_35mm),
+            subtext = camera.focalLengthMm?.let { stringResource(id = R.string.focal_length_actual_format).format(Locale.US, it) } ?: stringResource(id = R.string.focal_length_35mm),
             containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f),
-            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            size = CardSize.SIZE_2x2,
+            cardId = "cameras_focal"
         )
         DashboardStatusCard(
-            modifier = Modifier.weight(1f).height(130.dp),
+            modifier = Modifier.weight(1f).height(160.dp),
             title = stringResource(R.string.cam_pixel_size),
             icon = Icons.Outlined.BlurOn,
             value = "%.2f µm".format(Locale.US, camera.pixelSizeUm),
             subtext = stringResource(R.string.cam_sensor_pixel),
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            size = CardSize.SIZE_2x2,
+            cardId = "cameras_pixel"
         )
     }
 }
@@ -220,22 +283,26 @@ fun CapabilitiesSection(camera: CameraSpec) {
         Spacer(modifier = Modifier.height(16.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             DashboardStatusCard(
-                modifier = Modifier.weight(1f).height(130.dp),
+                modifier = Modifier.weight(1f).height(160.dp),
                 title = stringResource(R.string.cam_resolution),
                 icon = Icons.Outlined.SensorWindow,
                 value = "%.1f MP".format(Locale.US, camera.physicalResolutionMp),
                 subtext = stringResource(R.string.cam_resolution_physical),
                 containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                size = CardSize.SIZE_2x2,
+                cardId = "cameras_resolution"
             )
             DashboardStatusCard(
-                modifier = Modifier.weight(1f).height(130.dp),
+                modifier = Modifier.weight(1f).height(160.dp),
                 title = stringResource(R.string.cam_video_quality),
                 icon = Icons.Outlined.Videocam,
                 value = camera.maxVideoResolution,
                 subtext = stringResource(R.string.cam_video_max),
                 containerColor = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.85f),
-                contentColor = MaterialTheme.colorScheme.inverseOnSurface
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                size = CardSize.SIZE_2x2,
+                cardId = "cameras_video"
             )
         }
         Spacer(modifier = Modifier.height(12.dp))
@@ -256,8 +323,6 @@ fun SectionHeader(title: String, icon: ImageVector) {
 
 @Composable
 fun CapabilityBadgeGrid(camera: CameraSpec) {
-    val isWideScreen = LocalConfiguration.current.screenWidthDp > 600
-    val cols = if (isWideScreen) 5 else 3
     val items = listOf(
         Triple(stringResource(R.string.cam_eis),      Icons.Outlined.VideoSettings,     camera.hasVideoStabilization),
         Triple(stringResource(R.string.ois),          Icons.Outlined.CenterFocusStrong,  camera.hasOis),
@@ -271,17 +336,17 @@ fun CapabilityBadgeGrid(camera: CameraSpec) {
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        items.chunked(cols).forEach { rowItems ->
+        items.chunked(3).forEach { rowItems ->
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 rowItems.forEach { (label, icon, supported) ->
-                    DashboardFeatureCard(
+                    HardwareCapabilityCard(
                         modifier = Modifier.weight(1f),
-                        title = label,
                         icon = icon,
+                        label = label,
                         isSupported = supported
                     )
                 }
-                repeat(cols - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
+                repeat(3 - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
             }
         }
     }
@@ -292,7 +357,8 @@ fun DetailedSpecSection(camera: CameraSpec) {
     InfoGroupCard(
         title = stringResource(R.string.cam_technical_params),
         icon = Icons.Outlined.Analytics,
-        containerColor = MaterialTheme.colorScheme.surfaceVariant
+        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        cardId = "group_camera_specs"
     ) {
         InfoRow(stringResource(R.string.cam_phys_resolution),   "%.1f MP".format(Locale.US, camera.physicalResolutionMp))
         InfoRow(stringResource(R.string.cam_binned_resolution), "%.1f MP".format(Locale.US, camera.binnedResolutionMp))
@@ -320,7 +386,8 @@ fun CameraModesSection(camera: CameraSpec) {
         InfoGroupCard(
             stringResource(R.string.cam_photography_exposure),
             Icons.Outlined.Exposure,
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            cardId = "group_camera_modes"
         ) {
             ModeGroup(stringResource(R.string.cam_mode_exposure),      camera.exposureModes,     Icons.Outlined.Exposure)
             Spacer(modifier = Modifier.height(24.dp))
@@ -414,6 +481,7 @@ fun CameraSpecScreenPreview() {
     val mockCamera = CameraSpec(
         id = "0",
         facing = "BACK (Logical)",
+        cameraRole = "Main",
         isLogical = true,
         physicalResolutionMp = 108.0f,
         binnedResolutionMp = 12.0f,
