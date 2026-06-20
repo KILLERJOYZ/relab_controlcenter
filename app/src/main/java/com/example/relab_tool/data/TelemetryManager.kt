@@ -29,7 +29,9 @@ object TelemetryManager {
         val cpuUsage: Int = 0,
         val gpuUsage: Int = 0,
         val fps: Float = 0f,
-        val temperature: String = "N/A"
+        val temperature: String = "N/A",
+        val diskRead: String = "0 B/s",
+        val diskWrite: String = "0 B/s"
     )
 
     private val _data = MutableStateFlow(TelemetryData())

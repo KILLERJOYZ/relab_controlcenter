@@ -73,12 +73,6 @@ fun PermissionScreen(
             )
             
             Spacer(modifier = Modifier.height(16.dp))
-            
-            PermissionItem(
-                icon = Icons.Default.LocationOn,
-                text = stringResource(R.string.perm_location)
-            )
-            
             Spacer(modifier = Modifier.height(16.dp))
             
             PermissionItem(

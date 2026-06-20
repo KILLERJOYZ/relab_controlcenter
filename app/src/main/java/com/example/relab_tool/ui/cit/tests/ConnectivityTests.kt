@@ -6,6 +6,9 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.nfc.NfcAdapter
 import android.os.Build
@@ -35,6 +38,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun WifiTest(onResult: (CITTestResult) -> Unit) {
     val context = LocalContext.current
+    val connectivityManager = remember { context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager }
     val wifiManager = remember { context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager }
 
     val scanningWifi = stringResource(R.string.scanning_wifi)
@@ -45,14 +49,30 @@ fun WifiTest(onResult: (CITTestResult) -> Unit) {
 
     LaunchedEffect(Unit) {
         while (true) {
-            @Suppress("DEPRECATION")
-            val wifiInfo = wifiManager?.connectionInfo
-            if (wifiInfo != null && wifiInfo.networkId != -1) {
-                isConnected = true
-                info = ssidFormatStr
-                    .replace("%1\$s", wifiInfo.ssid)
-                    .replace("%2\$d", wifiInfo.rssi.toString())
-                    .replace("%3\$d", wifiInfo.linkSpeed.toString())
+            val activeNetwork = connectivityManager?.activeNetwork
+            val caps = connectivityManager?.getNetworkCapabilities(activeNetwork)
+            val isWifi = caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+
+            if (isWifi) {
+                var wifiInfo: WifiInfo? = null
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    wifiInfo = caps?.transportInfo as? WifiInfo
+                }
+                if (wifiInfo == null) {
+                    @Suppress("DEPRECATION")
+                    wifiInfo = wifiManager?.connectionInfo
+                }
+                if (wifiInfo != null) {
+                    isConnected = true
+                    val ssid = wifiInfo.ssid ?: "<unknown ssid>"
+                    info = ssidFormatStr
+                        .replace("%1\$s", ssid)
+                        .replace("%2\$d", wifiInfo.rssi.toString())
+                        .replace("%3\$d", wifiInfo.linkSpeed.toString())
+                } else {
+                    isConnected = false
+                    info = notConnectedStr
+                }
             } else {
                 isConnected = false
                 info = notConnectedStr
@@ -77,7 +97,6 @@ fun BluetoothTest(onResult: (CITTestResult) -> Unit) {
     LaunchedEffect(Unit) {
         val perms = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            perms.add(Manifest.permission.BLUETOOTH_SCAN)
             perms.add(Manifest.permission.BLUETOOTH_CONNECT)
         }
         perms.add(Manifest.permission.ACCESS_FINE_LOCATION)

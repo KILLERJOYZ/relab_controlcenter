@@ -22,13 +22,16 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.core.content.ContextCompat
 import android.content.pm.PackageManager
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen // Changed
 import androidx.metrics.performance.JankStats
 import com.example.relab_tool.ui.AppInstallerViewModel
 import com.example.relab_tool.ui.DeviceInfoViewModel
-import com.example.relab_tool.ui.InstallPermissionScreen
 import com.example.relab_tool.ui.MainScreen
 import com.example.relab_tool.ui.PermissionScreen
 import com.example.relab_tool.ui.theme.DarkModeOption
@@ -39,7 +42,9 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlin.system.exitProcess
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 
 @AndroidEntryPoint
@@ -47,6 +52,9 @@ class MainActivity : AppCompatActivity() {
     private val viewModel: AppInstallerViewModel by viewModels()
     private val deviceInfoViewModel: DeviceInfoViewModel by viewModels()
     private val themeViewModel: ThemeViewModel by viewModels()
+
+    @Inject
+    lateinit var assistiveTouchRepository: com.example.relab_tool.data.AssistiveTouchRepository
 
     override fun attachBaseContext(newBase: android.content.Context) {
         val oldPolicy = android.os.StrictMode.allowThreadDiskReads()
@@ -58,7 +66,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var allPermissionsGranted by mutableStateOf(false)
-    private var installPermissionGranted by mutableStateOf(true)
 
     // ── JankStats — frame-timing regression detector ─────────────────────────
     // Wires into the window's frame metrics and logs janky frames to logcat.
@@ -70,7 +77,6 @@ class MainActivity : AppCompatActivity() {
     ) { results ->
         allPermissionsGranted = results.values.all { it }
         if (allPermissionsGranted) {
-            installPermissionGranted = checkInstallPermissionGranted()
             requestHighRefreshRate()
             deviceInfoViewModel.loadAdvancedInfo()
         }
@@ -111,7 +117,23 @@ class MainActivity : AppCompatActivity() {
         }
 
         allPermissionsGranted = checkAllPermissions()
-        installPermissionGranted = checkInstallPermissionGranted()
+
+        lifecycleScope.launch {
+            assistiveTouchRepository.config.collect { config ->
+                val serviceIntent = Intent(this@MainActivity, com.example.relab_tool.worker.AssistiveTouchService::class.java)
+                if (config.isEnabled) {
+                    if (Settings.canDrawOverlays(this@MainActivity)) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(serviceIntent)
+                        } else {
+                            startService(serviceIntent)
+                        }
+                    }
+                } else {
+                    stopService(serviceIntent)
+                }
+            }
+        }
 
         setContent {
             val windowSizeClass = calculateWindowSizeClass(this)
@@ -151,13 +173,10 @@ class MainActivity : AppCompatActivity() {
                     com.example.relab_tool.ui.cit.CITRootScreen(onExit = { showCITScreen = false })
                 } else if (!allPermissionsGranted) {
                     PermissionScreen(
-                        onGrantClick = { requestHardwarePermissions() },
+                        onGrantClick = {
+                            requestHardwarePermissions()
+                        },
                         onExitClick  = { finish(); exitProcess(0) }
-                    )
-                } else if (!installPermissionGranted) {
-                    InstallPermissionScreen(
-                        onOpenSettingsClick = { openInstallPermissionSettings() },
-                        onExitClick         = { finish(); exitProcess(0) }
                     )
                 } else {
                     MainScreen(
@@ -257,8 +276,6 @@ class MainActivity : AppCompatActivity() {
     private fun getRequiredPermissions(): List<String> {
         val permissions = mutableListOf(
             Manifest.permission.CAMERA,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.READ_PHONE_STATE
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -266,7 +283,6 @@ class MainActivity : AppCompatActivity() {
             permissions += Manifest.permission.POST_NOTIFICATIONS
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            permissions += Manifest.permission.BLUETOOTH_SCAN
             permissions += Manifest.permission.BLUETOOTH_CONNECT
         }
         return permissions
@@ -281,10 +297,23 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.refreshStatuses()
-        installPermissionGranted = checkInstallPermissionGranted()
         requestHighRefreshRate()
         // Re-enable JankStats tracking when the app comes back to foreground
         jankStats.isTrackingEnabled = true
+
+        lifecycleScope.launch {
+            try {
+                val current = assistiveTouchRepository.config.first()
+                val serviceIntent = Intent(this@MainActivity, com.example.relab_tool.worker.AssistiveTouchService::class.java)
+                if (current.isEnabled && Settings.canDrawOverlays(this@MainActivity)) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(serviceIntent)
+                    } else {
+                        startService(serviceIntent)
+                    }
+                }
+            } catch (e: Exception) {}
+        }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -320,24 +349,7 @@ class MainActivity : AppCompatActivity() {
         jankStats.isTrackingEnabled = false
     }
 
-    // ── Install permission helpers ────────────────────────────────────────────
 
-    private fun checkInstallPermissionGranted(): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            packageManager.canRequestPackageInstalls()
-        } else {
-            true
-        }
-
-    private fun openInstallPermissionSettings() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startActivity(
-                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                    data = Uri.parse("package:$packageName")
-                }
-            )
-        }
-    }
 
     override fun recreate() {
         super.recreate()

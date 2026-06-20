@@ -214,6 +214,17 @@ object SoCUtils {
             if (maxFreq > 0 && maxFreq < 2350000) return "Dimensity 700"
         }
 
+        // ── 2b. Snapdragon 7s Gen 3 / 7s Gen 4 Fix ──
+        // Both use SM7635; distinguished by max CPU freq (Gen 3 max is 2.5 GHz, Gen 4 max is 2.7 GHz)
+        if (lowerName.contains("7s gen 3") ||
+            lowerName.contains("7s gen 4") ||
+            lowerName.contains("sm7635") ||
+            socId.contains("sm7635")) {
+            val maxFreq = getMaxCpuFreq()
+            if (maxFreq >= 2600000) return "Snapdragon 7s Gen 4"
+            return "Snapdragon 7s Gen 3"
+        }
+
         // ── 3. Dimensity 9400 / 9500 Series Clarification ──
         // Both series can feature high-clocked Cortex-X925 cores.
         // D9400 (MT6991): Standard @ 3.62 GHz, Plus @ 3.73 GHz.

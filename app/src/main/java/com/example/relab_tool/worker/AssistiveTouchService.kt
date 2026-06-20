@@ -1,7 +1,7 @@
 package com.example.relab_tool.worker
 
-import android.accessibilityservice.AccessibilityService
-import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.Service
+import android.os.IBinder
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
@@ -14,7 +14,6 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.view.accessibility.AccessibilityEvent
 import android.view.animation.DecelerateInterpolator
 import android.widget.Toast
 import androidx.compose.runtime.*
@@ -38,7 +37,7 @@ import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class AssistiveTouchService : AccessibilityService(), LifecycleOwner, SavedStateRegistryOwner {
+class AssistiveTouchService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
     @Inject
     lateinit var repository: AssistiveTouchRepository
@@ -64,11 +63,43 @@ class AssistiveTouchService : AccessibilityService(), LifecycleOwner, SavedState
 
     // ─── Lifecycle ───────────────────────────────────────────────────────────
 
+    private fun createNotification(): android.app.Notification {
+        val channelId = "assistive_touch"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = android.app.NotificationChannel(channelId, "Assistive Touch", android.app.NotificationManager.IMPORTANCE_LOW)
+            getSystemService(android.app.NotificationManager::class.java).createNotificationChannel(channel)
+        }
+
+        return androidx.core.app.NotificationCompat.Builder(this, channelId)
+            .setContentTitle("Assistive Touch Active")
+            .setSmallIcon(com.example.relab_tool.R.mipmap.ic_launcher)
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
+            .build()
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        return START_STICKY
+    }
+
     override fun onCreate() {
         super.onCreate()
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         _isRunning.value = true
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(2002, createNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
+                startForeground(2002, createNotification())
+            }
+        } else {
+            startForeground(2002, createNotification())
+        }
+
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         updateScreenDimensions()
 
@@ -90,26 +121,6 @@ class AssistiveTouchService : AccessibilityService(), LifecycleOwner, SavedState
                 }
             }
         }
-    }
-
-    override fun onServiceConnected() {
-        super.onServiceConnected()
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
-        serviceInfo = serviceInfo.apply {
-            feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-            flags = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
-            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-            notificationTimeout = 100
-        }
-    }
-
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // No-op — we only need this service for performGlobalAction()
-    }
-
-    override fun onInterrupt() {
-        // Cleanup on interrupt
-        removeMenu()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -282,20 +293,34 @@ class AssistiveTouchService : AccessibilityService(), LifecycleOwner, SavedState
 
     private fun executeAction(action: MenuAction) {
         when (action) {
-            MenuAction.HOME -> performGlobalAction(GLOBAL_ACTION_HOME)
-            MenuAction.BACK -> performGlobalAction(GLOBAL_ACTION_BACK)
-            MenuAction.RECENTS -> performGlobalAction(GLOBAL_ACTION_RECENTS)
-            MenuAction.NOTIFICATIONS -> performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
-            MenuAction.QUICK_SETTINGS -> performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS)
-            MenuAction.SCREENSHOT -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    performGlobalAction(GLOBAL_ACTION_TAKE_SCREENSHOT)
+            MenuAction.HOME -> {
+                try {
+                    val intent = Intent(Intent.ACTION_MAIN).apply {
+                        addCategory(Intent.CATEGORY_HOME)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Unable to go Home", Toast.LENGTH_SHORT).show()
                 }
             }
+            MenuAction.BACK -> {
+                showPolicyToast("Back Button")
+            }
+            MenuAction.RECENTS -> {
+                showPolicyToast("Recents Screen")
+            }
+            MenuAction.NOTIFICATIONS -> {
+                expandNotificationsOrSettings(false)
+            }
+            MenuAction.QUICK_SETTINGS -> {
+                expandNotificationsOrSettings(true)
+            }
+            MenuAction.SCREENSHOT -> {
+                showPolicyToast("Screenshot")
+            }
             MenuAction.LOCK_SCREEN -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
-                }
+                showPolicyToast("Lock Screen")
             }
             MenuAction.VOLUME -> {
                 val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -316,6 +341,30 @@ class AssistiveTouchService : AccessibilityService(), LifecycleOwner, SavedState
             MenuAction.CUSTOM -> {
                 launchCustomApp()
             }
+        }
+    }
+
+    private fun showPolicyToast(actionName: String) {
+        Toast.makeText(
+            this,
+            "$actionName is unavailable because this overlay complies with Play Store policies and does not use accessibility APIs.",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    private fun expandNotificationsOrSettings(isQuickSettings: Boolean) {
+        try {
+            val statusBarService = getSystemService("statusbar")
+            val statusBarManagerClass = Class.forName("android.app.StatusBarManager")
+            val methodName = if (isQuickSettings) "expandSettingsPanel" else "expandNotificationsPanel"
+            val method = statusBarManagerClass.getMethod(methodName)
+            method.invoke(statusBarService)
+        } catch (e: Exception) {
+            Toast.makeText(
+                this,
+                if (isQuickSettings) "Quick Settings is unavailable on this version" else "Notifications is unavailable on this version",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 

@@ -1465,4 +1465,21 @@ Abilita "Relab Control Center" nelle impostazioni di accessibilità.</string>
     <string name="card_explanation_group_camera_modes">Sono supportate le funzionalità del software della fotocamera (HDR, modalità notturna, ritratto, sequenza a raffica).</string>
     <string name="card_how_it_works_group_camera_modes">Interroga le capacità della fotocamera e le modalità di scatto dalle caratteristiche della Camera2.</string>
     <string name="card_why_it_matters_group_camera_modes">Determina le caratteristiche di acquisizione visiva, consentendo all\'utente di scattare fotografie avanzate in varie condizioni di illuminazione.</string>
+
+    <string name="by_cluster">Per Cluster</string>
+    <string name="by_core">Per Core</string>
+    <string name="core_index_format">Core %1$d</string>
+    <string name="cpu_cluster_efficiency_label">Efficienza</string>
+    <string name="cpu_cluster_performance_label">Prestazioni</string>
+    <string name="cpu_cluster_prime_label">Prime</string>
+    <string name="cpu_temperature">Temperatura CPU</string>
+    <string name="features_format">%1$d / %2$d Funzionalità</string>
+    <string name="frame_rate">Frequenza dei Fotogrammi</string>
+    <string name="gpu_frequency">Frequenza GPU</string>
+    <string name="gpu_load">Carico GPU</string>
+    <string name="gpu_memory_used">Memoria GPU in Uso</string>
+    <string name="gpu_temperature">Temperatura GPU</string>
+    <string name="thermal_state_normal">Normale</string>
+    <string name="thermal_state_throttled">Rallentato</string>
+    <string name="thermal_status_format">Stato Termico: %1$s</string>
 </resources>

@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
@@ -863,72 +864,8 @@ fun AppInstallerContent(apps: List<AppInfo>, viewModel: AppInstallerViewModel, w
         }
     }
 
-    var appToInstall by remember { mutableStateOf<AppInfo?>(null) }
+    val context = LocalContext.current
     val bottomContentPadding = if (isWideScreen) 16.dp else 120.dp
-
-    if (appToInstall != null) {
-        // ... (AlertDialog code)
-        // ... (AlertDialog code remains the same)
-        AlertDialog(
-            onDismissRequest = { appToInstall = null },
-            title = { 
-                val appName = appToInstall?.nameRes?.let { stringResource(it) } ?: appToInstall?.name ?: ""
-                Text(stringResource(R.string.install_title, appName)) 
-            },
-            text = {
-                Column {
-                    Text(stringResource(R.string.install_choose_source))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.install_split_apk_warning),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = { 
-                            appToInstall?.let { viewModel.openPlayStore(it.packageName) }
-                            appToInstall = null
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(stringResource(R.string.install_play_store) + stringResource(R.string.recommend_play_store))
-                    }
-                    OutlinedButton(
-                        onClick = { 
-                            appToInstall?.let { viewModel.installApp(it) }
-                            appToInstall = null
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(stringResource(R.string.install_apkpure))
-                    }
-                    OutlinedButton(
-                        onClick = { 
-                            appToInstall?.let { viewModel.openAlternativeStore(it.packageName) }
-                            appToInstall = null
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(stringResource(R.string.install_alt_store))
-                    }
-                    TextButton(
-                        onClick = { appToInstall = null },
-                        modifier = Modifier.align(Alignment.End)
-                    ) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                }
-            }
-        )
-    }
 
     Column {
         Row(
@@ -936,16 +873,8 @@ fun AppInstallerContent(apps: List<AppInfo>, viewModel: AppInstallerViewModel, w
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.End
         ) {
-            Button(
-                onClick = { apps.filter { it.status == InstallationStatus.NOT_INSTALLED }.forEach { viewModel.installApp(it) } },
-                modifier = Modifier.weight(1f),
-                enabled = apps.any { it.status == InstallationStatus.NOT_INSTALLED }
-            ) {
-                Text(stringResource(R.string.install_all_pending))
-            }
-            
             IconButton(
                 onClick = { isGalleryView = !isGalleryView },
                 colors = IconButtonDefaults.filledIconButtonColors(
@@ -1019,9 +948,9 @@ fun AppInstallerContent(apps: List<AppInfo>, viewModel: AppInstallerViewModel, w
                                         chunk.forEach { app ->
                                             Box(modifier = Modifier.weight(1f)) {
                                                 if (isGalleryView) {
-                                                    AppGalleryCard(app = app, onInstallClick = { appToInstall = app })
+                                                    AppGalleryCard(app = app, onInstallClick = { viewModel.openAppListing(context, app) })
                                                 } else {
-                                                    AppCard(app = app, onInstallClick = { appToInstall = app })
+                                                    AppCard(app = app, onInstallClick = { viewModel.openAppListing(context, app) })
                                                 }
                                             }
                                         }
@@ -1075,7 +1004,6 @@ fun AppGalleryCard(app: AppInfo, onInstallClick: () -> Unit) {
     }
 
     val isInstalled = app.status == InstallationStatus.INSTALLED
-    val isDownloading = app.status == InstallationStatus.DOWNLOADING
     
     // Fix First Frame Flash by using Animation for color and border
     val animatedColor by animateColorAsState(
@@ -1095,7 +1023,6 @@ fun AppGalleryCard(app: AppInfo, onInstallClick: () -> Unit) {
             .fillMaxWidth()
             .height(160.dp)
             .clickable(
-                enabled = app.status != InstallationStatus.INSTALLED && app.status != InstallationStatus.DOWNLOADING,
                 onClick = onInstallClick
             ),
         shape = RoundedCornerShape(16.dp),
@@ -1158,6 +1085,18 @@ fun AppGalleryCard(app: AppInfo, onInstallClick: () -> Unit) {
                             .background(MaterialTheme.colorScheme.surface, CircleShape)
                             .padding(1.dp)
                     )
+                } else {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = 6.dp, y = (-6).dp)
+                            .size(20.dp)
+                            .background(MaterialTheme.colorScheme.surface, CircleShape)
+                            .padding(2.dp)
+                    )
                 }
             }
 
@@ -1173,19 +1112,6 @@ fun AppGalleryCard(app: AppInfo, onInstallClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
                 lineHeight = 14.sp
             )
-            
-            if (isDownloading) {
-                Spacer(modifier = Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = { app.downloadProgress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(CircleShape),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                )
-            }
         }
     }
 }
@@ -1316,28 +1242,23 @@ fun AppCard(app: AppInfo, onInstallClick: () -> Unit) {
                     maxLines = 1,
                     color = contentColor.copy(alpha = 0.7f)
                 )
-                
-                if (app.status == InstallationStatus.DOWNLOADING) {
-                    LinearProgressIndicator(
-                        progress = { app.downloadProgress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
             }
 
             IconButton(
-                onClick = onInstallClick,
-                enabled = app.status != InstallationStatus.INSTALLED && app.status != InstallationStatus.DOWNLOADING
+                onClick = onInstallClick
             ) {
-                when (app.status) {
-                    InstallationStatus.INSTALLED -> Icon(Icons.Default.CheckCircle, contentDescription = stringResource(R.string.status_installed), tint = MaterialTheme.colorScheme.primary)
-                    InstallationStatus.DOWNLOADING -> CircularProgressIndicator(modifier = Modifier.size(24.dp), color = contentColor)
-                    InstallationStatus.READY_TO_INSTALL -> Icon(Icons.Default.Download, contentDescription = stringResource(R.string.status_install_apk), tint = contentColor)
-                    InstallationStatus.NOT_INSTALLED -> Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.status_install), tint = contentColor)
-                    else -> { /* Loading or Unknown state, show nothing or placeholder */ }
+                if (isInstalled) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = stringResource(R.string.status_installed),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                        contentDescription = stringResource(R.string.status_install),
+                        tint = contentColor
+                    )
                 }
             }
         }

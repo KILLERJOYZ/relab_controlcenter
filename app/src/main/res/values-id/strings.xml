@@ -1465,4 +1465,21 @@ Aktifkan "Relab Control Center" di pengaturan Aksesibilitas.</string>
     <string name="card_explanation_group_camera_modes">Kemampuan perangkat lunak kamera (HDR, Mode Malam, Potret, Burst) didukung.</string>
     <string name="card_how_it_works_group_camera_modes">Menanyakan kemampuan kamera dan mode pemotretan dari karakteristik Camera2.</string>
     <string name="card_why_it_matters_group_camera_modes">Menentukan fitur pengambilan visual, memungkinkan pengguna mengambil foto tingkat lanjut dalam berbagai kondisi pencahayaan.</string>
+
+    <string name="by_cluster">Per Kluster</string>
+    <string name="by_core">Per Inti</string>
+    <string name="core_index_format">Inti %1$d</string>
+    <string name="cpu_cluster_efficiency_label">Efisiensi</string>
+    <string name="cpu_cluster_performance_label">Kinerja</string>
+    <string name="cpu_cluster_prime_label">Prime</string>
+    <string name="cpu_temperature">Suhu CPU</string>
+    <string name="features_format">%1$d / %2$d Fitur</string>
+    <string name="frame_rate">Laju Bingkai</string>
+    <string name="gpu_frequency">Frekuensi GPU</string>
+    <string name="gpu_load">Beban GPU</string>
+    <string name="gpu_memory_used">Memori GPU Terpakai</string>
+    <string name="gpu_temperature">Suhu GPU</string>
+    <string name="thermal_state_normal">Normal</string>
+    <string name="thermal_state_throttled">Dibatasi</string>
+    <string name="thermal_status_format">Status Termal: %1$s</string>
 </resources>

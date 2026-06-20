@@ -53,13 +53,18 @@ data class PaletteEntryData(
 // Settings entry point — routes between main list and sub-pages
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-fun SettingsScreen(viewModel: DeviceInfoViewModel = hiltViewModel(), onLaunchCIT: () -> Unit = {}) {
+fun SettingsScreen(
+    viewModel: DeviceInfoViewModel = hiltViewModel(),
+    assistiveTouchViewModel: com.example.relab_tool.ui.assistivetouch.AssistiveTouchViewModel = hiltViewModel(),
+    onLaunchCIT: () -> Unit = {}
+) {
     var showThemePage by remember { mutableStateOf(false) }
+    var showAssistivePage by remember { mutableStateOf(false) }
 
     AnimatedContent(
-        targetState = showThemePage,
+        targetState = Pair(showThemePage, showAssistivePage),
         transitionSpec = {
-            if (targetState) {
+            if (targetState.first || targetState.second) {
                 // Navigate into sub-page: slide in from right
                 slideInHorizontally { it } + fadeIn() togetherWith
                         slideOutHorizontally { -it / 3 } + fadeOut()
@@ -70,14 +75,20 @@ fun SettingsScreen(viewModel: DeviceInfoViewModel = hiltViewModel(), onLaunchCIT
             }
         },
         label = "settings_nav"
-    ) { onThemePage ->
+    ) { (onThemePage, onAssistivePage) ->
         if (onThemePage) {
             ThemeSettingsPage(onBack = { showThemePage = false })
+        } else if (onAssistivePage) {
+            com.example.relab_tool.ui.assistivetouch.AssistiveTouchSettingsScreen(
+                viewModel = assistiveTouchViewModel,
+                onBack = { showAssistivePage = false }
+            )
         } else {
             SettingsMainPage(
-                viewModel     = viewModel,
-                onOpenTheme   = { showThemePage = true },
-                onLaunchCIT   = onLaunchCIT,
+                viewModel       = viewModel,
+                onOpenTheme     = { showThemePage = true },
+                onOpenAssistive = { showAssistivePage = true },
+                onLaunchCIT     = onLaunchCIT,
             )
         }
     }
@@ -90,6 +101,7 @@ fun SettingsScreen(viewModel: DeviceInfoViewModel = hiltViewModel(), onLaunchCIT
 fun SettingsMainPage(
     viewModel: DeviceInfoViewModel,
     onOpenTheme: () -> Unit,
+    onOpenAssistive: () -> Unit,
     onLaunchCIT: () -> Unit,
 ) {
     val configuration     = LocalConfiguration.current
@@ -225,6 +237,57 @@ fun SettingsMainPage(
                 subtitle = paletteName,
                 trail    = stringResource(R.string.theme_dark_mode) + ": $darkModeName",
                 onClick  = onOpenTheme
+            )
+        }
+
+        // ── AssistiveTouch ──────────────────────────────────────────────────
+        val assistiveTouchViewModel: com.example.relab_tool.ui.assistivetouch.AssistiveTouchViewModel = hiltViewModel()
+        val assistiveTouchConfig by assistiveTouchViewModel.config.collectAsStateWithLifecycle()
+        SettingsCard(
+            title = stringResource(R.string.at_title),
+            icon  = Icons.Default.SmartButton
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                    Text(
+                        stringResource(R.string.at_title),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        stringResource(R.string.at_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = assistiveTouchConfig.isEnabled,
+                    onCheckedChange = { checked ->
+                        if (checked && !android.provider.Settings.canDrawOverlays(context)) {
+                            val intent = Intent(
+                                android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                android.net.Uri.parse("package:${context.packageName}")
+                            ).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                        } else {
+                            assistiveTouchViewModel.toggleEnabled(checked)
+                        }
+                    }
+                )
+            }
+            SettingsDivider()
+            SettingsRow(
+                title    = stringResource(R.string.at_configure),
+                subtitle = stringResource(R.string.at_menu_items) + ": ${assistiveTouchConfig.menuItemCount}",
+                onClick  = onOpenAssistive
             )
         }
 

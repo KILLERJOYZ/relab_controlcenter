@@ -1465,4 +1465,21 @@
     <string name="card_explanation_group_camera_modes">カメラ ソフトウェア機能 (HDR、ナイト モード、ポートレート、バースト) がサポートされています。</string>
     <string name="card_how_it_works_group_camera_modes">Camera2の特性からカメラの能力と撮影モードを問い合わせます。</string>
     <string name="card_why_it_matters_group_camera_modes">視覚的なキャプチャ機能を決定し、ユーザーがさまざまな照明条件下で高度な写真を撮影できるようにします。</string>
+
+    <string name="by_cluster">クラスター別</string>
+    <string name="by_core">コア別</string>
+    <string name="core_index_format">コア %1$d</string>
+    <string name="cpu_cluster_efficiency_label">省電力</string>
+    <string name="cpu_cluster_performance_label">パフォーマンス</string>
+    <string name="cpu_cluster_prime_label">プライム</string>
+    <string name="cpu_temperature">CPU温度</string>
+    <string name="features_format">%1$d / %2$d 機能</string>
+    <string name="frame_rate">フレームレート</string>
+    <string name="gpu_frequency">GPU周波数</string>
+    <string name="gpu_load">GPU負荷</string>
+    <string name="gpu_memory_used">使用中のGPUメモリ</string>
+    <string name="gpu_temperature">GPU温度</string>
+    <string name="thermal_state_normal">通常</string>
+    <string name="thermal_state_throttled">スロットル中</string>
+    <string name="thermal_status_format">温度状態: %1$s</string>
 </resources>

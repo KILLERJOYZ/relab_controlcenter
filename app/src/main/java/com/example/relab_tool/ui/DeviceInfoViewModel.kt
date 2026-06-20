@@ -108,6 +108,8 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
         if (this == "Unknown") getApplication<Application>().getString(R.string.unknown) else this
 
 
+    private val wifiInfoProvider = com.example.relab_tool.data.WifiInfoProvider(application)
+
     private val _deviceSummary = MutableStateFlow<DeviceSummary?>(null)
     val deviceSummary = _deviceSummary.asStateFlow()
 
@@ -267,9 +269,27 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
     val searchResults = _searchResults.asStateFlow()
 
     private val searchEngine = SearchEngine(application)
+    private var bluetoothA2dp: android.bluetooth.BluetoothA2dp? = null
 
     init {
         initSearchPipeline()
+        val bluetoothAdapter = (application.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+        if (bluetoothAdapter != null) {
+            try {
+                bluetoothAdapter.getProfileProxy(application, object : BluetoothProfile.ServiceListener {
+                    override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
+                        if (profile == BluetoothProfile.A2DP) {
+                            bluetoothA2dp = proxy as? android.bluetooth.BluetoothA2dp
+                        }
+                    }
+                    override fun onServiceDisconnected(profile: Int) {
+                        if (profile == BluetoothProfile.A2DP) {
+                            bluetoothA2dp = null
+                        }
+                    }
+                }, BluetoothProfile.A2DP)
+            } catch (e: Exception) {}
+        }
     }
 
     private val _requestedInfoTab = MutableStateFlow<Int?>(null)
@@ -1054,11 +1074,11 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                     } catch (_: Exception) {}
                 }
             }
-            return 35.0f
+            return 0f
         }
         val cpuTempZone = zones.find { it.name.lowercase().contains("cpu") || it.name.lowercase().contains("soc") || it.name.lowercase().contains("tsens") }
             ?: zones.maxByOrNull { it.temperature.substringBefore(" ").toDoubleOrNull() ?: 0.0 }
-        return cpuTempZone?.temperature?.substringBefore(" ")?.toFloatOrNull() ?: 35.0f
+        return cpuTempZone?.temperature?.substringBefore(" ")?.toFloatOrNull() ?: 0f
     }
 
     private fun parseMaxGpuFreq(freqStr: String): Float {
@@ -1086,10 +1106,7 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                 }
             } catch (_: Exception) {}
         }
-        val minFreq = maxFreq * 0.3f
-        val calculated = minFreq + (maxFreq - minFreq) * (gpuUsage / 100f)
-        val jitter = (-10..10).random()
-        return (calculated + jitter).coerceIn(minFreq, maxFreq)
+        return 0f
     }
 
     private fun getCurrentGpuMemory(gpuUsage: Int): Float {
@@ -1104,10 +1121,7 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                 }
             }
         } catch (_: Exception) {}
-        val base = 120f
-        val dynamicVal = gpuUsage * 3.5f
-        val jitter = (0..15).random().toFloat()
-        return base + dynamicVal + jitter
+        return 0f
     }
 
     private fun getCurrentGpuTemp(cpuTemp: Float): Float {
@@ -1133,7 +1147,7 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                 } catch (_: Exception) {}
             }
         }
-        return (cpuTemp - 2f).coerceAtLeast(30f)
+        return 0f
     }
 
     private fun updateDashboardInfo(ramUsedVal: Long, gpuUsageVal: Int, dlSpeed: String, ulSpeed: String, dlSpeedRaw: Float, ulSpeedRaw: Float) {
@@ -1373,7 +1387,9 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                 cpuUsage = cpuUsageVal,
                 gpuUsage = gpuUsageVal,
                 fps = finalFps,
-                temperature = bInfo?.temperature ?: context.getString(R.string.na)
+                temperature = bInfo?.temperature ?: context.getString(R.string.na),
+                diskRead = diskReadStr,
+                diskWrite = diskWriteStr
             )
         )
     }
@@ -2559,6 +2575,15 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
             val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
             val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
             
+            val prefs = context.getSharedPreferences("relab_prefs", Context.MODE_PRIVATE)
+            val isLocationPermissionGranted = context.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            val isLocationServicesEnabled = try {
+                val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+                lm != null && androidx.core.location.LocationManagerCompat.isLocationEnabled(lm)
+            } catch (e: Exception) {
+                false
+            }
+
             val activeNetwork = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) cm.activeNetwork else null
             val caps = cm.getNetworkCapabilities(activeNetwork)
             val linkProps = cm.getLinkProperties(activeNetwork)
@@ -2571,6 +2596,7 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
             }
             
             var ssid: String? = null
+            var wifiSsidState: com.example.relab_tool.data.WifiSsidState = com.example.relab_tool.data.WifiSsidState.NotConnected
             var bssid: String? = null
             var wifiSignalDbm: Int? = null
             var wifiStandard: String? = null
@@ -2593,11 +2619,33 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
             var vendor: String? = null
 
             if (type == "Wi-Fi") {
-                val wifiInfo = wm.connectionInfo
-                if (wifiInfo != null && wifiInfo.networkId != -1) {
-                    ssid = wifiInfo.ssid?.removeSurrounding("\"")
-                    if (ssid == "<unknown ssid>") ssid = null
-                    bssid = wifiInfo.bssid
+                val isPermDenied = prefs.getBoolean("location_permission_permanently_denied", false)
+                wifiSsidState = wifiInfoProvider.getSsidState(isPermDenied)
+                ssid = when (wifiSsidState) {
+                    is com.example.relab_tool.data.WifiSsidState.Connected -> wifiSsidState.ssid
+                    is com.example.relab_tool.data.WifiSsidState.PermissionDenied -> "Unavailable — location permission required"
+                    is com.example.relab_tool.data.WifiSsidState.PermissionPermanentlyDenied -> "Unavailable — enable in Settings"
+                    is com.example.relab_tool.data.WifiSsidState.LocationServicesDisabled -> "Unavailable — enable Location in system settings"
+                    is com.example.relab_tool.data.WifiSsidState.NotConnected -> "Not connected to Wi-Fi"
+                }
+
+                var wifiInfo: WifiInfo? = null
+                if (isLocationPermissionGranted) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        wifiInfo = caps?.transportInfo as? WifiInfo
+                    }
+                    if (wifiInfo == null) {
+                        @Suppress("DEPRECATION")
+                        wifiInfo = wm.connectionInfo
+                    }
+                }
+                if (wifiInfo != null) {
+                    bssid = if (isLocationPermissionGranted && isLocationServicesEnabled) {
+                        val rawBssid = wifiInfo.bssid
+                        if (rawBssid == "<unknown bssid>" || rawBssid == "00:00:00:00:00:00" || rawBssid == "02:00:00:00:00:00") null else rawBssid
+                    } else {
+                        "Unavailable — location permission required"
+                    }
                     vendor = getMacVendor(bssid)
                     linkSpeed = "${wifiInfo.linkSpeed} Mbps"
                     frequency = "${wifiInfo.frequency} MHz"
@@ -2701,17 +2749,27 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                     val subs = sm.activeSubscriptionInfoList ?: emptyList()
                     
                     val simInfos = subs.map { sub ->
-                        val phoneNumber = try {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                sm.getPhoneNumber(sub.subscriptionId)
-                            } else {
-                                @Suppress("DEPRECATION")
-                                sub.number
-                            }
-                        } catch (e: Exception) {
+                        val hasPhoneNumbersPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            context.checkSelfPermission(android.Manifest.permission.READ_PHONE_NUMBERS) == PackageManager.PERMISSION_GRANTED
+                        } else {
+                            context.checkSelfPermission(android.Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+                        }
+
+                        val phoneNumber = if (hasPhoneNumbersPermission) {
                             try {
-                                tm.line1Number
-                            } catch (e2: Exception) { null }
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    sm.getPhoneNumber(sub.subscriptionId)
+                                } else {
+                                    @Suppress("DEPRECATION")
+                                    sub.number
+                                }
+                            } catch (e: Exception) {
+                                try {
+                                    tm.line1Number
+                                } catch (e2: Exception) { null }
+                            }
+                        } else {
+                            "Permission not granted"
                         }
 
                         SimInfo(
@@ -2807,6 +2865,9 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                 state = if (type == "Disconnected") context.getString(R.string.disconnected) else context.getString(R.string.connected),
                 cellularInfo = cellularInfo,
                 wifiSsid = ssid,
+                wifiSsidState = wifiSsidState,
+                isLocationPermissionGranted = isLocationPermissionGranted,
+                isLocationServicesEnabled = isLocationServicesEnabled,
                 wifiBssid = bssid,
                 vendor = vendor,
                 linkSpeed = linkSpeed,
@@ -3701,7 +3762,7 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun getGpuExtensionsCount(): String {
-        return "119"
+        return "N/A"
     }
 
     private fun getGpuModel(): String {
@@ -3740,7 +3801,36 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun getBatteryCapacity(): String {
-        return "5000 mAh"
+        val context = getApplication<Application>()
+        try {
+            val powerProfileClass = Class.forName("com.android.internal.os.PowerProfile")
+            val powerProfile = powerProfileClass.getConstructor(Context::class.java).newInstance(context)
+            val batteryCapacity = powerProfileClass.getMethod("getBatteryCapacity").invoke(powerProfile) as Double
+            if (batteryCapacity > 0) {
+                return "${batteryCapacity.toInt()} mAh (Estimated)"
+            }
+        } catch (e: Exception) {}
+
+        val sysfsFiles = arrayOf(
+            "/sys/class/power_supply/battery/charge_full_design",
+            "/sys/class/power_supply/battery/energy_full_design",
+            "/sys/class/power_supply/bms/charge_full_design"
+        )
+        for (path in sysfsFiles) {
+            try {
+                val file = File(path)
+                if (file.exists()) {
+                    val capacityUah = file.readText().trim().toLongOrNull() ?: continue
+                    if (capacityUah > 0) {
+                        val capacityMah = if (capacityUah > 100_000) capacityUah / 1000 else capacityUah
+                        if (capacityMah in 500..20000) {
+                            return "$capacityMah mAh (Estimated)"
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
+        }
+        return "N/A"
     }
 
     private fun getDensityString(metrics: DisplayMetrics): String {
@@ -3748,23 +3838,89 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun getPhysicalSize(metrics: DisplayMetrics): String {
-        return "6.78\""
+        return try {
+            val widthInches = metrics.widthPixels / (if (metrics.xdpi < 1) metrics.densityDpi.toFloat() else metrics.xdpi)
+            val heightInches = metrics.heightPixels / (if (metrics.ydpi < 1) metrics.densityDpi.toFloat() else metrics.ydpi)
+            val diagonalInches = Math.sqrt(Math.pow(widthInches.toDouble(), 2.0) + Math.pow(heightInches.toDouble(), 2.0))
+            if (diagonalInches in 2.0..15.0) {
+                String.format(Locale.US, "%.2f\"", diagonalInches)
+            } else {
+                "N/A"
+            }
+        } catch (e: Exception) {
+            "N/A"
+        }
     }
 
     private fun getBrightness(): String {
-        return "85%"
+        return try {
+            val context = getApplication<Application>()
+            val brightness = android.provider.Settings.System.getInt(context.contentResolver, android.provider.Settings.System.SCREEN_BRIGHTNESS)
+            val pct = (brightness * 100) / 255
+            "$pct%"
+        } catch (e: Exception) {
+            "N/A"
+        }
     }
 
     private fun getGsfId(context: Context): String? {
-        return "0123456789ABCDEF"
+        val uri = android.net.Uri.parse("content://com.google.android.gsf.gservices")
+        val key = "android_id"
+        return try {
+            context.contentResolver.query(uri, null, null, arrayOf(key), null)?.use { cursor ->
+                if (cursor.moveToFirst() && cursor.columnCount >= 2) {
+                    val idVal = cursor.getString(1)
+                    try {
+                        java.lang.Long.toHexString(idVal.toLong()).uppercase()
+                    } catch (e: Exception) {
+                        idVal
+                    }
+                } else null
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun getBluetoothVersion(): String {
-        return "5.4"
+        val context = getApplication<Application>()
+        val pm = context.packageManager
+        val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager)?.adapter
+        if (adapter == null) return "N/A"
+        return when {
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU && adapter.isLeAudioSupported == 0 -> "5.3+"
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && adapter.isLe2MPhySupported -> "5.0+"
+            pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_BLUETOOTH_LE) -> "4.0+"
+            pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_BLUETOOTH) -> "2.1+"
+            else -> "N/A"
+        }
     }
 
     private fun getHdrSupport(): String {
-        return "HDR10+ / Dolby Vision"
+        val context = getApplication<Application>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            try {
+                val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+                val display = displayManager.getDisplay(Display.DEFAULT_DISPLAY)
+                val hdrCapabilities = display?.hdrCapabilities
+                val types = hdrCapabilities?.supportedHdrTypes
+                if (types != null && types.isNotEmpty()) {
+                    val list = mutableListOf<String>()
+                    for (type in types) {
+                        when (type) {
+                            Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION -> list.add("Dolby Vision")
+                            Display.HdrCapabilities.HDR_TYPE_HDR10 -> list.add("HDR10")
+                            Display.HdrCapabilities.HDR_TYPE_HLG -> list.add("HLG")
+                            4 -> list.add("HDR10+") // Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS
+                        }
+                    }
+                    if (list.isNotEmpty()) {
+                        return list.joinToString(" / ")
+                    }
+                }
+            } catch (e: Exception) {}
+        }
+        return "N/A"
     }
 
     private fun getBatteryVoltageMv(intent: Intent?): Int {
@@ -3805,7 +3961,13 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun getBatteryChargeCounter(): String {
-        return "4500 mAh"
+        val batteryManager = getApplication<Application>().getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val value = batteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
+        if (value == Long.MIN_VALUE || value == Long.MAX_VALUE || value <= 0) {
+            return "N/A"
+        }
+        val valueMah = value / 1000
+        return "$valueMah mAh"
     }
 
     fun formatSize(size: Long): String {
@@ -3813,11 +3975,52 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun getMemoryPageSize(): String {
-        return "16 KB"
+        return try {
+            val pageSize = Os.sysconf(OsConstants._SC_PAGESIZE)
+            val kb = pageSize / 1024
+            "$kb KB"
+        } catch (e: Exception) {
+            "4 KB"
+        }
     }
 
     private fun getBluetoothAudioCodec(): String? {
-        return "LDAC"
+        val a2dp = bluetoothA2dp ?: return null
+        val context = getApplication<Application>()
+        val hasConnectPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+        if (!hasConnectPermission) return null
+
+        try {
+            val activeDeviceMethod = a2dp.javaClass.getMethod("getActiveDevice")
+            val activeDevice = activeDeviceMethod.invoke(a2dp) as? BluetoothDevice
+            val devices = if (activeDevice != null) listOf(activeDevice) else a2dp.connectedDevices
+            
+            for (device in devices) {
+                val codecStatusMethod = a2dp.javaClass.getMethod("getCodecStatus", BluetoothDevice::class.java)
+                val codecStatus = codecStatusMethod.invoke(a2dp, device) ?: continue
+                
+                val codecConfigMethod = codecStatus.javaClass.getMethod("getCodecConfig")
+                val codecConfig = codecConfigMethod.invoke(codecStatus) ?: continue
+                
+                val codecTypeMethod = codecConfig.javaClass.getMethod("getCodecType")
+                val codecType = codecTypeMethod.invoke(codecConfig) as Int
+                
+                return when (codecType) {
+                    0 -> "SBC"
+                    1 -> "AAC"
+                    2 -> "aptX"
+                    3 -> "aptX HD"
+                    4 -> "LDAC"
+                    5 -> "Opus"
+                    else -> "Unknown ($codecType)"
+                }
+            }
+        } catch (e: Exception) {}
+        return null
     }
 
     fun updateAudioInfo() {
@@ -4513,6 +4716,7 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
 
     override fun onCleared() {
         super.onCleared()
+        try { wifiInfoProvider.unregisterCallback() } catch (_: Throwable) {}
         try { stopLocationUpdates() } catch (_: Throwable) {}
         try {
             val sensorManager = getApplication<Application>().getSystemService(Context.SENSOR_SERVICE) as SensorManager

@@ -1465,4 +1465,21 @@
     <string name="card_explanation_group_camera_modes">دعم قدرات برامج الكاميرا (HDR، الوضع الليلي، Portrait، Burst).</string>
     <string name="card_how_it_works_group_camera_modes">يستعلم عن قدرات الكاميرا وأوضاع التصوير من خصائص Camera2.</string>
     <string name="card_why_it_matters_group_camera_modes">يحدد ميزات الالتقاط المرئي، مما يسمح للمستخدم بالتقاط صور فوتوغرافية متقدمة تحت ظروف الإضاءة المختلفة.</string>
+
+    <string name="by_cluster">حسب المجموعة</string>
+    <string name="by_core">حسب النواة</string>
+    <string name="core_index_format">نواة %1$d</string>
+    <string name="cpu_cluster_efficiency_label">كفاءة</string>
+    <string name="cpu_cluster_performance_label">أداء</string>
+    <string name="cpu_cluster_prime_label">رئيسي</string>
+    <string name="cpu_temperature">درجة حرارة المعالج</string>
+    <string name="features_format">%1$d / %2$d ميزة</string>
+    <string name="frame_rate">معدل الإطارات</string>
+    <string name="gpu_frequency">تردد GPU</string>
+    <string name="gpu_load">حمل GPU</string>
+    <string name="gpu_memory_used">ذاكرة GPU المستخدمة</string>
+    <string name="gpu_temperature">درجة حرارة GPU</string>
+    <string name="thermal_state_normal">طبيعي</string>
+    <string name="thermal_state_throttled">مخفض الأداء</string>
+    <string name="thermal_status_format">الحالة الحرارية: %1$s</string>
 </resources>

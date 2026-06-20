@@ -1465,4 +1465,21 @@ Bitte aktivieren Sie "Relab Control Center" in den Barrierefreiheitseinstellunge
     <string name="card_explanation_group_camera_modes">Die Funktionen der Kamerasoftware (HDR, Nachtmodus, Porträt, Burst) werden unterstützt.</string>
     <string name="card_how_it_works_group_camera_modes">Fragt Kamerafunktionen und Aufnahmemodi aus den Camera2-Eigenschaften ab.</string>
     <string name="card_why_it_matters_group_camera_modes">Legt visuelle Aufnahmefunktionen fest und ermöglicht dem Benutzer das Aufnehmen erweiterter Fotos unter verschiedenen Lichtverhältnissen.</string>
+
+    <string name="by_cluster">Nach Cluster</string>
+    <string name="by_core">Nach Kern</string>
+    <string name="core_index_format">Kern %1$d</string>
+    <string name="cpu_cluster_efficiency_label">Effizienz</string>
+    <string name="cpu_cluster_performance_label">Leistung</string>
+    <string name="cpu_cluster_prime_label">Prime</string>
+    <string name="cpu_temperature">CPU-Temperatur</string>
+    <string name="features_format">%1$d / %2$d Funktionen</string>
+    <string name="frame_rate">Bildrate</string>
+    <string name="gpu_frequency">GPU-Takt</string>
+    <string name="gpu_load">GPU-Auslastung</string>
+    <string name="gpu_memory_used">GPU-Speicher in Verwendung</string>
+    <string name="gpu_temperature">GPU-Temperatur</string>
+    <string name="thermal_state_normal">Normal</string>
+    <string name="thermal_state_throttled">Gedrosselt</string>
+    <string name="thermal_status_format">Thermostatus: %1$s</string>
 </resources>

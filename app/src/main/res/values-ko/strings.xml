@@ -1465,4 +1465,21 @@
     <string name="card_explanation_group_camera_modes">카메라 소프트웨어 기능(HDR, 야간 모드, 인물 사진, 연사)이 지원됩니다.</string>
     <string name="card_how_it_works_group_camera_modes">Camera2 특성에서 카메라 기능과 촬영 모드를 쿼리합니다.</string>
     <string name="card_why_it_matters_group_camera_modes">사용자가 다양한 조명 조건에서 고급 사진을 찍을 수 있도록 시각적 캡처 기능을 결정합니다.</string>
+
+    <string name="by_cluster">클러스터별</string>
+    <string name="by_core">코어별</string>
+    <string name="core_index_format">코어 %1$d</string>
+    <string name="cpu_cluster_efficiency_label">효율</string>
+    <string name="cpu_cluster_performance_label">성능</string>
+    <string name="cpu_cluster_prime_label">프라임</string>
+    <string name="cpu_temperature">CPU 온도</string>
+    <string name="features_format">%1$d / %2$d 기능</string>
+    <string name="frame_rate">프레임 레이트</string>
+    <string name="gpu_frequency">GPU 주파수</string>
+    <string name="gpu_load">GPU 부하</string>
+    <string name="gpu_memory_used">사용 중인 GPU 메모리</string>
+    <string name="gpu_temperature">GPU 온도</string>
+    <string name="thermal_state_normal">정상</string>
+    <string name="thermal_state_throttled">스로틀링</string>
+    <string name="thermal_status_format">열 상태: %1$s</string>
 </resources>

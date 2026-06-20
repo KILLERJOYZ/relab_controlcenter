@@ -12,7 +12,6 @@ object AppConfig {
     const val VALUE_NO_CACHE = "no-cache"
     const val HEADER_USER_AGENT = "User-Agent"
     const val HEADER_APK_VERSION = "X-APK-Version"
-    const val MOCK_LATEST_VERSION = "1.2.0"
 
     // Gemini AI Configuration
     const val GEMINI_MODEL_NAME = "gemini-1.5-flash"

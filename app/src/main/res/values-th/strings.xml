@@ -1465,4 +1465,21 @@
     <string name="card_explanation_group_camera_modes">รองรับความสามารถของซอฟต์แวร์กล้อง (HDR, โหมดกลางคืน, ภาพบุคคล, ถ่ายรัว)</string>
     <string name="card_how_it_works_group_camera_modes">ค้นหาความสามารถของกล้องและโหมดการถ่ายภาพจากคุณลักษณะ Camera2</string>
     <string name="card_why_it_matters_group_camera_modes">กำหนดคุณสมบัติการถ่ายภาพ ช่วยให้ผู้ใช้สามารถถ่ายภาพขั้นสูงภายใต้สภาพแสงต่างๆ</string>
+
+    <string name="by_cluster">ตามกลุ่ม</string>
+    <string name="by_core">ตามแกนประมวลผล</string>
+    <string name="core_index_format">แกน %1$d</string>
+    <string name="cpu_cluster_efficiency_label">ประหยัดพลังงาน</string>
+    <string name="cpu_cluster_performance_label">ประสิทธิภาพ</string>
+    <string name="cpu_cluster_prime_label">ไพรม์</string>
+    <string name="cpu_temperature">อุณหภูมิ CPU</string>
+    <string name="features_format">%1$d / %2$d ฟีเจอร์</string>
+    <string name="frame_rate">อัตราเฟรม</string>
+    <string name="gpu_frequency">ความถี่ GPU</string>
+    <string name="gpu_load">โหลด GPU</string>
+    <string name="gpu_memory_used">หน่วยความจำ GPU ที่ใช้งาน</string>
+    <string name="gpu_temperature">อุณหภูมิ GPU</string>
+    <string name="thermal_state_normal">ปกติ</string>
+    <string name="thermal_state_throttled">ถูกจำกัด</string>
+    <string name="thermal_status_format">สถานะความร้อน: %1$s</string>
 </resources>

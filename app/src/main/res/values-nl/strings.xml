@@ -1465,4 +1465,21 @@ Schakel "Relab Control Center" in via de toegankelijkheidsinstellingen.</string>
     <string name="card_explanation_group_camera_modes">De camerasoftwaremogelijkheden (HDR, Nachtmodus, Portret, Burst) worden ondersteund.</string>
     <string name="card_how_it_works_group_camera_modes">Vraagt ​​cameramogelijkheden en opnamemodi op aan de hand van de Camera2-kenmerken.</string>
     <string name="card_why_it_matters_group_camera_modes">Bepaalt visuele opnamefuncties, waardoor de gebruiker geavanceerde foto\'s kan maken onder verschillende lichtomstandigheden.</string>
+
+    <string name="by_cluster">Per Cluster</string>
+    <string name="by_core">Per Kern</string>
+    <string name="core_index_format">Kern %1$d</string>
+    <string name="cpu_cluster_efficiency_label">Efficiëntie</string>
+    <string name="cpu_cluster_performance_label">Prestatie</string>
+    <string name="cpu_cluster_prime_label">Prime</string>
+    <string name="cpu_temperature">CPU-temperatuur</string>
+    <string name="features_format">%1$d / %2$d Functies</string>
+    <string name="frame_rate">Framerate</string>
+    <string name="gpu_frequency">GPU-frequentie</string>
+    <string name="gpu_load">GPU-belasting</string>
+    <string name="gpu_memory_used">GPU-geheugen in Gebruik</string>
+    <string name="gpu_temperature">GPU-temperatuur</string>
+    <string name="thermal_state_normal">Normaal</string>
+    <string name="thermal_state_throttled">Beperkt</string>
+    <string name="thermal_status_format">Thermische Status: %1$s</string>
 </resources>

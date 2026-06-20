@@ -30,9 +30,8 @@ class ApkCrawler(private val context: Context) {
         return try {
             val response = executeRequestWithRetry(request)
             if (response.isSuccessful) {
-                // In a real app, we'd parse the HTML or use an API. 
-                // For this simulation, we'll try to extract from headers or a mock version.
-                val latestVersion = response.header(AppConfig.HEADER_APK_VERSION) ?: AppConfig.MOCK_LATEST_VERSION 
+                // Try to extract from version headers from the direct download URL response if available
+                val latestVersion = response.header(AppConfig.HEADER_APK_VERSION)
                 val downloadUrl = response.request.url.toString()
                 Pair(latestVersion, downloadUrl)
             } else {

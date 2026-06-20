@@ -155,7 +155,7 @@ object GpuUtils {
         }
 
         // 3. Fallback/Dummy for unrooted/newer devices
-        return (1..5).random() // Slight jitter for "active" look
+        return 0
     }
 
     fun getGpuCores(renderer: String): String {
@@ -244,6 +244,7 @@ object GpuUtils {
         val r = renderer.uppercase()
         return when {
             r.contains("830") -> "128-bit" // Snapdragon 8 Elite
+            r.contains("810") -> "128-bit" // Snapdragon 7s Gen 3 / Gen 4 (Adreno 810)
             r.contains("750") -> "64-bit"  // Snapdragon 8 Gen 3 (4x16-bit)
             r.contains("740") -> "64-bit"
             r.contains("730") -> "64-bit"
@@ -263,6 +264,7 @@ object GpuUtils {
         // Database of Max Frequencies for popular GPUs
         return when {
             r.contains("830") -> "1100 MHz"
+            r.contains("810") -> "895-1050 MHz" // Adreno 810 (Snapdragon 7s Gen 3 / Gen 4)
             r.contains("750") -> "770-1000 MHz"
             r.contains("740") -> "680-719 MHz"
             r.contains("730") -> "818-900 MHz"

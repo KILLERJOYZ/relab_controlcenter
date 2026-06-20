@@ -1,6 +1,7 @@
 package com.example.relab_tool.model
 
 import androidx.compose.runtime.Immutable
+import com.example.relab_tool.data.WifiSsidState
 
 data class DeviceSummary(
     val model: String = "Unknown",
@@ -484,6 +485,9 @@ data class NetworkInfo(
     val isConnected: Boolean = false,
     val cellularInfo: CellularInfo? = null,
     val wifiSsid: String? = null,
+    val wifiSsidState: WifiSsidState = WifiSsidState.NotConnected,
+    val isLocationPermissionGranted: Boolean = false,
+    val isLocationServicesEnabled: Boolean = false,
     val wifiBssid: String? = null,
     val wifiSignalDbm: Int? = null,
     val wifiStandard: String? = null,

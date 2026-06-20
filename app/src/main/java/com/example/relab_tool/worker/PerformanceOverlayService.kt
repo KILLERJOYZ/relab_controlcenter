@@ -322,15 +322,25 @@ class PerformanceOverlayService : Service(), LifecycleOwner, SavedStateRegistryO
         val donutStroke = remember(density) { Stroke(with(density) { 4.dp.toPx() }) }
         val maxFrameTime = remember(frameTimeHistory) { (frameTimeHistory.maxOrNull() ?: 33.3f).coerceAtLeast(20f) }
 
-        var simulatedRead by remember { mutableStateOf(250) }
-        var simulatedWrite by remember { mutableStateOf(100) }
-
         val context = LocalContext.current
         val activityManager = remember { context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager }
         val memoryInfo = remember { ActivityManager.MemoryInfo() }
 
         var ramUsageStr by remember { mutableStateOf("12.4 GB / 32 GB") }
         var ramProgress by remember { mutableStateOf(0.4f) }
+
+        val diskReadMb = remember(telemetryData.diskRead) {
+            try {
+                val clean = telemetryData.diskRead.uppercase().trim()
+                val num = clean.filter { it.isDigit() || it == '.' }.toFloatOrNull() ?: 0f
+                when {
+                    clean.contains("GB") -> num * 1024f
+                    clean.contains("MB") -> num
+                    clean.contains("KB") -> num / 1024f
+                    else -> num / (1024f * 1024f)
+                }
+            } catch (e: Exception) { 0f }
+        }
 
         LaunchedEffect(telemetryData) {
             cpuHistory.add(telemetryData.cpuUsage)
@@ -353,12 +363,6 @@ class PerformanceOverlayService : Service(), LifecycleOwner, SavedStateRegistryO
                 ramUsageStr = String.format(Locale.US, "%.1f GB / %.1f GB", usedGb, totalGb)
                 ramProgress = if (totalGb > 0) usedGb / totalGb else 0f
             } catch (e: Exception) {}
-
-            // Disk Read/Write simulated changes
-            val deltaRead = (-25..25).random()
-            val deltaWrite = (-10..10).random()
-            simulatedRead = (simulatedRead + deltaRead).coerceIn(100, 400)
-            simulatedWrite = (simulatedWrite + deltaWrite).coerceIn(40, 160)
         }
 
         // --- Smooth transition: single Surface with animated width + AnimatedVisibility for content ---
@@ -545,10 +549,6 @@ class PerformanceOverlayService : Service(), LifecycleOwner, SavedStateRegistryO
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(text = "GPU: ${telemetryData.gpuUsage}%", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                    Text(
-                                        text = String.format(Locale.US, "VRAM: %.1f GB / 8 GB", (1.5f + (telemetryData.gpuUsage / 100f) * 1.2f).coerceIn(1.0f, 4.0f)),
-                                        color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp
-                                    )
                                 }
                                 Box(
                                     modifier = Modifier
@@ -766,11 +766,11 @@ class PerformanceOverlayService : Service(), LifecycleOwner, SavedStateRegistryO
                                         }
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                             Text("Disk Read", color = Color.White.copy(alpha = 0.8f), fontSize = 10.sp)
-                                            Text("${simulatedRead} MB/s", color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
+                                            Text(telemetryData.diskRead, color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
                                         }
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                             Text("Disk Write", color = Color.White.copy(alpha = 0.8f), fontSize = 10.sp)
-                                            Text("${simulatedWrite} MB/s", color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
+                                            Text(telemetryData.diskWrite, color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
                                         }
                                     }
 
@@ -823,7 +823,7 @@ class PerformanceOverlayService : Service(), LifecycleOwner, SavedStateRegistryO
                                                 drawArc(Color(0xFFD500F9), -90f, ramProgress * 360f, false, topLeft = Offset(ctr.x-r3,ctr.y-r3), size = Size(r3*2,r3*2), style = donutStroke)
                                                 val r4 = r3 - sw - sp
                                                 drawCircle(Color.White.copy(alpha = 0.06f), r4, style = donutStroke)
-                                                drawArc(Color(0xFFFF9100), -90f, (simulatedRead / 500f).coerceIn(0f,1f) * 360f, false, topLeft = Offset(ctr.x-r4,ctr.y-r4), size = Size(r4*2,r4*2), style = donutStroke)
+                                                drawArc(Color(0xFFFF9100), -90f, (diskReadMb / 500f).coerceIn(0f,1f) * 360f, false, topLeft = Offset(ctr.x-r4,ctr.y-r4), size = Size(r4*2,r4*2), style = donutStroke)
                                             }
                                         }
                                         Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {

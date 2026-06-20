@@ -1465,4 +1465,21 @@ Erişilebilirlik ayarlarında "Relab Control Center"i etkinleştirin.</string>
     <string name="card_explanation_group_camera_modes">Kamera yazılımı özellikleri (HDR, Gece Modu, Portre, Seri Çekim) desteklenir.</string>
     <string name="card_how_it_works_group_camera_modes">Camera2 özelliklerinden kamera yeteneklerini ve çekim modlarını sorgular.</string>
     <string name="card_why_it_matters_group_camera_modes">Kullanıcının çeşitli aydınlatma koşullarında gelişmiş fotoğraflar çekmesine olanak tanıyan görsel yakalama özelliklerini belirler.</string>
+
+    <string name="by_cluster">Kümeye Göre</string>
+    <string name="by_core">Çekirdeğe Göre</string>
+    <string name="core_index_format">Çekirdek %1$d</string>
+    <string name="cpu_cluster_efficiency_label">Verimlilik</string>
+    <string name="cpu_cluster_performance_label">Performans</string>
+    <string name="cpu_cluster_prime_label">Prime</string>
+    <string name="cpu_temperature">CPU Sıcaklığı</string>
+    <string name="features_format">%1$d / %2$d Özellik</string>
+    <string name="frame_rate">Kare Hızı</string>
+    <string name="gpu_frequency">GPU Frekansı</string>
+    <string name="gpu_load">GPU Yükü</string>
+    <string name="gpu_memory_used">Kullanılan GPU Belleği</string>
+    <string name="gpu_temperature">GPU Sıcaklığı</string>
+    <string name="thermal_state_normal">Normal</string>
+    <string name="thermal_state_throttled">Kısıtlandı</string>
+    <string name="thermal_status_format">Termal Durum: %1$s</string>
 </resources>

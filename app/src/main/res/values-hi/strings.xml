@@ -1465,4 +1465,21 @@
     <string name="card_explanation_group_camera_modes">कैमरा सॉफ्टवेयर क्षमताएं (एचडीआर, नाइट मोड, पोर्ट्रेट, बर्स्ट) समर्थित हैं।</string>
     <string name="card_how_it_works_group_camera_modes">कैमरा2 विशेषताओं से कैमरा क्षमताओं और शूटिंग मोड के बारे में प्रश्न पूछता है।</string>
     <string name="card_why_it_matters_group_camera_modes">दृश्य कैप्चर सुविधाओं को निर्धारित करता है, जिससे उपयोगकर्ता को विभिन्न प्रकाश स्थितियों के तहत उन्नत तस्वीरें लेने की अनुमति मिलती है।</string>
+
+    <string name="by_cluster">क्लस्टर द्वारा</string>
+    <string name="by_core">कोर द्वारा</string>
+    <string name="core_index_format">कोर %1$d</string>
+    <string name="cpu_cluster_efficiency_label">दक्षता</string>
+    <string name="cpu_cluster_performance_label">प्रदर्शन</string>
+    <string name="cpu_cluster_prime_label">प्राइम</string>
+    <string name="cpu_temperature">CPU तापमान</string>
+    <string name="features_format">%1$d / %2$d विशेषताएँ</string>
+    <string name="frame_rate">फ्रेम दर</string>
+    <string name="gpu_frequency">GPU आवृत्ति</string>
+    <string name="gpu_load">GPU लोड</string>
+    <string name="gpu_memory_used">उपयोग में GPU मेमोरी</string>
+    <string name="gpu_temperature">GPU तापमान</string>
+    <string name="thermal_state_normal">सामान्य</string>
+    <string name="thermal_state_throttled">थ्रॉटल्ड</string>
+    <string name="thermal_status_format">थर्मल स्थिति: %1$s</string>
 </resources>

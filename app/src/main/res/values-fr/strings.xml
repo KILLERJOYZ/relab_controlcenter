@@ -1465,4 +1465,21 @@ Veuillez activer "Relab Control Center" dans les paramètres d\'accessibilité.<
     <string name="card_explanation_group_camera_modes">Les capacités logicielles de l\'appareil photo (HDR, Mode Nuit, Portrait, Rafale) sont prises en charge.</string>
     <string name="card_how_it_works_group_camera_modes">Interroge les capacités de l’appareil photo et les modes de prise de vue à partir des caractéristiques de Camera2.</string>
     <string name="card_why_it_matters_group_camera_modes">Détermine les fonctionnalités de capture visuelle, permettant à l\'utilisateur de prendre des photos avancées dans diverses conditions d\'éclairage.</string>
+
+    <string name="by_cluster">Par Cluster</string>
+    <string name="by_core">Par Cœur</string>
+    <string name="core_index_format">Cœur %1$d</string>
+    <string name="cpu_cluster_efficiency_label">Efficacité</string>
+    <string name="cpu_cluster_performance_label">Performance</string>
+    <string name="cpu_cluster_prime_label">Prime</string>
+    <string name="cpu_temperature">Température CPU</string>
+    <string name="features_format">%1$d / %2$d Fonctionnalités</string>
+    <string name="frame_rate">Fréquence d\'images</string>
+    <string name="gpu_frequency">Fréquence GPU</string>
+    <string name="gpu_load">Charge GPU</string>
+    <string name="gpu_memory_used">Mémoire GPU Utilisée</string>
+    <string name="gpu_temperature">Température GPU</string>
+    <string name="thermal_state_normal">Normal</string>
+    <string name="thermal_state_throttled">Limité</string>
+    <string name="thermal_status_format">État Thermique : %1$s</string>
 </resources>

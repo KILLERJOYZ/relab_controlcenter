@@ -387,45 +387,52 @@ fun AssistiveTouchSettingsScreen(
             onDismissRequest = { showAppPicker = false },
             title = { Text(stringResource(R.string.at_select_app)) },
             text = {
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 400.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    items(installedApps) { appInfo ->
-                        val pm = context.packageManager
-                        val label = pm.getApplicationLabel(appInfo).toString()
-                        val isSelected = config.customAppPackage == appInfo.packageName
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .then(
-                                    if (isSelected) Modifier.background(
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                                    ) else Modifier
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Due to Android security policies, only recommended and pre-approved apps are available for selection.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 400.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        items(installedApps) { appInfo ->
+                            val pm = context.packageManager
+                            val label = pm.getApplicationLabel(appInfo).toString()
+                            val isSelected = config.customAppPackage == appInfo.packageName
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .then(
+                                        if (isSelected) Modifier.background(
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                        ) else Modifier
+                                    )
+                                    .clickable {
+                                        viewModel.setCustomAppPackage(appInfo.packageName)
+                                        showAppPicker = false
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
                                 )
-                                .clickable {
-                                    viewModel.setCustomAppPackage(appInfo.packageName)
-                                    showAppPicker = false
+                                if (isSelected) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
                                 }
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
-                            if (isSelected) {
-                                Icon(
-                                    Icons.Default.Check,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
                             }
                         }
                     }

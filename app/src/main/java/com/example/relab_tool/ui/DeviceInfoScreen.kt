@@ -43,6 +43,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import android.app.Activity
+import androidx.core.app.ActivityCompat
+import android.content.Intent
+import android.content.Context
+import android.net.Uri
+import android.provider.Settings
+import android.location.LocationManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.input.pointer.pointerInteropFilter
@@ -1689,6 +1696,7 @@ fun LazyGridItemScope.ResizableCardContainer(
     val batteryHistory by viewModel.batteryCapacityHistory.collectAsStateWithLifecycle()
     val lastFullChargeTs by viewModel.lastFullChargeTs.collectAsStateWithLifecycle()
     val lastStoppedChargingTs by viewModel.lastStoppedChargingTs.collectAsStateWithLifecycle()
+    val networkInfoState by viewModel.networkInfo.collectAsStateWithLifecycle()
     val hasData by remember { derivedStateOf { dataState != null && realtimeState != null } }
     val isWideScreen = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
     val gridColumns = when (windowSizeClass.widthSizeClass) {
@@ -1805,7 +1813,7 @@ fun LazyGridItemScope.ResizableCardContainer(
                     key = "wifi",
                     title = context.getString(R.string.tab_wifi),
                     icon = Icons.Outlined.Wifi,
-                    value = data.wifiSsid ?: context.getString(R.string.disconnected),
+                    value = data.wifiSsid ?: if (networkInfoState?.state == context.getString(R.string.connected)) context.getString(R.string.connected) else context.getString(R.string.disconnected),
                     subtext = (data.wifiStandard ?: context.getString(R.string.ssid)) + (data.wifiSignalDbm?.let { " | $it dBm" } ?: ""),
                     containerColor = primary,
                     contentColor = onPrimary,
@@ -3361,9 +3369,13 @@ enum class SocTabType { CPU, GPU }
                                         Text("${realtimeData.gpuUsage}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
                                     }
                                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Text("Freq: ${"%.0f".format(realtimeData.gpuFreq)} MHz", style = MaterialTheme.typography.bodyMedium)
-                                        Text("Memory: ${"%.0f".format(realtimeData.gpuMemory)} MB", style = MaterialTheme.typography.bodyMedium)
-                                        Text("Temp: ${"%.1f".format(realtimeData.gpuTemperature)}°C", style = MaterialTheme.typography.bodyMedium)
+                                        val naStr = stringResource(id = R.string.na)
+                                        val freqStr = if (realtimeData.gpuFreq > 0f) "${"%.0f".format(realtimeData.gpuFreq)} MHz" else naStr
+                                        val memStr = if (realtimeData.gpuMemory > 0f) "${"%.0f".format(realtimeData.gpuMemory)} MB" else naStr
+                                        val tempStr = if (realtimeData.gpuTemperature > 0f) "${"%.1f".format(realtimeData.gpuTemperature)}°C" else naStr
+                                        Text("Freq: $freqStr", style = MaterialTheme.typography.bodyMedium)
+                                        Text("Memory: $memStr", style = MaterialTheme.typography.bodyMedium)
+                                        Text("Temp: $tempStr", style = MaterialTheme.typography.bodyMedium)
                                         if (realtimeData.cpuTemperature > 0) {
                                             Text("CPU Temp: ${"%.1f".format(realtimeData.cpuTemperature)}°C", style = MaterialTheme.typography.bodyMedium)
                                         }
@@ -4009,6 +4021,64 @@ enum class SocTabType { CPU, GPU }
 @Composable fun WifiTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
     val info by v.networkInfo.collectAsStateWithLifecycle()
     val isWideScreen = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
+    val context = LocalContext.current
+    var showRationaleDialog by remember { mutableStateOf(false) }
+
+    val activity = context as? Activity
+    val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    val shouldShowRationale = activity?.let {
+        ActivityCompat.shouldShowRequestPermissionRationale(it, Manifest.permission.ACCESS_FINE_LOCATION)
+    } ?: false
+    val prefs = remember(context) { context.getSharedPreferences("relab_prefs", Context.MODE_PRIVATE) }
+    val hasRequestedBefore = prefs.getBoolean("location_permission_requested", false)
+    val isPermanentlyDenied = !hasPermission && !shouldShowRationale && hasRequestedBefore
+
+    LaunchedEffect(isPermanentlyDenied) {
+        prefs.edit().putBoolean("location_permission_permanently_denied", isPermanentlyDenied).apply()
+        v.loadAdvancedInfo()
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            v.loadAdvancedInfo()
+        }
+    )
+
+    if (showRationaleDialog) {
+        AlertDialog(
+            onDismissRequest = { showRationaleDialog = false },
+            title = { Text(text = "Location access needed") },
+            text = {
+                Text(
+                    text = "Android requires Location access to read your Wi-Fi network name. " +
+                           "This app does not track, store, or share your location."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showRationaleDialog = false
+                        context.getSharedPreferences("relab_prefs", Context.MODE_PRIVATE)
+                            .edit()
+                            .putBoolean("location_permission_requested", true)
+                            .apply()
+                        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
+                ) {
+                    Text(text = "Continue")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showRationaleDialog = false }
+                ) {
+                    Text(text = "Cancel")
+                }
+            }
+        )
+    }
+
     info?.let { i -> 
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
@@ -4017,17 +4087,65 @@ enum class SocTabType { CPU, GPU }
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) { 
             item(span = { GridItemSpan(3) }) {
-                DashboardStatusCard(
-                    modifier = Modifier.fillMaxWidth().height(160.dp),
-                    title = "SSID",
-                    icon = Icons.Outlined.Wifi,
-                    value = i.wifiSsid ?: stringResource(R.string.disconnected),
-                    subtext = i.wifiBssid ?: i.state,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    size = CardSize.SIZE_4x2,
-                    cardId = "wifi_card"
-                )
+                Column {
+                    val ssidState = i.wifiSsidState
+                    val cardValue = i.wifiSsid ?: if (i.state == stringResource(R.string.connected)) stringResource(R.string.connected) else stringResource(R.string.disconnected)
+                    
+                    val cardSubtext = when (ssidState) {
+                        is com.example.relab_tool.data.WifiSsidState.PermissionDenied -> "Location permission required. Tap here to grant."
+                        is com.example.relab_tool.data.WifiSsidState.PermissionPermanentlyDenied -> "Location permission permanently denied. Tap here to enable."
+                        is com.example.relab_tool.data.WifiSsidState.LocationServicesDisabled -> "Location services disabled. Tap here to enable."
+                        else -> i.wifiBssid ?: i.state
+                    }
+                    
+                    val handleAction = {
+                        if (ssidState is com.example.relab_tool.data.WifiSsidState.PermissionDenied) {
+                            showRationaleDialog = true
+                        } else if (ssidState is com.example.relab_tool.data.WifiSsidState.PermissionPermanentlyDenied) {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", context.packageName, null)
+                            }
+                            context.startActivity(intent)
+                        } else if (ssidState is com.example.relab_tool.data.WifiSsidState.LocationServicesDisabled) {
+                            val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                            context.startActivity(intent)
+                        }
+                    }
+
+                    DashboardStatusCard(
+                        modifier = Modifier.fillMaxWidth().height(160.dp),
+                        title = "SSID",
+                        icon = Icons.Outlined.Wifi,
+                        value = cardValue,
+                        subtext = cardSubtext,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        size = CardSize.SIZE_4x2,
+                        cardId = "wifi_card",
+                        onClick = { handleAction() }
+                    )
+                    
+                    if (ssidState !is com.example.relab_tool.data.WifiSsidState.Connected && ssidState !is com.example.relab_tool.data.WifiSsidState.NotConnected) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { handleAction() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        ) {
+                            Text(
+                                text = when (ssidState) {
+                                    is com.example.relab_tool.data.WifiSsidState.PermissionDenied -> "Grant"
+                                    is com.example.relab_tool.data.WifiSsidState.PermissionPermanentlyDenied -> "Enable in Settings"
+                                    is com.example.relab_tool.data.WifiSsidState.LocationServicesDisabled -> "Enable Location"
+                                    else -> ""
+                                }
+                            )
+                        }
+                    }
+                }
             }
 
             item(span = { GridItemSpan(3) }) {
@@ -4329,6 +4447,33 @@ enum class AppFilterType { ALL, INSTALLED, SYSTEM }
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) { 
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Due to Android 11+ security and privacy policies, only a limited set of pre-approved system and recommended applications are visible in this view.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
             item {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
