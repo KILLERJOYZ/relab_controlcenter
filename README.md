@@ -1,4 +1,4 @@
-# Relab Control Center (rlcc) - v0.4 beta
+# Relab Control Center (rlcc) - v0.4.1
 
 **Relab Control Center** is a professional-grade utility and diagnostic suite built for Android enthusiasts, developers, and power users. It combines deep hardware intelligence with real-time performance telemetry and a specialized installer hub to provide total transparency into the Android ecosystem.
 
@@ -62,6 +62,16 @@ A professional-grade **Common Interaction Toolkit** for verifying hardware funct
 
 ---
 
+## 🏁 v0.4.1 Release Highlights
+
+This release introduces the adaptive app icon, safe Wi-Fi SSID location telemetry, Snapdragon 7s Gen 4 SoC resolution, and critical translation compilation fixes:
+*   **Modern Adaptive App Icon**: Integrated the original logo directly as foreground and monochrome adaptive launcher layers, with customized safe zones matching standard Android launcher standards.
+*   **Wi-Fi Telemetry & Safe SSID Retrieval**: Implemented Google Play compliant Wi-Fi SSID retrieval utilizing foreground-only optional Location permissions, with on-demand permission rationales, graceful degradation, and system Settings redirection.
+*   **SoC Disambiguation (Snapdragon 7s Gen 4)**: Introduced frequency-based hardware detection logic to correctly distinguish between Snapdragon 7s Gen 3 and Gen 4 (both sharing hardware code `SM7635`), alongside accurate Adreno 810 GPU specifications.
+*   **Language Consistency & French Compilation Fix**: Cleaned up localization and resolved resource compilation errors in French strings.xml.
+
+---
+
 ## 🏁 v0.4 Beta Highlights
 
 This release focuses on detailed hardware spec explanations and deep internationalization:
@@ -71,9 +81,20 @@ This release focuses on detailed hardware spec explanations and deep internation
 
 ---
 
+## 📊 Changelog: v0.4.1 vs v0.4 Beta
+
+| Feature | Version 0.4 Beta | Version 0.4.1 (New) |
+| :--- | :--- | :--- |
+| **App Icon** | Basic launcher icon. | **Modern Adaptive Icon**: Foreground/monochrome layers with insets, matching Material You wallpaper theme color. |
+| **Wi-Fi Telemetry** | Default connection state. | **Safe SSID Retrieval**: Google Play compliant permission checks, rationale dialogs, and settings redirects. |
+| **SoC Disambiguation** | Qualcomm SM7635 mapped to Snapdragon 7s Gen 3. | **Frequency-Based Filter**: Correctly resolves Snapdragon 7s Gen 3 vs. Gen 4, and maps Adreno 810 GPU specs. |
+| **Build Configuration** | Version Name: `0.4`, Code: `4` | Version Name: `0.4.1`, Code: `5`. Release tag `v0.4.1` with `rlcc_beta_0.4.1.apk`. |
+
+---
+
 ## 📊 Changelog: v0.4 Beta vs v0.3
 
-| Feature | Version 0.3 | Version 0.4 Beta (New) |
+| Feature | Version 0.3 | Version 0.4 Beta |
 | :--- | :--- | :--- |
 | **Spec Explanations** | Shared generic category explanations for all specification cards. | **Spec-Specific Explanations**: 171 custom entries (Explanation, How it works, Why it matters) unique for every card (57 total cards). |
 | **Language Support** | Bilingual (English & Vietnamese). | **17 Languages**: Multi-language translation support across 15 additional languages (Chinese, Spanish, French, German, Russian, Portuguese, Italian, Japanese, Korean, Arabic, Hindi, Indonesian, Thai, Turkish, Dutch). |
@@ -85,7 +106,7 @@ This release focuses on detailed hardware spec explanations and deep internation
 
 ## 📥 Getting Started
 
-1.  **Download**: Obtain the latest `rlcc_beta_v0.4.apk` from the [Releases](https://github.com/KILLERJOYZ/relab_controlcenter/releases) page.
+1.  **Download**: Obtain the latest `rlcc_beta_0.4.1.apk` from the [Releases](https://github.com/KILLERJOYZ/relab_controlcenter/releases) page.
 2.  **Permissions**: Grant Camera, Location, and Phone permissions to enable physical sensor detection and network identification.
 3.  **Installation**: Enable "Install from Unknown Sources" for the App Hub to function as an alternative installer.
 
