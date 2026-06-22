@@ -156,6 +156,28 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
     private val _securityInfo = MutableStateFlow<SecurityInfo?>(null) // Changed
     val securityInfo = _securityInfo.asStateFlow() // Changed
 
+    data class PermissionAuditData(
+        val appsCameraCount: Int,
+        val appsMicCount: Int,
+        val appsLocationCount: Int,
+        val appsContactsSmsCount: Int,
+        val overlayAppsCount: Int,
+        val unknownSourcesCount: Int,
+        val nonPlayStoreCount: Int,
+        val accessibilityApps: List<String>,
+        val deviceAdminApps: List<String>
+    )
+
+    @Volatile private var cachedPermissionAudit: PermissionAuditData? = null
+    @Volatile private var cachedKeystoreType: String? = null
+    @Volatile private var cachedHardwareBackedKeystore: Boolean? = null
+    @Volatile private var cachedStorageFsType: String? = null
+    @Volatile private var cachedAudioCodecs: String? = null
+    @Volatile private var cachedVideoCodecs: String? = null
+
+    // Thread-safe set that records which tab keys have already been loaded.
+    private val loadedTabs = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
     private val _locationData = MutableStateFlow(LocationData())
     val locationData = _locationData.asStateFlow()
 
@@ -393,10 +415,15 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun performSearch(query: String) {
-        viewModelScope.launch(Dispatchers.Default) {
+        viewModelScope.launch(Dispatchers.IO) {
             if (query.isBlank()) {
                 _searchResults.value = emptyList()
                 return@launch
+            }
+
+            // Ensure all lazy sections are loaded so search is complete
+            if (loadedTabs.size < 8) {
+                loadAdvancedInfoSuspending()
             }
 
             val index = searchEngine.buildIndex(
@@ -420,7 +447,9 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                 codecs = _codecs.value
             )
 
-            _searchResults.value = searchEngine.search(query, index)
+            kotlinx.coroutines.withContext(Dispatchers.Default) {
+                _searchResults.value = searchEngine.search(query, index)
+            }
         }
     }
 
@@ -645,10 +674,6 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
         }
         // Parallelise: each loader is independent — no data dependency between them
         viewModelScope.launch(Dispatchers.IO) { loadStaticInfo() }
-        viewModelScope.launch(Dispatchers.IO) { loadAdvancedInfo() }
-        viewModelScope.launch(Dispatchers.IO) { updateBluetoothInfo() }
-        viewModelScope.launch(Dispatchers.IO) { updateAudioInfo() }
-        viewModelScope.launch(Dispatchers.IO) { updateSecurityInfo() }
         
         // Register battery receiver for state changes
         ContextCompat.registerReceiver(
@@ -726,12 +751,12 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                 if (isAppInForeground || isOverlayActive) {
                     updateSlowDashboardInfo()
                     updateDynamicInfo()
-                    updateBluetoothInfo()
+                    if (loadedTabs.contains("bluetooth")) {
+                        updateBluetoothInfo()
+                    }
                     // Refresh cached BT values used by the fast dashboard loop
                     cachedBluetoothConnectedDevices = getBluetoothConnectedDevicesCount()
                     cachedBluetoothCodec = getBluetoothAudioCodec()
-                    updateAudioInfo()
-                    updateSecurityInfo()
 
                     // ── Emit slow dashboard flow (every 5s, NOT every tick) ───
                     emitSlowDashboard()
@@ -815,12 +840,18 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun getSelinuxStatus(): String {
+        val cached = cachedSelinuxStatus
+        if (cached != "Unknown" && cached.isNotEmpty()) {
+            return cached
+        }
         return try {
             val process = Runtime.getRuntime().exec("getenforce")
             val reader = process.inputStream.bufferedReader()
             val status = reader.readLine()
             reader.close()
-            status ?: getApplication<Application>().getString(R.string.unknown)
+            val finalStatus = status ?: getApplication<Application>().getString(R.string.unknown)
+            cachedSelinuxStatus = finalStatus
+            finalStatus
         } catch (e: Exception) {
             "Unknown"
         }
@@ -849,12 +880,18 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
             cachedStorageUsed = cachedStorageTotal - (stat.blockSizeLong * stat.availableBlocksLong)
             
             // Sensors count
-            val sensorManager = getApplication<Application>().getSystemService(Context.SENSOR_SERVICE) as SensorManager
-            cachedSensorsCount = sensorManager.getSensorList(Sensor.TYPE_ALL).size
+            if (cachedSensorsCount == 0) {
+                val sensorManager = getApplication<Application>().getSystemService(Context.SENSOR_SERVICE) as SensorManager
+                cachedSensorsCount = sensorManager.getSensorList(Sensor.TYPE_ALL).size
+            }
             
             // Apps count
-            val pm = getApplication<Application>().packageManager
-            cachedAppsCount = pm.getInstalledApplications(0).size
+            if (cachedAppsCount == 0) {
+                val pm = getApplication<Application>().packageManager
+                cachedAppsCount = try {
+                    pm.getInstalledApplications(0).size
+                } catch (e: Exception) { 0 }
+            }
             
             // Static display info if not loaded
             if (cachedScreenResolution.isEmpty()) {
@@ -881,10 +918,13 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                 File("/system/bin/su").exists() ||
                 File("/system/xbin/su").exists()
             } catch (_: Exception) { false }
-            cachedSelinuxStatus = try {
-                val proc = Runtime.getRuntime().exec("getenforce")
-                proc.inputStream.bufferedReader().readLine()?.trim() ?: "Unknown"
-            } catch (_: Exception) { "Unknown" }
+            val currentSelinux = cachedSelinuxStatus
+            if (currentSelinux == "Unknown" || currentSelinux.isEmpty()) {
+                cachedSelinuxStatus = try {
+                    val proc = Runtime.getRuntime().exec("getenforce")
+                    proc.inputStream.bufferedReader().readLine()?.trim() ?: "Unknown"
+                } catch (_: Exception) { "Unknown" }
+            }
             cachedSecurityPatch = Build.VERSION.SECURITY_PATCH
         }
     }
@@ -2479,10 +2519,12 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
             val systemUsed = if (hardwareTotal > totalBytes) hardwareTotal - totalBytes else 0L
             val appsUsed = totalBytes - freeBytes
 
-            val fsType = try {
+            val fsType = cachedStorageFsType ?: try {
                 val p = Runtime.getRuntime().exec("mount")
                 val output = p.inputStream.bufferedReader().readText()
-                output.lines().find { it.contains(" /data ") }?.split(" ")?.get(2) ?: context.getString(R.string.unknown)
+                val detected = output.lines().find { it.contains(" /data ") }?.split(" ")?.get(2) ?: context.getString(R.string.unknown)
+                cachedStorageFsType = detected
+                detected
             } catch (e: Exception) { getApplication<Application>().getString(R.string.unknown) }
 
             val externalStorages = mutableListOf<ExternalStorageInfo>()
@@ -2948,529 +2990,608 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    // -- Lazy-load gate --------------------------------------------------------
+    /**
+     * Called by each tab composable the first time it is composed.
+     * Dispatches to the appropriate sub-loader if the tab has not been loaded yet.
+     * Concurrent calls for the same key are safely ignored.
+     */
+    fun ensureTabDataLoaded(tabKey: String) {
+        if (!loadedTabs.add(tabKey)) return   // already loaded or loading
+        viewModelScope.launch(Dispatchers.IO) {
+            when (tabKey) {
+                "soc"       -> loadSocInfoInternal()
+                "camera"    -> loadCameraInfoInternal()
+                "usb"       -> loadUsbInfoInternal()
+                "codecs"    -> loadCodecsInfoInternal()
+                "apps"      -> loadInstalledAppsInfoInternal()
+                "system"    -> { /* Already loaded at startup */ }
+                "network"   -> { /* Already updated in loop */ }
+                "bluetooth" -> updateBluetoothInfo()
+                "audio"     -> updateAudioInfo()
+                "security"  -> updateSecurityInfo()
+                else        -> { /* no-op */ }
+            }
+        }
+    }
+
+    fun clearSecurityCache() {
+        cachedPermissionAudit = null
+        cachedKeystoreType = null
+        cachedHardwareBackedKeystore = null
+        cachedSelinuxStatus = "Unknown"
+        cachedStorageFsType = null
+    }
+
+    /**
+     * Suspending version of loadAdvancedInfo. Ensures all lazy data is loaded in parallel.
+     */
+    suspend fun loadAdvancedInfoSuspending() {
+        clearSecurityCache()
+        // Mark all as loaded/loading to avoid redundant triggers
+        loadedTabs.addAll(listOf("soc", "camera", "usb", "codecs", "apps", "security", "bluetooth", "audio"))
+        kotlinx.coroutines.coroutineScope {
+            launch { loadSocInfoInternal() }
+            launch { loadCameraInfoInternal() }
+            launch { loadUsbInfoInternal() }
+            launch { loadCodecsInfoInternal() }
+            launch { loadInstalledAppsInfoInternal() }
+            launch { updateSecurityInfo() }
+            launch { updateBluetoothInfo() }
+            launch { updateAudioInfo() }
+        }
+    }
+
+    /**
+     * Convenience wrapper -- loads all heavy sections at once.
+     * Kept for compatibility; called by Settings "Refresh" button etc.
+     */
     fun loadAdvancedInfo() {
         viewModelScope.launch(Dispatchers.IO) {
-            val context = getApplication<Application>()
-            
-            // SoC Info
-            val gpuDetails = GpuUtils.getGpuDetails()
-            val gpuRenderer = gpuDetails?.renderer ?: getGpuModel()
-            val clustersList = getClustersList()
-            
-            _socInfo.value = SocInfo(
-                processor = SoCUtils.getCommercialName(context, gpuRenderer),
-                vendor = SoCUtils.getSoCManufacturer(),
-                cores = Runtime.getRuntime().availableProcessors().toString(),
-                bigLittle = if (clustersList.size > 1) context.getString(R.string.clusters_format, clustersList.size) else context.getString(R.string.cluster_single),
-                clusters = getClustersInfo(),
-                cpuClusters = clustersList,
-                family = getCpuFamilyInfo(),
-                mode = if (System.getProperty("os.arch")?.contains("64") == true) "64-bit" else "32-bit",
-                machine = System.getProperty("os.arch") ?: context.getString(R.string.unknown),
-                abi = Build.SUPPORTED_ABIS.firstOrNull() ?: context.getString(R.string.unknown),
-                instructions = getCpuInstructions(),
-                revision = getCpuRevision(),
-                clockSpeed = getCpuClockSpeed(),
-                governor = getCpuGovernor(),
-                supportedAbi = Build.SUPPORTED_ABIS.joinToString(", "),
-                gpu = gpuRenderer,
-                gpuVendor = gpuDetails?.vendor ?: (if (gpuRenderer.contains("Adreno", true)) "Qualcomm" else if (gpuRenderer.contains("Mali", true)) "ARM" else context.getString(R.string.unknown)),
-                gpuArch = GpuUtils.getGpuArchitecture(gpuRenderer).translateUnknown(),
-                gpuL2Cache = GpuUtils.getGpuL2Cache(gpuRenderer).translateUnknown(),
-                gpuBusWidth = GpuUtils.getGpuBusWidth(gpuRenderer).translateUnknown(),
-                openGlEs = (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).deviceConfigurationInfo.glEsVersion,
-                gpuFullVersion = gpuDetails?.version ?: context.getString(R.string.unknown),
-                vulkanVersion = GpuUtils.getVulkanVersion(context),
-                gpuExtensions = gpuDetails?.extensionsCount?.toString() ?: getGpuExtensionsCount(),
-                gpuClockSpeed = GpuUtils.getGpuMaxClock(gpuRenderer).translateUnknown(),
-                gpuCores = GpuUtils.getGpuCores(gpuRenderer).translateUnknown(),
-                process = getProcessTech(),
-                instructionSets = Build.SUPPORTED_ABIS.joinToString(", ")
-            )
-            
-            // Update CPU info with potentially more accurate name
-            _cpuInfo.value = _cpuInfo.value?.copy(
-                processor = SoCUtils.getCommercialName(context, gpuRenderer)
-            ) ?: CpuInfo(
-                processor = SoCUtils.getCommercialName(context, gpuRenderer),
-                architecture = System.getProperty("os.arch") ?: context.getString(R.string.unknown),
-                cores = Runtime.getRuntime().availableProcessors(),
-                supportedAbis = Build.SUPPORTED_ABIS.joinToString(", "),
-                cpuGovernor = getCpuGovernor()
-            )
+            loadAdvancedInfoSuspending()
+        }
+    }
 
-            updateDynamicInfo()
+    // -- Per-tab sub-loaders ---------------------------------------------------
 
-            // Camera Info
-            if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-                val allCameraInfo = mutableListOf<CameraInfo>()
+    private suspend fun loadSocInfoInternal() {
+        val context = getApplication<Application>()
+        
+        // SoC Info
+        val gpuDetails = GpuUtils.getGpuDetails()
+        val gpuRenderer = gpuDetails?.renderer ?: getGpuModel()
+        val clustersList = getClustersList()
+        
+        _socInfo.value = SocInfo(
+            processor = SoCUtils.getCommercialName(context, gpuRenderer),
+            vendor = SoCUtils.getSoCManufacturer(),
+            cores = Runtime.getRuntime().availableProcessors().toString(),
+            bigLittle = if (clustersList.size > 1) context.getString(R.string.clusters_format, clustersList.size) else context.getString(R.string.cluster_single),
+            clusters = getClustersInfo(),
+            cpuClusters = clustersList,
+            family = getCpuFamilyInfo(),
+            mode = if (System.getProperty("os.arch")?.contains("64") == true) "64-bit" else "32-bit",
+            machine = System.getProperty("os.arch") ?: context.getString(R.string.unknown),
+            abi = Build.SUPPORTED_ABIS.firstOrNull() ?: context.getString(R.string.unknown),
+            instructions = getCpuInstructions(),
+            revision = getCpuRevision(),
+            clockSpeed = getCpuClockSpeed(),
+            governor = getCpuGovernor(),
+            supportedAbi = Build.SUPPORTED_ABIS.joinToString(", "),
+            gpu = gpuRenderer,
+            gpuVendor = gpuDetails?.vendor ?: (if (gpuRenderer.contains("Adreno", true)) "Qualcomm" else if (gpuRenderer.contains("Mali", true)) "ARM" else context.getString(R.string.unknown)),
+            gpuArch = GpuUtils.getGpuArchitecture(gpuRenderer).translateUnknown(),
+            gpuL2Cache = GpuUtils.getGpuL2Cache(gpuRenderer).translateUnknown(),
+            gpuBusWidth = GpuUtils.getGpuBusWidth(gpuRenderer).translateUnknown(),
+            openGlEs = (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).deviceConfigurationInfo.glEsVersion,
+            gpuFullVersion = gpuDetails?.version ?: context.getString(R.string.unknown),
+            vulkanVersion = GpuUtils.getVulkanVersion(context),
+            gpuExtensions = gpuDetails?.extensionsCount?.toString() ?: getGpuExtensionsCount(),
+            gpuClockSpeed = GpuUtils.getGpuMaxClock(gpuRenderer).translateUnknown(),
+            gpuCores = GpuUtils.getGpuCores(gpuRenderer).translateUnknown(),
+            process = getProcessTech(),
+            instructionSets = Build.SUPPORTED_ABIS.joinToString(", ")
+        )
+        
+        // Update CPU info with potentially more accurate name
+        _cpuInfo.value = _cpuInfo.value?.copy(
+            processor = SoCUtils.getCommercialName(context, gpuRenderer)
+        ) ?: CpuInfo(
+            processor = SoCUtils.getCommercialName(context, gpuRenderer),
+            architecture = System.getProperty("os.arch") ?: context.getString(R.string.unknown),
+            cores = Runtime.getRuntime().availableProcessors(),
+            supportedAbis = Build.SUPPORTED_ABIS.joinToString(", "),
+            cpuGovernor = getCpuGovernor()
+        )
 
-                val standardIds = cameraManager.cameraIdList.toSet()
-                val allIds = standardIds.toMutableSet()
+        updateDynamicInfo()
 
-                // Probe for hidden camera IDs (common range 0-63)
-                for (i in 0..63) {
-                    val idStr = i.toString()
-                    if (!standardIds.contains(idStr)) {
-                        try {
-                            cameraManager.getCameraCharacteristics(idStr)
-                            allIds.add(idStr)
-                        } catch (_: Throwable) {}
-                    }
-                }
+    }
 
-                // Track physical IDs that are part of logical cameras to avoid top-level duplication
-                val physicalIdsToSkip = mutableSetOf<String>()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    allIds.forEach { id ->
-                        try {
-                            val chars = cameraManager.getCameraCharacteristics(id)
-                            val capabilities = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
-                            val isLogical = capabilities?.contains(CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA) == true
-                            if (isLogical) {
-                                physicalIdsToSkip.addAll(chars.physicalCameraIds)
-                            }
-                        } catch (_: Throwable) {}
-                    }
-                }
+    private suspend fun loadCameraInfoInternal() {
+        val context = getApplication<Application>()
+        // Camera Info
+        if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            val allCameraInfo = mutableListOf<CameraInfo>()
 
-                val vendorConfig = readVendorCameraConfig()
-                val systemProps = readCameraSystemProps()
-                val supportedHardwareInfo = buildString {
-                    if (vendorConfig != null) {
-                        appendLine("Vendor Config Found")
-                        val sensorRegex = Regex("(imx|s5k|ov|lyt|gc|hi|sl|hm|jx|ar|bf|sc)[0-9a-zA-Z_]+")
-                        sensorRegex.findAll(vendorConfig).take(5).forEach { 
-                            appendLine("- ${it.value}")
-                        }
-                    }
-                    systemProps.forEach { (k, v) ->
-                        appendLine("$k: $v")
-                    }
-                }.trim()
+            val standardIds = cameraManager.cameraIdList.toSet()
+            val allIds = standardIds.toMutableSet()
 
-                allIds.sortedBy { it.toIntOrNull() ?: Int.MAX_VALUE }.forEach { id ->
-                    if (physicalIdsToSkip.contains(id)) return@forEach
-
-                    val chars = try { cameraManager.getCameraCharacteristics(id) } catch (_: Throwable) { return@forEach }
-                    val cameraList = mutableListOf<Pair<String, CameraCharacteristics>>()
-                    cameraList.add(id to chars)
-                    
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        try {
-                            chars.physicalCameraIds.forEach { physicalId ->
-                                try {
-                                    val physicalChars = cameraManager.getCameraCharacteristics(physicalId)
-                                    cameraList.add("$id > $physicalId" to physicalChars)
-                                } catch (_: Throwable) {}
-                            }
-                        } catch (_: Throwable) {}
-                    }
-
-                    cameraList.forEach { (displayId, cameraChars) ->
-                        try {
-                            val isPhysical = displayId.contains(" > ")
-                            val parentId = if (isPhysical) displayId.split(" > ").first() else null
-
-                            val facing = when (cameraChars.get(CameraCharacteristics.LENS_FACING)) {
-                                CameraCharacteristics.LENS_FACING_FRONT -> context.getString(R.string.facing_front)
-                                CameraCharacteristics.LENS_FACING_BACK -> context.getString(R.string.facing_back)
-                                CameraCharacteristics.LENS_FACING_EXTERNAL -> context.getString(R.string.facing_external)
-                                else -> context.getString(R.string.facing_unknown)
-                            }
-                            
-                            val focalLength = cameraChars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)?.firstOrNull() ?: 0f
-                            val sensorPhysSize = cameraChars.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
-                            val activeArray = cameraChars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
-                            val pixelArraySize = cameraChars.get(CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE)
-
-                            var physicalMP = if (pixelArraySize != null)
-                                (pixelArraySize.width.toLong() * pixelArraySize.height) / 1_000_000.0
-                            else 0.0
-
-                            val streamMap = try {
-                                cameraChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                            } catch (e: Exception) {
-                                null
-                            }
-                            
-                            val outputSizes = streamMap
-                                ?.getOutputSizes(android.graphics.ImageFormat.JPEG)
-                                ?.sortedByDescending { it.width.toLong() * it.height }
-                                ?: emptyList()
-
-                            val maxOutputSize = outputSizes.firstOrNull()
-                            val binnedMP = if (maxOutputSize != null)
-                                (maxOutputSize.width.toLong() * maxOutputSize.height) / 1_000_000.0
-                            else physicalMP
-
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                                val maxResConfigs = cameraChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION)
-                                val highResJpegSizes = maxResConfigs?.getOutputSizes(android.graphics.ImageFormat.JPEG)
-                                val maxHighResJpeg = highResJpegSizes?.maxByOrNull { it.width.toLong() * it.height }
-                                if (maxHighResJpeg != null) {
-                                    val highResMp = (maxHighResJpeg.width.toLong() * maxHighResJpeg.height) / 1_000_000.0
-                                    if (highResMp > physicalMP) {
-                                        physicalMP = highResMp
-                                    }
-                                }
-                            }
-
-                            val binningRatio = if (binnedMP > 0) physicalMP / binnedMP else 1.0
-                            val (binningFactor, binningType) = when {
-                                binningRatio >= 8.5  -> Pair("3x3", "Nona-Bayer")
-                                binningRatio >= 3.5  -> Pair("4x4", "Quad-Bayer")
-                                binningRatio >= 1.9  -> Pair("2x2", "Quad-Bayer")
-                                else                 -> Pair("none", "Full Readout")
-                            }
-
-                            val apiBinning = if (android.os.Build.VERSION.SDK_INT >= 31) {
-                                cameraChars.get(CameraCharacteristics.SENSOR_INFO_BINNING_FACTOR)
-                            } else null
-
-                            val allPossibleSizes = mutableListOf<Size>()
-                            allPossibleSizes.addAll(outputSizes)
-                            pixelArraySize?.let { allPossibleSizes.add(it) }
-                            
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                                val maxRes = cameraChars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE_MAXIMUM_RESOLUTION)
-                                if (maxRes != null) allPossibleSizes.add(Size(maxRes.width(), maxRes.height()))
-                                
-                                cameraChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION)
-                                    ?.getOutputSizes(android.graphics.ImageFormat.JPEG)?.let { allPossibleSizes.addAll(it) }
-                            }
-
-                            val absoluteMaxRes = allPossibleSizes.maxByOrNull { it.width.toLong() * it.height.toLong() }
-                            val absoluteMaxMP = absoluteMaxRes?.let {
-                                (it.width.toLong() * it.height) / 1_000_000.0
-                            } ?: physicalMP
-                            
-                            val hasHiRes = absoluteMaxRes?.let { (it.width.toLong() * it.height / 1_000_000.0) > (binnedMP * 1.5) } ?: false
-
-                            val resolution = maxOutputSize?.let { 
-                                "%.1f MP (%dx%d)".format(Locale.US, binnedMP, it.width, it.height)
-                            } ?: "N/A"
-
-                            val infoVersion = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                                cameraChars.get(CameraCharacteristics.INFO_VERSION) ?: getApplication<Application>().getString(R.string.unknown)
-                            } else "Unknown"
-
-
-
-                            val activeWidth = if (sensorPhysSize != null && activeArray != null && pixelArraySize != null) {
-                                sensorPhysSize.width * (activeArray.width().toFloat() / pixelArraySize.width)
-                            } else sensorPhysSize?.width ?: 0f
-
-                            val sensorsFound = mutableSetOf<String>()
-                            if (infoVersion != "Unknown") sensorsFound.add(infoVersion)
-                            if (vendorConfig != null) {
-                                Regex("(imx|s5k|ov|lyt|gc|hi|sl|hm|jx|ar|bf|sc)[0-9a-zA-Z_]+").findAll(vendorConfig).forEach { sensorsFound.add(it.value) }
-                            }
-                            systemProps.values.forEach { v ->
-                                Regex("(imx|s5k|ov|lyt|gc|hi|sl|hm|jx|ar|bf|sc)[0-9a-zA-Z_]+").findAll(v).forEach { sensorsFound.add(it.value) }
-                            }
-
-                            val physicalSensors = sensorsFound.mapNotNull { rawCode ->
-                                SpecLoader.getSensorDetails(context, rawCode)?.let { details ->
-                                    PhysicalSensor(
-                                        model = details.first,
-                                        manufacturer = SpecLoader.getCameraVendor(context, details.first) ?: getApplication<Application>().getString(R.string.unknown),
-                                        resolution = details.second,
-                                        role = if (facing.equals(context.getString(R.string.facing_front), true)) context.getString(R.string.role_front) else {
-                                            val equiv = if (activeWidth > 0) ((36.0 / activeWidth) * focalLength.toDouble()) else 30.0
-                                            when {
-                                                equiv < 16.0 -> context.getString(R.string.role_ultra_wide)
-                                                equiv < 20.0 -> context.getString(R.string.role_wide)
-                                                equiv < 35.0 -> context.getString(R.string.role_main)
-                                                equiv < 70.0 -> context.getString(R.string.role_telephoto)
-                                                else -> context.getString(R.string.role_super_tele)
-                                            }
-                                        }
-                                    )
-                                }
-                            }.distinctBy { it.model }
-
-                            val finalPhysicalMP = if (absoluteMaxMP > physicalMP) absoluteMaxMP else physicalMP
-
-                            val sensorResolution = if (finalPhysicalMP > binnedMP) {
-                                "%.1f MP".format(Locale.US, finalPhysicalMP) + (absoluteMaxRes?.let { " (%dx%d)".format(it.width, it.height) } ?: "")
-                            } else resolution
-
-                            val aperture = cameraChars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES)?.firstOrNull()?.let { "f/$it" } ?: "N/A"
-                            val sensorSize = sensorPhysSize
-
-                            val activeHeight = if (sensorPhysSize != null && activeArray != null && pixelArraySize != null) {
-                                sensorPhysSize.height * (activeArray.height().toFloat() / pixelArraySize.height)
-                            } else sensorPhysSize?.height ?: 0f
-                            
-                            val activeDiag = Math.sqrt((activeWidth * activeWidth + activeHeight * activeHeight).toDouble())
-                            val hView = sensorSize?.let { 2 * Math.atan(it.width / (2.0 * focalLength)) * 180 / Math.PI } ?: 0.0
-                            val dView = sensorSize?.let { 2 * Math.atan(activeDiag / (2.0 * focalLength)) * 180 / Math.PI } ?: 0.0
-
-                            val cropFactor = if (activeWidth > 0) 36.0 / activeWidth else 0.0
-                            val focal35mm = if (focalLength > 0 && cropFactor > 0) {
-                                val calculated = focalLength * cropFactor
-                                if (calculated > 21.5 && calculated < 22.5) "23.0 mm"
-                                else "%.1f mm".format(Locale.US, calculated)
-                            } else "N/A"
-
-                            val expRange = cameraChars.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE)?.let { "${it.lower}-${it.upper}" } ?: "N/A"
-                            
-                            val shutterRange = cameraChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
-                            val shutterSpeedStr = if (shutterRange != null) {
-                                val min = 1.0 / (shutterRange.upper / 1_000_000_000.0)
-                                val max = shutterRange.lower / 1_000_000_000.0
-                                "1/%.0f - %.0f s".format(Locale.US, min, max)
-                            } else "N/A"
-
-                            val videoStab = cameraChars.get(CameraCharacteristics.CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES)?.contains(CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_ON) ?: false
-                            val opticalStab = cameraChars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION)?.contains(CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON) ?: false
-                            val aeLock = cameraChars.get(CameraCharacteristics.CONTROL_AE_LOCK_AVAILABLE) ?: false
-                            val awbLock = cameraChars.get(CameraCharacteristics.CONTROL_AWB_LOCK_AVAILABLE) ?: false
-
-                            val caps = mutableListOf<String>()
-                            cameraChars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)?.forEach { cap ->
-                                when (cap) {
-                                    CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR -> caps.add(context.getString(R.string.cam_cap_manual_sensor))
-                                    CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING -> caps.add(context.getString(R.string.cam_cap_manual_post))
-                                    CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_RAW -> caps.add(context.getString(R.string.cam_cap_raw))
-                                    CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE -> caps.add(context.getString(R.string.cam_cap_burst))
-                                    CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA -> caps.add(context.getString(R.string.cam_cap_logical_multi))
-                                }
-                            }
-
-                            val aeModes = cameraChars.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES)?.map { mode ->
-                                when (mode) {
-                                    CameraMetadata.CONTROL_AE_MODE_OFF -> context.getString(R.string.cam_ae_off)
-                                    CameraMetadata.CONTROL_AE_MODE_ON -> context.getString(R.string.cam_ae_auto)
-                                    CameraMetadata.CONTROL_AE_MODE_ON_AUTO_FLASH -> context.getString(R.string.cam_ae_auto_flash)
-                                    CameraMetadata.CONTROL_AE_MODE_ON_ALWAYS_FLASH -> context.getString(R.string.cam_ae_always_flash)
-                                    CameraMetadata.CONTROL_AE_MODE_ON_AUTO_FLASH_REDEYE -> context.getString(R.string.cam_ae_redeye)
-                                    else -> context.getString(R.string.cam_other)
-                                }
-                            } ?: emptyList()
-
-                            val focusModesList = cameraChars.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES)?.map { mode ->
-                                when (mode) {
-                                    CameraMetadata.CONTROL_AF_MODE_OFF -> context.getString(R.string.cam_af_manual)
-                                    CameraMetadata.CONTROL_AF_MODE_AUTO -> context.getString(R.string.cam_af_auto)
-                                    CameraMetadata.CONTROL_AF_MODE_MACRO -> context.getString(R.string.cam_af_macro)
-                                    CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO -> context.getString(R.string.cam_af_continuous_video)
-                                    CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE -> context.getString(R.string.cam_af_continuous_picture)
-                                    CameraMetadata.CONTROL_AF_MODE_EDOF -> context.getString(R.string.cam_af_edof)
-                                    else -> context.getString(R.string.cam_other)
-                                }
-                            } ?: emptyList()
-
-                            val awbModes = cameraChars.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES)?.map { mode ->
-                                when (mode) {
-                                    CameraMetadata.CONTROL_AWB_MODE_OFF -> context.getString(R.string.cam_awb_off)
-                                    CameraMetadata.CONTROL_AWB_MODE_AUTO -> context.getString(R.string.cam_awb_auto)
-                                    CameraMetadata.CONTROL_AWB_MODE_INCANDESCENT -> context.getString(R.string.cam_awb_incandescent)
-                                    CameraMetadata.CONTROL_AWB_MODE_FLUORESCENT -> context.getString(R.string.cam_awb_fluorescent)
-                                    CameraMetadata.CONTROL_AWB_MODE_WARM_FLUORESCENT -> context.getString(R.string.cam_awb_warm_fluorescent)
-                                    CameraMetadata.CONTROL_AWB_MODE_DAYLIGHT -> context.getString(R.string.cam_awb_daylight)
-                                    CameraMetadata.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT -> context.getString(R.string.cam_awb_cloudy)
-                                    CameraMetadata.CONTROL_AWB_MODE_TWILIGHT -> context.getString(R.string.cam_awb_twilight)
-                                    CameraMetadata.CONTROL_AWB_MODE_SHADE -> context.getString(R.string.cam_awb_shade)
-                                    else -> context.getString(R.string.cam_other)
-                                }
-                            } ?: emptyList()
-
-                            val sceneModes = cameraChars.get(CameraCharacteristics.CONTROL_AVAILABLE_SCENE_MODES)?.map { mode ->
-                                when (mode) {
-                                    CameraMetadata.CONTROL_SCENE_MODE_DISABLED -> context.getString(R.string.cam_scene_off)
-                                    CameraMetadata.CONTROL_SCENE_MODE_FACE_PRIORITY -> context.getString(R.string.cam_scene_face_priority)
-                                    CameraMetadata.CONTROL_SCENE_MODE_ACTION -> context.getString(R.string.cam_scene_action)
-                                    CameraMetadata.CONTROL_SCENE_MODE_PORTRAIT -> context.getString(R.string.cam_scene_portrait)
-                                    CameraMetadata.CONTROL_SCENE_MODE_LANDSCAPE -> context.getString(R.string.cam_scene_landscape)
-                                    CameraMetadata.CONTROL_SCENE_MODE_NIGHT -> context.getString(R.string.cam_scene_night)
-                                    CameraMetadata.CONTROL_SCENE_MODE_NIGHT_PORTRAIT -> context.getString(R.string.cam_scene_night_portrait)
-                                    CameraMetadata.CONTROL_SCENE_MODE_THEATRE -> context.getString(R.string.cam_scene_theatre)
-                                    CameraMetadata.CONTROL_SCENE_MODE_BEACH -> context.getString(R.string.cam_scene_beach)
-                                    CameraMetadata.CONTROL_SCENE_MODE_SNOW -> context.getString(R.string.cam_scene_snow)
-                                    CameraMetadata.CONTROL_SCENE_MODE_SUNSET -> context.getString(R.string.cam_scene_sunset)
-                                    CameraMetadata.CONTROL_SCENE_MODE_STEADYPHOTO -> context.getString(R.string.cam_scene_steady_photo)
-                                    CameraMetadata.CONTROL_SCENE_MODE_FIREWORKS -> context.getString(R.string.cam_scene_fireworks)
-                                    CameraMetadata.CONTROL_SCENE_MODE_SPORTS -> context.getString(R.string.cam_scene_sports)
-                                    CameraMetadata.CONTROL_SCENE_MODE_PARTY -> context.getString(R.string.cam_scene_party)
-                                    CameraMetadata.CONTROL_SCENE_MODE_CANDLELIGHT -> context.getString(R.string.cam_scene_candlelight)
-                                    CameraMetadata.CONTROL_SCENE_MODE_BARCODE -> context.getString(R.string.cam_scene_barcode)
-                                    CameraMetadata.CONTROL_SCENE_MODE_HDR -> context.getString(R.string.cam_scene_hdr)
-                                    else -> context.getString(R.string.cam_other)
-                                }
-                            } ?: emptyList()
-
-                            val level = cameraChars.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)
-                            val levelName = when (level) {
-                                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY -> "legacy(0)"
-                                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED -> "limited(1)"
-                                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_FULL -> "full(2)"
-                                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_3 -> "level_3(3)"
-                                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL -> "external(4)"
-                                else -> getApplication<Application>().getString(R.string.unknown)
-                            }
-
-                            val pixelSizeRaw = if (sensorSize != null && absoluteMaxRes != null) (sensorSize.width / absoluteMaxRes.width * 1000) else 0f
-                            
-                            val videoSizes = streamMap?.getOutputSizes(android.media.MediaRecorder::class.java)
-                            val videoRes = videoSizes?.take(2)?.joinToString("\n") { size ->
-                                val name = when {
-                                    size.width >= 3840 -> "4K"
-                                    size.width >= 1920 -> "Full HD"
-                                    size.width >= 1280 -> "HD"
-                                    else -> "SD"
-                                }
-                                "$name ${size.width}x${size.height}"
-                            } ?: "N/A"
-
-                            val formats = mutableListOf<String>()
-                            streamMap?.outputFormats?.forEach { format ->
-                                when (format) {
-                                    android.graphics.ImageFormat.JPEG -> formats.add("JPEG")
-                                    android.graphics.ImageFormat.RAW_SENSOR -> formats.add("RAW_SENSOR")
-                                    android.graphics.ImageFormat.RAW10 -> formats.add("RAW10")
-                                    android.graphics.ImageFormat.YUV_420_888 -> formats.add("YUV_420_888")
-                                    else -> {}
-                                }
-                            }
-
-                            allCameraInfo.add(CameraInfo(
-                                id = displayId,
-                                facing = facing,
-                                resolution = resolution,
-                                sensorResolution = sensorResolution,
-                                sensorModel = infoVersion,
-                                supportedHardware = supportedHardwareInfo.ifEmpty { "N/A" },
-                                physicalSensors = physicalSensors,
-                                physicalMP = finalPhysicalMP,
-                                binnedMP = binnedMP,
-                                binningFactor = apiBinning?.let { "${it.width}x${it.height}" } ?: binningFactor,
-                                binningType = binningType,
-                                hasHighResMode = hasHiRes,
-                                maxResolution = sensorResolution,
-                                aperture = aperture,
-                                focalLength = "%.2f mm".format(Locale.US, focalLength),
-                                focalLength35mm = focal35mm,
-                                sensorSize = sensorSize?.let { "%.2fx%.2f".format(Locale.US, it.width, it.height) } ?: "N/A",
-                                diagonal = if (activeDiag > 0) "%.2f mm".format(Locale.US, activeDiag) else "N/A",
-                                pixelSize = if (pixelSizeRaw > 0) "~%.2f µm".format(Locale.US, pixelSizeRaw) else "N/A",
-                                zoom = cameraChars.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)?.let { "${it}x" } ?: "1.0x",
-                                isoRange = cameraChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)?.let { "${it.lower}-${it.upper}" } ?: "N/A",
-                                exposureRange = expRange,
-                                shutterSpeedRange = shutterSpeedStr,
-                                videoStabilization = videoStab,
-                                opticalStabilization = opticalStab,
-                                autoExposureLock = aeLock,
-                                autoWhiteBalanceLock = awbLock,
-                                capabilities = caps,
-                                exposureModes = aeModes,
-                                focusModesList = focusModesList,
-                                whiteBalanceModes = awbModes,
-                                sceneModes = sceneModes,
-                                flash = if (cameraChars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true) "yes" else "no",
-                                orientation = cameraChars.get(CameraCharacteristics.SENSOR_ORIENTATION)?.toString() ?: "N/A",
-                                camera2ApiLevel = levelName,
-                                videoCapabilities = videoRes,
-                                imageFormats = formats.joinToString(", "),
-                                angleOfView = if (dView > 0) "%.1f° (D)\n%.1f° (H)".format(Locale.US, dView, hView) else "N/A",
-                                cropFactor = if (cropFactor > 0) "%.1fx".format(Locale.US, cropFactor) else "N/A",
-                                vendor = getApplication<Application>().getString(R.string.unknown),
-                                isPhysical = isPhysical,
-                                parentLogicalId = parentId,
-                                focusModes = cameraChars.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES)?.joinToString(", ") { mode ->
-                                    when (mode) {
-                                        CameraMetadata.CONTROL_AF_MODE_AUTO -> "auto"
-                                        CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE -> "continuous-picture"
-                                        CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO -> "continuous-video"
-                                        CameraMetadata.CONTROL_AF_MODE_EDOF -> "edof"
-                                        CameraMetadata.CONTROL_AF_MODE_MACRO -> "macro"
-                                        CameraMetadata.CONTROL_AF_MODE_OFF -> "infinity/off"
-                                        else -> "other"
-                                    }
-                                } ?: "N/A",
-                                colorFilter = when (cameraChars.get(CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT)) {
-                                    CameraMetadata.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_RGGB -> "RGGB"
-                                    CameraMetadata.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_GRBG -> "GRBG"
-                                    CameraMetadata.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_GBRG -> "GBRG"
-                                    CameraMetadata.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_BGGR -> "BGGR"
-                                    else -> "N/A"
-                                }
-                            ))
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
-                }
-
-                val seenHardwareSignatures = mutableSetOf<String>()
-                
-                val sortedCameras = allCameraInfo.sortedBy { cam ->
-                    when {
-                        cam.facing.equals("BACK", ignoreCase = true) -> 0
-                        cam.facing.equals("FRONT", ignoreCase = true) -> 1
-                        else -> 2
-                    }
-                }
-
-                _cameras.value = sortedCameras.filter { cam ->
-                    if (cam.physicalMP < 0.5) return@filter false
-                    if (cam.resolution == "N/A") return@filter false
-                    val signature = "${"%.2f".format(cam.physicalMP)}_${cam.focalLength}_${cam.sensorSize}"
-                    
-                    if (seenHardwareSignatures.contains(signature)) {
-                        if (cam.facing.equals("FRONT", ignoreCase = true)) {
-                            return@filter true
-                        }
-                        return@filter false
-                    }
-                    seenHardwareSignatures.add(signature)
-                    true
+            // Probe for hidden camera IDs (common range 0-63)
+            for (i in 0..63) {
+                val idStr = i.toString()
+                if (!standardIds.contains(idStr)) {
+                    try {
+                        cameraManager.getCameraCharacteristics(idStr)
+                        allIds.add(idStr)
+                    } catch (_: Throwable) {}
                 }
             }
 
+            // Track physical IDs that are part of logical cameras to avoid top-level duplication
+            val physicalIdsToSkip = mutableSetOf<String>()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                allIds.forEach { id ->
+                    try {
+                        val chars = cameraManager.getCameraCharacteristics(id)
+                        val capabilities = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
+                        val isLogical = capabilities?.contains(CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA) == true
+                        if (isLogical) {
+                            physicalIdsToSkip.addAll(chars.physicalCameraIds)
+                        }
+                    } catch (_: Throwable) {}
+                }
+            }
 
-            // USB Info
-            val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-            _usbDevices.value = usbManager.deviceList.values.map {
-                UsbInfo(
-                    name = it.deviceName,
-                    vendorId = "0x%04X".format(it.vendorId),
-                    productId = "0x%04X".format(it.productId),
-                    deviceClass = getUsbClass(it.deviceClass),
-                    manufacturerName = try { it.manufacturerName } catch (e: Exception) { null },
-                    productName = try { it.productName } catch (e: Exception) { null },
-                    serialNumber = try { it.serialNumber } catch (e: Exception) { null }
+            val vendorConfig = readVendorCameraConfig()
+            val systemProps = readCameraSystemProps()
+            val supportedHardwareInfo = buildString {
+                if (vendorConfig != null) {
+                    appendLine("Vendor Config Found")
+                    val sensorRegex = Regex("(imx|s5k|ov|lyt|gc|hi|sl|hm|jx|ar|bf|sc)[0-9a-zA-Z_]+")
+                    sensorRegex.findAll(vendorConfig).take(5).forEach { 
+                        appendLine("- ${it.value}")
+                    }
+                }
+                systemProps.forEach { (k, v) ->
+                    appendLine("$k: $v")
+                }
+            }.trim()
+
+            allIds.sortedBy { it.toIntOrNull() ?: Int.MAX_VALUE }.forEach { id ->
+                if (physicalIdsToSkip.contains(id)) return@forEach
+
+                val chars = try { cameraManager.getCameraCharacteristics(id) } catch (_: Throwable) { return@forEach }
+                val cameraList = mutableListOf<Pair<String, CameraCharacteristics>>()
+                cameraList.add(id to chars)
+                
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    try {
+                        chars.physicalCameraIds.forEach { physicalId ->
+                            try {
+                                val physicalChars = cameraManager.getCameraCharacteristics(physicalId)
+                                cameraList.add("$id > $physicalId" to physicalChars)
+                            } catch (_: Throwable) {}
+                        }
+                    } catch (_: Throwable) {}
+                }
+
+                cameraList.forEach { (displayId, cameraChars) ->
+                    try {
+                        val isPhysical = displayId.contains(" > ")
+                        val parentId = if (isPhysical) displayId.split(" > ").first() else null
+
+                        val facing = when (cameraChars.get(CameraCharacteristics.LENS_FACING)) {
+                            CameraCharacteristics.LENS_FACING_FRONT -> context.getString(R.string.facing_front)
+                            CameraCharacteristics.LENS_FACING_BACK -> context.getString(R.string.facing_back)
+                            CameraCharacteristics.LENS_FACING_EXTERNAL -> context.getString(R.string.facing_external)
+                            else -> context.getString(R.string.facing_unknown)
+                        }
+                        
+                        val focalLength = cameraChars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)?.firstOrNull() ?: 0f
+                        val sensorPhysSize = cameraChars.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
+                        val activeArray = cameraChars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+                        val pixelArraySize = cameraChars.get(CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE)
+
+                        var physicalMP = if (pixelArraySize != null)
+                            (pixelArraySize.width.toLong() * pixelArraySize.height) / 1_000_000.0
+                        else 0.0
+
+                        val streamMap = try {
+                            cameraChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                        } catch (e: Exception) {
+                            null
+                        }
+                        
+                        val outputSizes = streamMap
+                            ?.getOutputSizes(android.graphics.ImageFormat.JPEG)
+                            ?.sortedByDescending { it.width.toLong() * it.height }
+                            ?: emptyList()
+
+                        val maxOutputSize = outputSizes.firstOrNull()
+                        val binnedMP = if (maxOutputSize != null)
+                            (maxOutputSize.width.toLong() * maxOutputSize.height) / 1_000_000.0
+                        else physicalMP
+
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                            val maxResConfigs = cameraChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION)
+                            val highResJpegSizes = maxResConfigs?.getOutputSizes(android.graphics.ImageFormat.JPEG)
+                            val maxHighResJpeg = highResJpegSizes?.maxByOrNull { it.width.toLong() * it.height }
+                            if (maxHighResJpeg != null) {
+                                val highResMp = (maxHighResJpeg.width.toLong() * maxHighResJpeg.height) / 1_000_000.0
+                                if (highResMp > physicalMP) {
+                                    physicalMP = highResMp
+                                }
+                            }
+                        }
+
+                        val binningRatio = if (binnedMP > 0) physicalMP / binnedMP else 1.0
+                        val (binningFactor, binningType) = when {
+                            binningRatio >= 8.5  -> Pair("3x3", "Nona-Bayer")
+                            binningRatio >= 3.5  -> Pair("4x4", "Quad-Bayer")
+                            binningRatio >= 1.9  -> Pair("2x2", "Quad-Bayer")
+                            else                 -> Pair("none", "Full Readout")
+                        }
+
+                        val apiBinning = if (android.os.Build.VERSION.SDK_INT >= 31) {
+                            cameraChars.get(CameraCharacteristics.SENSOR_INFO_BINNING_FACTOR)
+                        } else null
+
+                        val allPossibleSizes = mutableListOf<Size>()
+                        allPossibleSizes.addAll(outputSizes)
+                        pixelArraySize?.let { allPossibleSizes.add(it) }
+                        
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                            val maxRes = cameraChars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE_MAXIMUM_RESOLUTION)
+                            if (maxRes != null) allPossibleSizes.add(Size(maxRes.width(), maxRes.height()))
+                            
+                            cameraChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION)
+                                ?.getOutputSizes(android.graphics.ImageFormat.JPEG)?.let { allPossibleSizes.addAll(it) }
+                        }
+
+                        val absoluteMaxRes = allPossibleSizes.maxByOrNull { it.width.toLong() * it.height.toLong() }
+                        val absoluteMaxMP = absoluteMaxRes?.let {
+                            (it.width.toLong() * it.height) / 1_000_000.0
+                        } ?: physicalMP
+                        
+                        val hasHiRes = absoluteMaxRes?.let { (it.width.toLong() * it.height / 1_000_000.0) > (binnedMP * 1.5) } ?: false
+
+                        val resolution = maxOutputSize?.let { 
+                            "%.1f MP (%dx%d)".format(Locale.US, binnedMP, it.width, it.height)
+                        } ?: "N/A"
+
+                        val infoVersion = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                            cameraChars.get(CameraCharacteristics.INFO_VERSION) ?: getApplication<Application>().getString(R.string.unknown)
+                        } else "Unknown"
+
+
+
+                        val activeWidth = if (sensorPhysSize != null && activeArray != null && pixelArraySize != null) {
+                            sensorPhysSize.width * (activeArray.width().toFloat() / pixelArraySize.width)
+                        } else sensorPhysSize?.width ?: 0f
+
+                        val sensorsFound = mutableSetOf<String>()
+                        if (infoVersion != "Unknown") sensorsFound.add(infoVersion)
+                        if (vendorConfig != null) {
+                            Regex("(imx|s5k|ov|lyt|gc|hi|sl|hm|jx|ar|bf|sc)[0-9a-zA-Z_]+").findAll(vendorConfig).forEach { sensorsFound.add(it.value) }
+                        }
+                        systemProps.values.forEach { v ->
+                            Regex("(imx|s5k|ov|lyt|gc|hi|sl|hm|jx|ar|bf|sc)[0-9a-zA-Z_]+").findAll(v).forEach { sensorsFound.add(it.value) }
+                        }
+
+                        val physicalSensors = sensorsFound.mapNotNull { rawCode ->
+                            SpecLoader.getSensorDetails(context, rawCode)?.let { details ->
+                                PhysicalSensor(
+                                    model = details.first,
+                                    manufacturer = SpecLoader.getCameraVendor(context, details.first) ?: getApplication<Application>().getString(R.string.unknown),
+                                    resolution = details.second,
+                                    role = if (facing.equals(context.getString(R.string.facing_front), true)) context.getString(R.string.role_front) else {
+                                        val equiv = if (activeWidth > 0) ((36.0 / activeWidth) * focalLength.toDouble()) else 30.0
+                                        when {
+                                            equiv < 16.0 -> context.getString(R.string.role_ultra_wide)
+                                            equiv < 20.0 -> context.getString(R.string.role_wide)
+                                            equiv < 35.0 -> context.getString(R.string.role_main)
+                                            equiv < 70.0 -> context.getString(R.string.role_telephoto)
+                                            else -> context.getString(R.string.role_super_tele)
+                                        }
+                                    }
+                                )
+                            }
+                        }.distinctBy { it.model }
+
+                        val finalPhysicalMP = if (absoluteMaxMP > physicalMP) absoluteMaxMP else physicalMP
+
+                        val sensorResolution = if (finalPhysicalMP > binnedMP) {
+                            "%.1f MP".format(Locale.US, finalPhysicalMP) + (absoluteMaxRes?.let { " (%dx%d)".format(it.width, it.height) } ?: "")
+                        } else resolution
+
+                        val aperture = cameraChars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES)?.firstOrNull()?.let { "f/$it" } ?: "N/A"
+                        val sensorSize = sensorPhysSize
+
+                        val activeHeight = if (sensorPhysSize != null && activeArray != null && pixelArraySize != null) {
+                            sensorPhysSize.height * (activeArray.height().toFloat() / pixelArraySize.height)
+                        } else sensorPhysSize?.height ?: 0f
+                        
+                        val activeDiag = Math.sqrt((activeWidth * activeWidth + activeHeight * activeHeight).toDouble())
+                        val hView = sensorSize?.let { 2 * Math.atan(it.width / (2.0 * focalLength)) * 180 / Math.PI } ?: 0.0
+                        val dView = sensorSize?.let { 2 * Math.atan(activeDiag / (2.0 * focalLength)) * 180 / Math.PI } ?: 0.0
+
+                        val cropFactor = if (activeWidth > 0) 36.0 / activeWidth else 0.0
+                        val focal35mm = if (focalLength > 0 && cropFactor > 0) {
+                            val calculated = focalLength * cropFactor
+                            if (calculated > 21.5 && calculated < 22.5) "23.0 mm"
+                            else "%.1f mm".format(Locale.US, calculated)
+                        } else "N/A"
+
+                        val expRange = cameraChars.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE)?.let { "${it.lower}-${it.upper}" } ?: "N/A"
+                        
+                        val shutterRange = cameraChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
+                        val shutterSpeedStr = if (shutterRange != null) {
+                            val min = 1.0 / (shutterRange.upper / 1_000_000_000.0)
+                            val max = shutterRange.lower / 1_000_000_000.0
+                            "1/%.0f - %.0f s".format(Locale.US, min, max)
+                        } else "N/A"
+
+                        val videoStab = cameraChars.get(CameraCharacteristics.CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES)?.contains(CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_ON) ?: false
+                        val opticalStab = cameraChars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION)?.contains(CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON) ?: false
+                        val aeLock = cameraChars.get(CameraCharacteristics.CONTROL_AE_LOCK_AVAILABLE) ?: false
+                        val awbLock = cameraChars.get(CameraCharacteristics.CONTROL_AWB_LOCK_AVAILABLE) ?: false
+
+                        val caps = mutableListOf<String>()
+                        cameraChars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)?.forEach { cap ->
+                            when (cap) {
+                                CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR -> caps.add(context.getString(R.string.cam_cap_manual_sensor))
+                                CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING -> caps.add(context.getString(R.string.cam_cap_manual_post))
+                                CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_RAW -> caps.add(context.getString(R.string.cam_cap_raw))
+                                CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE -> caps.add(context.getString(R.string.cam_cap_burst))
+                                CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA -> caps.add(context.getString(R.string.cam_cap_logical_multi))
+                            }
+                        }
+
+                        val aeModes = cameraChars.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES)?.map { mode ->
+                            when (mode) {
+                                CameraMetadata.CONTROL_AE_MODE_OFF -> context.getString(R.string.cam_ae_off)
+                                CameraMetadata.CONTROL_AE_MODE_ON -> context.getString(R.string.cam_ae_auto)
+                                CameraMetadata.CONTROL_AE_MODE_ON_AUTO_FLASH -> context.getString(R.string.cam_ae_auto_flash)
+                                CameraMetadata.CONTROL_AE_MODE_ON_ALWAYS_FLASH -> context.getString(R.string.cam_ae_always_flash)
+                                CameraMetadata.CONTROL_AE_MODE_ON_AUTO_FLASH_REDEYE -> context.getString(R.string.cam_ae_redeye)
+                                else -> context.getString(R.string.cam_other)
+                            }
+                        } ?: emptyList()
+
+                        val focusModesList = cameraChars.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES)?.map { mode ->
+                            when (mode) {
+                                CameraMetadata.CONTROL_AF_MODE_OFF -> context.getString(R.string.cam_af_manual)
+                                CameraMetadata.CONTROL_AF_MODE_AUTO -> context.getString(R.string.cam_af_auto)
+                                CameraMetadata.CONTROL_AF_MODE_MACRO -> context.getString(R.string.cam_af_macro)
+                                CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO -> context.getString(R.string.cam_af_continuous_video)
+                                CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE -> context.getString(R.string.cam_af_continuous_picture)
+                                CameraMetadata.CONTROL_AF_MODE_EDOF -> context.getString(R.string.cam_af_edof)
+                                else -> context.getString(R.string.cam_other)
+                            }
+                        } ?: emptyList()
+
+                        val awbModes = cameraChars.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES)?.map { mode ->
+                            when (mode) {
+                                CameraMetadata.CONTROL_AWB_MODE_OFF -> context.getString(R.string.cam_awb_off)
+                                CameraMetadata.CONTROL_AWB_MODE_AUTO -> context.getString(R.string.cam_awb_auto)
+                                CameraMetadata.CONTROL_AWB_MODE_INCANDESCENT -> context.getString(R.string.cam_awb_incandescent)
+                                CameraMetadata.CONTROL_AWB_MODE_FLUORESCENT -> context.getString(R.string.cam_awb_fluorescent)
+                                CameraMetadata.CONTROL_AWB_MODE_WARM_FLUORESCENT -> context.getString(R.string.cam_awb_warm_fluorescent)
+                                CameraMetadata.CONTROL_AWB_MODE_DAYLIGHT -> context.getString(R.string.cam_awb_daylight)
+                                CameraMetadata.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT -> context.getString(R.string.cam_awb_cloudy)
+                                CameraMetadata.CONTROL_AWB_MODE_TWILIGHT -> context.getString(R.string.cam_awb_twilight)
+                                CameraMetadata.CONTROL_AWB_MODE_SHADE -> context.getString(R.string.cam_awb_shade)
+                                else -> context.getString(R.string.cam_other)
+                            }
+                        } ?: emptyList()
+
+                        val sceneModes = cameraChars.get(CameraCharacteristics.CONTROL_AVAILABLE_SCENE_MODES)?.map { mode ->
+                            when (mode) {
+                                CameraMetadata.CONTROL_SCENE_MODE_DISABLED -> context.getString(R.string.cam_scene_off)
+                                CameraMetadata.CONTROL_SCENE_MODE_FACE_PRIORITY -> context.getString(R.string.cam_scene_face_priority)
+                                CameraMetadata.CONTROL_SCENE_MODE_ACTION -> context.getString(R.string.cam_scene_action)
+                                CameraMetadata.CONTROL_SCENE_MODE_PORTRAIT -> context.getString(R.string.cam_scene_portrait)
+                                CameraMetadata.CONTROL_SCENE_MODE_LANDSCAPE -> context.getString(R.string.cam_scene_landscape)
+                                CameraMetadata.CONTROL_SCENE_MODE_NIGHT -> context.getString(R.string.cam_scene_night)
+                                CameraMetadata.CONTROL_SCENE_MODE_NIGHT_PORTRAIT -> context.getString(R.string.cam_scene_night_portrait)
+                                CameraMetadata.CONTROL_SCENE_MODE_THEATRE -> context.getString(R.string.cam_scene_theatre)
+                                CameraMetadata.CONTROL_SCENE_MODE_BEACH -> context.getString(R.string.cam_scene_beach)
+                                CameraMetadata.CONTROL_SCENE_MODE_SNOW -> context.getString(R.string.cam_scene_snow)
+                                CameraMetadata.CONTROL_SCENE_MODE_SUNSET -> context.getString(R.string.cam_scene_sunset)
+                                CameraMetadata.CONTROL_SCENE_MODE_STEADYPHOTO -> context.getString(R.string.cam_scene_steady_photo)
+                                CameraMetadata.CONTROL_SCENE_MODE_FIREWORKS -> context.getString(R.string.cam_scene_fireworks)
+                                CameraMetadata.CONTROL_SCENE_MODE_SPORTS -> context.getString(R.string.cam_scene_sports)
+                                CameraMetadata.CONTROL_SCENE_MODE_PARTY -> context.getString(R.string.cam_scene_party)
+                                CameraMetadata.CONTROL_SCENE_MODE_CANDLELIGHT -> context.getString(R.string.cam_scene_candlelight)
+                                CameraMetadata.CONTROL_SCENE_MODE_BARCODE -> context.getString(R.string.cam_scene_barcode)
+                                CameraMetadata.CONTROL_SCENE_MODE_HDR -> context.getString(R.string.cam_scene_hdr)
+                                else -> context.getString(R.string.cam_other)
+                            }
+                        } ?: emptyList()
+
+                        val level = cameraChars.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)
+                        val levelName = when (level) {
+                            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY -> "legacy(0)"
+                            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED -> "limited(1)"
+                            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_FULL -> "full(2)"
+                            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_3 -> "level_3(3)"
+                            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL -> "external(4)"
+                            else -> getApplication<Application>().getString(R.string.unknown)
+                        }
+
+                        val pixelSizeRaw = if (sensorSize != null && absoluteMaxRes != null) (sensorSize.width / absoluteMaxRes.width * 1000) else 0f
+                        
+                        val videoSizes = streamMap?.getOutputSizes(android.media.MediaRecorder::class.java)
+                        val videoRes = videoSizes?.take(2)?.joinToString("\n") { size ->
+                            val name = when {
+                                size.width >= 3840 -> "4K"
+                                size.width >= 1920 -> "Full HD"
+                                size.width >= 1280 -> "HD"
+                                else -> "SD"
+                            }
+                            "$name ${size.width}x${size.height}"
+                        } ?: "N/A"
+
+                        val formats = mutableListOf<String>()
+                        streamMap?.outputFormats?.forEach { format ->
+                            when (format) {
+                                android.graphics.ImageFormat.JPEG -> formats.add("JPEG")
+                                android.graphics.ImageFormat.RAW_SENSOR -> formats.add("RAW_SENSOR")
+                                android.graphics.ImageFormat.RAW10 -> formats.add("RAW10")
+                                android.graphics.ImageFormat.YUV_420_888 -> formats.add("YUV_420_888")
+                                else -> {}
+                            }
+                        }
+
+                        allCameraInfo.add(CameraInfo(
+                            id = displayId,
+                            facing = facing,
+                            resolution = resolution,
+                            sensorResolution = sensorResolution,
+                            sensorModel = infoVersion,
+                            supportedHardware = supportedHardwareInfo.ifEmpty { "N/A" },
+                            physicalSensors = physicalSensors,
+                            physicalMP = finalPhysicalMP,
+                            binnedMP = binnedMP,
+                            binningFactor = apiBinning?.let { "${it.width}x${it.height}" } ?: binningFactor,
+                            binningType = binningType,
+                            hasHighResMode = hasHiRes,
+                            maxResolution = sensorResolution,
+                            aperture = aperture,
+                            focalLength = "%.2f mm".format(Locale.US, focalLength),
+                            focalLength35mm = focal35mm,
+                            sensorSize = sensorSize?.let { "%.2fx%.2f".format(Locale.US, it.width, it.height) } ?: "N/A",
+                            diagonal = if (activeDiag > 0) "%.2f mm".format(Locale.US, activeDiag) else "N/A",
+                            pixelSize = if (pixelSizeRaw > 0) "~%.2f µm".format(Locale.US, pixelSizeRaw) else "N/A",
+                            zoom = cameraChars.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)?.let { "${it}x" } ?: "1.0x",
+                            isoRange = cameraChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)?.let { "${it.lower}-${it.upper}" } ?: "N/A",
+                            exposureRange = expRange,
+                            shutterSpeedRange = shutterSpeedStr,
+                            videoStabilization = videoStab,
+                            opticalStabilization = opticalStab,
+                            autoExposureLock = aeLock,
+                            autoWhiteBalanceLock = awbLock,
+                            capabilities = caps,
+                            exposureModes = aeModes,
+                            focusModesList = focusModesList,
+                            whiteBalanceModes = awbModes,
+                            sceneModes = sceneModes,
+                            flash = if (cameraChars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true) "yes" else "no",
+                            orientation = cameraChars.get(CameraCharacteristics.SENSOR_ORIENTATION)?.toString() ?: "N/A",
+                            camera2ApiLevel = levelName,
+                            videoCapabilities = videoRes,
+                            imageFormats = formats.joinToString(", "),
+                            angleOfView = if (dView > 0) "%.1f° (D)\n%.1f° (H)".format(Locale.US, dView, hView) else "N/A",
+                            cropFactor = if (cropFactor > 0) "%.1fx".format(Locale.US, cropFactor) else "N/A",
+                            vendor = getApplication<Application>().getString(R.string.unknown),
+                            isPhysical = isPhysical,
+                            parentLogicalId = parentId,
+                            focusModes = cameraChars.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES)?.joinToString(", ") { mode ->
+                                when (mode) {
+                                    CameraMetadata.CONTROL_AF_MODE_AUTO -> "auto"
+                                    CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE -> "continuous-picture"
+                                    CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO -> "continuous-video"
+                                    CameraMetadata.CONTROL_AF_MODE_EDOF -> "edof"
+                                    CameraMetadata.CONTROL_AF_MODE_MACRO -> "macro"
+                                    CameraMetadata.CONTROL_AF_MODE_OFF -> "infinity/off"
+                                    else -> "other"
+                                }
+                            } ?: "N/A",
+                            colorFilter = when (cameraChars.get(CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT)) {
+                                CameraMetadata.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_RGGB -> "RGGB"
+                                CameraMetadata.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_GRBG -> "GRBG"
+                                CameraMetadata.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_GBRG -> "GBRG"
+                                CameraMetadata.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_BGGR -> "BGGR"
+                                else -> "N/A"
+                            }
+                        ))
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+
+            val seenHardwareSignatures = mutableSetOf<String>()
+            
+            val sortedCameras = allCameraInfo.sortedBy { cam ->
+                when {
+                    cam.facing.equals("BACK", ignoreCase = true) -> 0
+                    cam.facing.equals("FRONT", ignoreCase = true) -> 1
+                    else -> 2
+                }
+            }
+
+            _cameras.value = sortedCameras.filter { cam ->
+                if (cam.physicalMP < 0.5) return@filter false
+                if (cam.resolution == "N/A") return@filter false
+                val signature = "${"%.2f".format(cam.physicalMP)}_${cam.focalLength}_${cam.sensorSize}"
+                
+                if (seenHardwareSignatures.contains(signature)) {
+                    if (cam.facing.equals("FRONT", ignoreCase = true)) {
+                        return@filter true
+                    }
+                    return@filter false
+                }
+                seenHardwareSignatures.add(signature)
+                true
+            }
+        }
+
+
+    }
+
+    private suspend fun loadUsbInfoInternal() {
+        val context = getApplication<Application>()
+        // USB Info
+        val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
+        _usbDevices.value = usbManager.deviceList.values.map {
+            UsbInfo(
+                name = it.deviceName,
+                vendorId = "0x%04X".format(it.vendorId),
+                productId = "0x%04X".format(it.productId),
+                deviceClass = getUsbClass(it.deviceClass),
+                manufacturerName = try { it.manufacturerName } catch (e: Exception) { null },
+                productName = try { it.productName } catch (e: Exception) { null },
+                serialNumber = try { it.serialNumber } catch (e: Exception) { null }
+            )
+        }
+        updateUsbStatus(null)
+
+    }
+
+    private suspend fun loadCodecsInfoInternal() {
+        // Codecs
+        _codecs.value = MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos.map {
+            CodecInfo(it.name, it.supportedTypes.joinToString(", "), if (it.isEncoder) "Encoder" else "Decoder")
+        }
+
+    }
+
+    private suspend fun loadInstalledAppsInfoInternal() {
+        val context = getApplication<Application>()
+        // Installed Apps
+        val pm = context.packageManager
+        val apps = pm.getInstalledPackages(PackageManager.GET_META_DATA).mapNotNull { pkg ->
+            pkg.applicationInfo?.let { appInfo ->
+                val isGame = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    appInfo.category == android.content.pm.ApplicationInfo.CATEGORY_GAME
+                } else {
+                    false
+                }
+                AppEntry(
+                    name = appInfo.loadLabel(pm).toString(),
+                    packageName = pkg.packageName,
+                    version = pkg.versionName ?: getApplication<Application>().getString(R.string.unknown),
+                    sdk = appInfo.targetSdkVersion.toString(),
+                    isSystem = (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0,
+                    isGame = isGame
                 )
             }
-            updateUsbStatus(null)
-
-            // Codecs
-            _codecs.value = MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos.map {
-                CodecInfo(it.name, it.supportedTypes.joinToString(", "), if (it.isEncoder) "Encoder" else "Decoder")
-            }
-
-            // Installed Apps
-            val pm = context.packageManager
-            _installedApps.value = pm.getInstalledPackages(PackageManager.GET_META_DATA).mapNotNull { pkg ->
-                pkg.applicationInfo?.let { appInfo ->
-                    val isGame = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        appInfo.category == android.content.pm.ApplicationInfo.CATEGORY_GAME
-                    } else {
-                        false
-                    }
-                    AppEntry(
-                        name = appInfo.loadLabel(pm).toString(),
-                        packageName = pkg.packageName,
-                        version = pkg.versionName ?: getApplication<Application>().getString(R.string.unknown),
-                        sdk = appInfo.targetSdkVersion.toString(),
-                        isSystem = (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0,
-                        isGame = isGame
-                    )
-                }
-            }.sortedBy { it.name.lowercase() }
         }
+        _installedApps.value = apps
+        cachedAppsCount = apps.size
     }
 
     private fun loadDrmInfo() {
@@ -4056,16 +4177,26 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
 
         val bufferSizeValue = am.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER) ?: context.getString(R.string.unknown)
 
-        val codecInfos = MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos
-        val audioCodecs = codecInfos.filter { !it.isEncoder && it.supportedTypes.any { t -> t.startsWith("audio/") } }
-            .flatMap { it.supportedTypes.toList() }
-            .map { it.substringAfter("audio/").uppercase() }
-            .distinct().take(10).joinToString(", ")
-            
-        val videoCodecs = codecInfos.filter { !it.isEncoder && it.supportedTypes.any { t -> t.startsWith("video/") } }
-            .flatMap { it.supportedTypes.toList() }
-            .map { it.substringAfter("video/").uppercase() }
-            .distinct().take(10).joinToString(", ")
+        val audioCodecs: String
+        val videoCodecs: String
+        val cachedAudio = cachedAudioCodecs
+        val cachedVideo = cachedVideoCodecs
+        if (cachedAudio != null && cachedVideo != null) {
+            audioCodecs = cachedAudio
+            videoCodecs = cachedVideo
+        } else {
+            val codecInfos = try { MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos } catch (e: Exception) { emptyArray() }
+            audioCodecs = codecInfos.filter { !it.isEncoder && it.supportedTypes.any { t -> t.startsWith("audio/") } }
+                .flatMap { it.supportedTypes.toList() }
+                .map { it.substringAfter("audio/").uppercase() }
+                .distinct().take(10).joinToString(", ")
+            videoCodecs = codecInfos.filter { !it.isEncoder && it.supportedTypes.any { t -> t.startsWith("video/") } }
+                .flatMap { it.supportedTypes.toList() }
+                .map { it.substringAfter("video/").uppercase() }
+                .distinct().take(10).joinToString(", ")
+            cachedAudioCodecs = audioCodecs
+            cachedVideoCodecs = videoCodecs
+        }
 
         _audioInfo.value = AudioInfo(
             lowLatency = lowLatency,
@@ -4165,95 +4296,117 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
             linkProps?.privateDnsServerName ?: "Off"
         } else "N/A"
 
-        var isHardwareBacked = false
-        var keystoreType = "Software"
-        try {
-            val kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore")
-            kpg.initialize(KeyGenParameterSpec.Builder("temp_key_test", KeyProperties.PURPOSE_SIGN)
-                .setDigests(KeyProperties.DIGEST_SHA256)
-                .build())
-            val kp = kpg.generateKeyPair()
-            val factory = KeyFactory.getInstance(kp.private.algorithm, "AndroidKeyStore")
-            val keyInfo = factory.getKeySpec(kp.private, KeyInfo::class.java) as KeyInfo
-            isHardwareBacked = keyInfo.isInsideSecureHardware
-            keystoreType = if (isHardwareBacked) "StrongBox / Keymaster" else "Software"
-            val keyStore = KeyStore.getInstance("AndroidKeyStore")
-            keyStore.load(null)
-            keyStore.deleteEntry("temp_key_test")
-        } catch (e: Exception) {
-            keystoreType = if (hasStrongBox) "StrongBox" else "AndroidKeyStore"
-            isHardwareBacked = hasFingerprint
+        var isHardwareBacked = cachedHardwareBackedKeystore ?: false
+        var keystoreType = cachedKeystoreType ?: "Software"
+        if (cachedKeystoreType == null) {
+            try {
+                val kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore")
+                kpg.initialize(KeyGenParameterSpec.Builder("temp_key_test", KeyProperties.PURPOSE_SIGN)
+                    .setDigests(KeyProperties.DIGEST_SHA256)
+                    .build())
+                val kp = kpg.generateKeyPair()
+                val factory = KeyFactory.getInstance(kp.private.algorithm, "AndroidKeyStore")
+                val keyInfo = factory.getKeySpec(kp.private, KeyInfo::class.java) as KeyInfo
+                isHardwareBacked = keyInfo.isInsideSecureHardware
+                keystoreType = if (isHardwareBacked) "StrongBox / Keymaster" else "Software"
+                val keyStore = KeyStore.getInstance("AndroidKeyStore")
+                keyStore.load(null)
+                keyStore.deleteEntry("temp_key_test")
+            } catch (e: Exception) {
+                keystoreType = if (hasStrongBox) "StrongBox" else "AndroidKeyStore"
+                isHardwareBacked = hasFingerprint
+            }
+            cachedKeystoreType = keystoreType
+            cachedHardwareBackedKeystore = isHardwareBacked
         }
 
-        // Permission Audits
-        var camCount = 0
-        var micCount = 0
-        var locCount = 0
-        var contactsCount = 0
-        var overlayCount = 0
-        var unknownSources = 0
-        var nonPlayStore = 0
-        val accessibility = mutableListOf<String>()
-        val deviceAdmins = mutableListOf<String>()
-        try {
-            val packages = pm.getInstalledPackages(PackageManager.GET_PERMISSIONS)
-            packages.forEach { pkg ->
-                val appInfo = pkg.applicationInfo ?: return@forEach
-                val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-                if (!isSystem) {
-                    val requested = pkg.requestedPermissions
-                    val flags = pkg.requestedPermissionsFlags
-                    if (requested != null) {
-                        requested.forEachIndexed { idx, perm ->
-                            val isGranted = if (flags != null && idx < flags.size) {
-                                (flags[idx] and android.content.pm.PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0
-                            } else false
-                            
-                            if (isGranted) {
-                                when (perm) {
-                                    android.Manifest.permission.CAMERA -> camCount++
-                                    android.Manifest.permission.RECORD_AUDIO -> micCount++
-                                    android.Manifest.permission.ACCESS_FINE_LOCATION,
-                                    android.Manifest.permission.ACCESS_COARSE_LOCATION -> locCount++
-                                    android.Manifest.permission.READ_CONTACTS,
-                                    android.Manifest.permission.WRITE_CONTACTS,
-                                    android.Manifest.permission.SEND_SMS,
-                                    android.Manifest.permission.READ_SMS -> contactsCount++
-                                    android.Manifest.permission.SYSTEM_ALERT_WINDOW -> overlayCount++
+        val audit: PermissionAuditData
+        val cachedAudit = cachedPermissionAudit
+        if (cachedAudit != null) {
+            audit = cachedAudit
+        } else {
+            // Permission Audits
+            var camCount = 0
+            var micCount = 0
+            var locCount = 0
+            var contactsCount = 0
+            var overlayCount = 0
+            var unknownSources = 0
+            var nonPlayStore = 0
+            val accessibility = mutableListOf<String>()
+            val deviceAdmins = mutableListOf<String>()
+            try {
+                val packages = pm.getInstalledPackages(PackageManager.GET_PERMISSIONS)
+                packages.forEach { pkg ->
+                    val appInfo = pkg.applicationInfo ?: return@forEach
+                    val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                    if (!isSystem) {
+                        val requested = pkg.requestedPermissions
+                        val flags = pkg.requestedPermissionsFlags
+                        if (requested != null) {
+                            requested.forEachIndexed { idx, perm ->
+                                val isGranted = if (flags != null && idx < flags.size) {
+                                    (flags[idx] and android.content.pm.PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0
+                                } else false
+                                
+                                if (isGranted) {
+                                    when (perm) {
+                                        android.Manifest.permission.CAMERA -> camCount++
+                                        android.Manifest.permission.RECORD_AUDIO -> micCount++
+                                        android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                        android.Manifest.permission.ACCESS_COARSE_LOCATION -> locCount++
+                                        android.Manifest.permission.READ_CONTACTS,
+                                        android.Manifest.permission.WRITE_CONTACTS,
+                                        android.Manifest.permission.SEND_SMS,
+                                        android.Manifest.permission.READ_SMS -> contactsCount++
+                                        android.Manifest.permission.SYSTEM_ALERT_WINDOW -> overlayCount++
+                                    }
                                 }
                             }
                         }
-                    }
-                    val installer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        try { pm.getInstallSourceInfo(pkg.packageName).installingPackageName } catch (e: Exception) { null }
-                    } else {
-                        @Suppress("DEPRECATION")
-                        try { pm.getInstallerPackageName(pkg.packageName) } catch (e: Exception) { null }
-                    }
-                    if (installer != "com.android.vending") {
-                        nonPlayStore++
-                        if (installer.isNullOrEmpty() || installer == "com.google.android.packageinstaller" || installer == "com.android.packageinstaller") {
-                            unknownSources++
+                        val installer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            try { pm.getInstallSourceInfo(pkg.packageName).installingPackageName } catch (e: Exception) { null }
+                        } else {
+                            @Suppress("DEPRECATION")
+                            try { pm.getInstallerPackageName(pkg.packageName) } catch (e: Exception) { null }
+                        }
+                        if (installer != "com.android.vending") {
+                            nonPlayStore++
+                            if (installer.isNullOrEmpty() || installer == "com.google.android.packageinstaller" || installer == "com.android.packageinstaller") {
+                                unknownSources++
+                            }
                         }
                     }
                 }
-            }
-        } catch (e: Exception) {}
+            } catch (e: Exception) {}
 
-        // Accessibility services active
-        val enabledServices = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-        if (!enabledServices.isNullOrEmpty()) {
-            enabledServices.split(":").forEach { svc ->
-                val component = svc.substringAfter("/")
-                accessibility.add(component.substringBefore("Service"))
+            // Accessibility services active
+            val enabledServices = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+            if (!enabledServices.isNullOrEmpty()) {
+                enabledServices.split(":").forEach { svc ->
+                    val component = svc.substringAfter("/")
+                    accessibility.add(component.substringBefore("Service"))
+                }
             }
-        }
-        // Device Admins active
-        val admins = dpm.activeAdmins
-        if (admins != null) {
-            admins.forEach { comp ->
-                deviceAdmins.add(comp.shortClassName.substringAfterLast("."))
+            // Device Admins active
+            val admins = dpm.activeAdmins
+            if (admins != null) {
+                admins.forEach { comp ->
+                    deviceAdmins.add(comp.shortClassName.substringAfterLast("."))
+                }
             }
+            audit = PermissionAuditData(
+                appsCameraCount = camCount,
+                appsMicCount = micCount,
+                appsLocationCount = locCount,
+                appsContactsSmsCount = contactsCount,
+                overlayAppsCount = overlayCount,
+                unknownSourcesCount = unknownSources,
+                nonPlayStoreCount = nonPlayStore,
+                accessibilityApps = accessibility,
+                deviceAdminApps = deviceAdmins
+            )
+            cachedPermissionAudit = audit
         }
 
         val adbStatus = Settings.Global.getInt(context.contentResolver, Settings.Global.ADB_ENABLED, 0) == 1
@@ -4317,15 +4470,15 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
             privateDnsStatus = privateDnsStatus,
             randomMacEnabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q,
             cleartextPermitted = NetworkSecurityPolicy.getInstance().isCleartextTrafficPermitted,
-            appsCameraCount = camCount,
-            appsMicCount = micCount,
-            appsLocationCount = locCount,
-            appsContactsSmsCount = contactsCount,
-            accessibilityApps = accessibility,
-            deviceAdminApps = deviceAdmins,
-            overlayAppsCount = overlayCount,
-            unknownSourcesCount = unknownSources,
-            nonPlayStoreCount = nonPlayStore,
+            appsCameraCount = audit.appsCameraCount,
+            appsMicCount = audit.appsMicCount,
+            appsLocationCount = audit.appsLocationCount,
+            appsContactsSmsCount = audit.appsContactsSmsCount,
+            accessibilityApps = audit.accessibilityApps,
+            deviceAdminApps = audit.deviceAdminApps,
+            overlayAppsCount = audit.overlayAppsCount,
+            unknownSourcesCount = audit.unknownSourcesCount,
+            nonPlayStoreCount = audit.nonPlayStoreCount,
             developerOptionsEnabled = devOptions,
             adbEnabled = adbStatus,
             wirelessDebuggingEnabled = adbWifiStatus

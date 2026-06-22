@@ -210,6 +210,19 @@ fun SettingsMainPage(
                     }
                 )
             }
+
+            SettingsDivider()
+
+            SettingsRow(
+                title    = stringResource(R.string.settings_privacy_policy),
+                subtitle = stringResource(R.string.settings_privacy_policy_desc),
+                onClick  = {
+                    val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/killerjoyz/relab_controlcenter/blob/main/PRIVACY_POLICY.md")).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                }
+            )
         }
 
         // ── Theme ─────────────────────────────────────────────────────────────
@@ -303,20 +316,21 @@ fun SettingsMainPage(
                     coroutineScope.launch {
                         isGeneratingReport = true
                         try {
+                            viewModel.loadAdvancedInfoSuspending()
                             val file = com.example.relab_tool.utils.ReportGenerator.generateHardwareReport(
                                 context   = context,
-                                summary   = summary,
-                                system    = system,
-                                cpu       = cpu,
-                                battery   = battery,
-                                display   = display,
-                                memory    = memory,
-                                soc       = soc,
-                                cameras   = cameras,
-                                bluetooth = bluetooth,
-                                network   = network,
-                                audio     = audio,
-                                security  = security
+                                summary   = viewModel.deviceSummary.value,
+                                system    = viewModel.systemInfo.value,
+                                cpu       = viewModel.cpuInfo.value,
+                                battery   = viewModel.batteryInfo.value,
+                                display   = viewModel.displayInfo.value,
+                                memory    = viewModel.memoryInfo.value,
+                                soc       = viewModel.socInfo.value,
+                                cameras   = viewModel.cameras.value,
+                                bluetooth = viewModel.bluetoothInfo.value,
+                                network   = viewModel.networkInfo.value,
+                                audio     = viewModel.audioInfo.value,
+                                security  = viewModel.securityInfo.value
                             )
                             if (file != null) {
                                 val uri = androidx.core.content.FileProvider.getUriForFile(context, "com.relab.controlcenter.fileprovider", file)
@@ -340,24 +354,85 @@ fun SettingsMainPage(
         // ── Root Tools ────────────────────────────────────────────────────────
         val isRootAvailable = remember { com.example.relab_tool.utils.RootUtils.isRootAvailable() }
         if (isRootAvailable) {
+            val sharedPreferences = remember { context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE) }
+            var isRootEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("root_enabled", false)) }
+            var showRootWarningDialog by remember { mutableStateOf(false) }
+
             SettingsCard(
                 title = stringResource(R.string.settings_root_tools),
                 icon  = Icons.Default.Security
             ) {
-                var chargeLimit by remember { mutableStateOf(80) }
-                SettingsRow(
-                    title    = stringResource(R.string.settings_charge_limiter),
-                    subtitle = stringResource(R.string.settings_charge_limit_format, chargeLimit),
-                    onClick  = { 
-                        chargeLimit = if (chargeLimit == 80) 100 else 80
-                        com.example.relab_tool.utils.RootUtils.setChargeLimit(chargeLimit)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                        Text(
+                            stringResource(R.string.settings_enable_root),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            stringResource(R.string.settings_enable_root_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                )
-                SettingsDivider()
-                SettingsRow(
-                    title    = stringResource(R.string.settings_cpu_governor),
-                    subtitle = stringResource(R.string.settings_cpu_governor_desc),
-                    onClick  = { com.example.relab_tool.utils.RootUtils.setGovernor("performance") }
+                    Switch(
+                        checked = isRootEnabled,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                showRootWarningDialog = true
+                            } else {
+                                isRootEnabled = false
+                                sharedPreferences.edit().putBoolean("root_enabled", false).apply()
+                            }
+                        }
+                    )
+                }
+
+                if (isRootEnabled) {
+                    SettingsDivider()
+                    var chargeLimit by remember { mutableStateOf(80) }
+                    SettingsRow(
+                        title    = stringResource(R.string.settings_charge_limiter),
+                        subtitle = stringResource(R.string.settings_charge_limit_format, chargeLimit),
+                        onClick  = { 
+                            chargeLimit = if (chargeLimit == 80) 100 else 80
+                            com.example.relab_tool.utils.RootUtils.setChargeLimit(chargeLimit)
+                        }
+                    )
+                    SettingsDivider()
+                    SettingsRow(
+                        title    = stringResource(R.string.settings_cpu_governor),
+                        subtitle = stringResource(R.string.settings_cpu_governor_desc),
+                        onClick  = { com.example.relab_tool.utils.RootUtils.setGovernor("performance") }
+                    )
+                }
+            }
+
+            if (showRootWarningDialog) {
+                AlertDialog(
+                    onDismissRequest = { showRootWarningDialog = false },
+                    title = { Text(stringResource(R.string.settings_root_warning_title)) },
+                    text = { Text(stringResource(R.string.settings_root_warning_message)) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            isRootEnabled = true
+                            sharedPreferences.edit().putBoolean("root_enabled", true).apply()
+                            showRootWarningDialog = false
+                        }) {
+                            Text(stringResource(R.string.yes))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showRootWarningDialog = false }) {
+                            Text(stringResource(R.string.no))
+                        }
+                    }
                 )
             }
         }

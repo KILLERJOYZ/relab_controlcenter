@@ -1590,4 +1590,12 @@
     <string name="card_explanation_group_camera_modes">The camera software capabilities (HDR, Night Mode, Portrait, Burst) supported.</string>
     <string name="card_how_it_works_group_camera_modes">Queries camera capabilities and shooting modes from the Camera2 characteristics.</string>
     <string name="card_why_it_matters_group_camera_modes">Determines visual capture features, allowing the user to take advanced photographs under various lighting conditions.</string>
+
+    <!-- Settings Privacy Policy and Root Toggles -->
+    <string name="settings_privacy_policy">Privacy Policy</string>
+    <string name="settings_privacy_policy_desc">View the privacy policy and data usage disclosures.</string>
+    <string name="settings_enable_root">Enable Root Tools</string>
+    <string name="settings_enable_root_desc">Unlock CPU governor and battery charge control (Requires manual consent).</string>
+    <string name="settings_root_warning_title">Enable Root Features?</string>
+    <string name="settings_root_warning_message">This will run commands using \'su\'. Enable this only if your device is rooted. Root tools can affect system stability. Do you want to proceed?</string>
 </resources>

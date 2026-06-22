@@ -119,9 +119,6 @@ dependencies {
     // Image loading — Coil
     implementation(libs.coil.compose)
 
-    // AI
-    implementation(libs.generativeai)
-
     // Networking
     implementation(libs.okhttp)
 

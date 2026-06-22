@@ -19,33 +19,9 @@ class ApkCrawler(private val context: Context) {
         .cache(Cache(File(context.cacheDir, "http_cache"), 10L * 1024 * 1024))
         .build()
 
-    suspend fun getLatestVersionInfo(packageName: String): Pair<String?, String?> {
-        val url = String.format(AppConfig.APKPURE_URL_QUERY_TEMPLATE, AppConfig.APKPURE_BASE_URL, packageName)
-        val request = Request.Builder()
-            .url("$url&ts=${System.currentTimeMillis()}")
-            .addHeader(AppConfig.HEADER_CACHE_CONTROL, AppConfig.VALUE_NO_CACHE)
-            .addHeader(AppConfig.HEADER_USER_AGENT, AppConfig.DEFAULT_USER_AGENT)
-            .build()
-
-        return try {
-            val response = executeRequestWithRetry(request)
-            if (response.isSuccessful) {
-                // Try to extract from version headers from the direct download URL response if available
-                val latestVersion = response.header(AppConfig.HEADER_APK_VERSION)
-                val downloadUrl = response.request.url.toString()
-                Pair(latestVersion, downloadUrl)
-            } else {
-                Pair(null, null)
-            }
-        } catch (e: Exception) {
-            Pair(null, null)
-        }
-    }
-
     suspend fun getAppIconUrl(packageName: String): String? {
-        // Special static overrides for known non-store apps or legacy package names
         if (packageName == "com.apkpure.aegon") {
-            return "https://static.apkpure.com/www/static/imgs/logo_new@2x.png"
+            return null
         }
         if (packageName == "com.gaijinent.warthunder") {
             return "https://wtmobile.com/img/favicon/apple-touch-icon.png"
@@ -103,27 +79,7 @@ class ApkCrawler(private val context: Context) {
                 }
             }
         } catch (e: Exception) {
-            // fall through to APKPure scraper fallback
-        }
-
-        // 3. APKPure search fallback (as a last resort)
-        val pureUrl = "https://apkpure.com/search?q=$packageName"
-        val pureRequest = Request.Builder()
-            .url(pureUrl)
-            .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36")
-            .build()
-        try {
-            val response = executeRequestWithRetry(pureRequest)
-            if (response.isSuccessful) {
-                val html = response.body?.string() ?: ""
-                val winudfRegex = """https://image\.winudf\.com/v2/image1/[a-zA-Z0-9-_\./]+""".toRegex()
-                val match = winudfRegex.find(html)
-                if (match != null) {
-                    return match.value
-                }
-            }
-        } catch (e: Exception) {
-            // Ignore and return null
+            // Ignore
         }
         return null
     }

@@ -3,6 +3,7 @@ package com.example.relab_tool.model
 import androidx.compose.runtime.Immutable
 import com.example.relab_tool.data.WifiSsidState
 
+@Immutable
 data class DeviceSummary(
     val model: String = "Unknown",
     val manufacturer: String = "Unknown",
@@ -34,6 +35,7 @@ data class DeviceSummary(
     val flashType: String = "Unknown"
 )
 
+@Immutable
 data class SystemInfo(
     val brand: String = "Unknown",
     val manufacturer: String = "Unknown",
@@ -71,6 +73,7 @@ data class SystemInfo(
     val gmsVersion: String = "Unknown"
 )
 
+@Immutable
 data class CpuInfo(
     val processor: String,
     val architecture: String,
@@ -79,6 +82,7 @@ data class CpuInfo(
     val cpuGovernor: String
 )
 
+@Immutable
 data class BatteryInfo(
     val health: String = "Unknown",
     val level: Int = 0,
@@ -100,6 +104,7 @@ data class BatteryInfo(
     val isWirelessSupported: Boolean = false
 )
 
+@Immutable
 data class DisplayInfo(
     val currentResolution: String = "Unknown",
     val highestResolution: String = "N/A",
@@ -124,6 +129,7 @@ data class DisplayInfo(
     val colorSpace: String = "N/A"
 )
 
+@Immutable
 data class ExternalStorageInfo(
     val name: String,
     val total: String,
@@ -133,6 +139,7 @@ data class ExternalStorageInfo(
     val type: String = "External Storage" // e.g., "SD Card", "USB Drive"
 )
 
+@Immutable
 data class MemoryInfo(
     val totalRam: String = "Unknown",
     val availableRam: String = "Unknown",
@@ -162,6 +169,7 @@ data class MemoryInfo(
     val flashType: String = "N/A"
 )
 
+@Immutable
 data class SensorInfo(
     val name: String,
     val vendor: String,
@@ -173,6 +181,7 @@ data class SensorInfo(
     val minDelay: Int = 0
 )
 
+@Immutable
 data class DrmSchemeInfo(
     val name: String,
     val vendor: String = "Unknown",
@@ -280,6 +289,7 @@ data class DashboardSlowData(
 )
 
 
+@Immutable
 data class CpuCluster(
     val id: Int,
     val name: String = "",
@@ -291,6 +301,7 @@ data class CpuCluster(
     val coreIndices: List<Int> = emptyList()
 )
 
+@Immutable
 data class SocInfo(
     val processor: String = "Unknown",
     val vendor: String = "Unknown",
@@ -323,6 +334,7 @@ data class SocInfo(
     val architecture: String = "Unknown"
 )
 
+@Immutable
 data class PhysicalSensor(
     val model: String,
     val manufacturer: String = "Unknown",
@@ -330,6 +342,7 @@ data class PhysicalSensor(
     val role: String = "Unknown"
 )
 
+@Immutable
 data class CameraInfo(
     val id: String = "0",
     val facing: String = "Unknown",
@@ -378,6 +391,7 @@ data class CameraInfo(
     val allResolutions: Map<String, List<String>> = emptyMap()
 )
 
+@Immutable
 data class UsbInfo(
     val name: String,
     val vendorId: String,
@@ -388,6 +402,7 @@ data class UsbInfo(
     val serialNumber: String? = null
 )
 
+@Immutable
 data class UsbStatusInfo(
     val isConnected: Boolean = false,
     val usbMode: String = "N/A",
@@ -407,17 +422,20 @@ data class UsbStatusInfo(
     val isRestrictedUsb: String = "Not Supported"
 )
 
+@Immutable
 data class CodecInfo(
     val name: String,
     val mimeType: String,
     val type: String
 )
 
+@Immutable
 data class ThermalInfo(
     val name: String,
     val temperature: String
 )
 
+@Immutable
 data class AppEntry(
     val name: String,
     val packageName: String,
@@ -430,6 +448,7 @@ data class AppEntry(
     val isCheckingUpdate: Boolean = false
 )
 
+@Immutable
 data class SimInfo(
     val slot: Int,
     val carrier: String,
@@ -444,6 +463,7 @@ data class SimInfo(
     val networkType: String = "Unknown"
 )
 
+@Immutable
 data class CellularInfo(
     val state: String = "Unknown",
     val multiSimSupport: String = "Unknown",
@@ -459,16 +479,19 @@ data class CellularInfo(
     val simInfos: List<SimInfo> = emptyList()
 )
 
+@Immutable
 data class BluetoothFeature(
     val nameRes: Int,
     val isSupported: Boolean
 )
 
+@Immutable
 data class BluetoothFeatureGroup(
     val titleRes: Int,
     val features: List<BluetoothFeature>
 )
 
+@Immutable
 data class BluetoothInfo(
     val featureGroups: List<BluetoothFeatureGroup> = emptyList(),
     val state: String = "Unknown",
@@ -479,6 +502,7 @@ data class BluetoothInfo(
     val connectedDevicesCount: Int = 0
 )
 
+@Immutable
 data class NetworkInfo(
     val type: String = "Unknown",
     val state: String = "Unknown",
@@ -524,6 +548,7 @@ data class NetworkInfo(
     val isWifi8Supported: Boolean = false
 )
 
+@Immutable
 data class AudioInfo(
     val lowLatency: Boolean = false,
     val proAudio: Boolean = false,
@@ -540,6 +565,7 @@ data class AudioInfo(
     val videoCodecs: String = "Unknown"
 )
 
+@Immutable
 data class SecurityInfo(
     val androidVersion: String = "Unknown",
     val codename: String = "Unknown",
@@ -592,6 +618,7 @@ data class SecurityInfo(
 )
 // Changed
 
+@Immutable
 data class GnssSatellite(
     val svid: Int,
     val constellationType: Int,
@@ -603,6 +630,7 @@ data class GnssSatellite(
     fun usedInFix(): Boolean = usedInFix
 }
 
+@Immutable
 data class LocationData(
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,

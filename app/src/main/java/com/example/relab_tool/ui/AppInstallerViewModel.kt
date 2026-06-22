@@ -32,12 +32,16 @@ class AppInstallerViewModel(application: Application) : AndroidViewModel(applica
     private val packageManager = application.packageManager
     private val crawler = ApkCrawler(application)
 
+    // Guard against concurrent calls from multiple LaunchedEffect invocations
+    @Volatile private var loadStarted = false
+
     init {
+        // Set the static list immediately (no IO — this is instant)
         _apps.value = listOf(
             // Benchmark
-            AppInfo(nameRes = R.string.app_geekbench, packageName = "com.primatelabs.geekbench6", category = "Benchmark", playStorePackageName = "com.primatelabs.geekbench6", sourceUrl = "https://apkpure.com/geekbench-6/com.primatelabs.geekbench6"),
+            AppInfo(nameRes = R.string.app_geekbench, packageName = "com.primatelabs.geekbench6", category = "Benchmark", playStorePackageName = "com.primatelabs.geekbench6", sourceUrl = "https://www.geekbench.com/"),
             AppInfo(nameRes = R.string.app_antutu, packageName = "com.antutu.ABenchMark", category = "Benchmark", playStorePackageName = null, sourceUrl = "https://www.antutu.com/en/index.htm"),
-            AppInfo(nameRes = R.string.app_3dmark, packageName = "com.futuremark.dmandroid.application", category = "Benchmark", playStorePackageName = "com.futuremark.dmandroid.application", sourceUrl = "https://apkpure.com/3dmark/com.futuremark.dmandroid.application"),
+            AppInfo(nameRes = R.string.app_3dmark, packageName = "com.futuremark.dmandroid.application", category = "Benchmark", playStorePackageName = "com.futuremark.dmandroid.application", sourceUrl = "https://benchmarks.ul.com/3dmark-android"),
 
             // Games
             AppInfo(nameRes = R.string.app_genshin_vn, packageName = "com.miHoYo.GenshinImpact.vn", category = "Games", playStorePackageName = "com.miHoYo.GenshinImpact.vn", sourceUrl = "https://genshin.hoyoverse.com/"),
@@ -55,28 +59,25 @@ class AppInstallerViewModel(application: Application) : AndroidViewModel(applica
 
             // Utilities
             AppInfo(nameRes = R.string.app_stremio, packageName = "com.stremio.one", category = "Utilities", playStorePackageName = "com.stremio.one", sourceUrl = "https://www.stremio.com/"),
-            AppInfo(nameRes = R.string.app_aurora_store, packageName = "com.aurora.store", category = "Utilities", playStorePackageName = null, sourceUrl = "https://auroraoss.com/"),
-            AppInfo(nameRes = R.string.app_apkpure, packageName = "com.apkpure.aegon", category = "Utilities", playStorePackageName = null, sourceUrl = "https://apkpure.com/"),
-            AppInfo(nameRes = R.string.app_taptap, packageName = "com.taptap.global", category = "Utilities", playStorePackageName = null, sourceUrl = "https://www.taptap.io/"),
             AppInfo(nameRes = R.string.app_epic_games, packageName = "com.epicgames.portal", category = "Utilities", playStorePackageName = null, sourceUrl = "https://store.epicgames.com/"),
             AppInfo(nameRes = R.string.app_xbox, packageName = "com.microsoft.xboxone.smartglass", category = "Utilities", playStorePackageName = "com.microsoft.xboxone.smartglass", sourceUrl = "https://www.xbox.com/"),
             AppInfo(nameRes = R.string.app_petal_maps, packageName = "com.huawei.maps.app", category = "Utilities", playStorePackageName = "com.huawei.maps.app", sourceUrl = "https://petalmaps.com"),
-            AppInfo(nameRes = R.string.app_gamehub, packageName = "com.xiaoji.egggame", category = "Utilities", playStorePackageName = null, sourceUrl = "https://www.egggame.cn/"),
-            AppInfo(nameRes = R.string.app_scene, packageName = "com.omarea.vtools", category = "Utilities", playStorePackageName = null, sourceUrl = "https://github.com/helloklf/vtools"),
-            AppInfo(nameRes = R.string.app_gfx_tool, packageName = "eu.tsoml.graphicssettings", category = "Utilities", playStorePackageName = "eu.tsoml.graphicssettings", sourceUrl = "https://apkpure.com/gfx-tool-for-pubg-mobile/eu.tsoml.graphicssettings"),
-            AppInfo(nameRes = R.string.app_sai, packageName = "com.aefyr.sai", category = "Utilities", playStorePackageName = "com.aefyr.sai", sourceUrl = "https://github.com/Aefyr/SAI"),
             AppInfo(nameRes = R.string.app_localsend, packageName = "org.localsend.localsend_app", category = "Utilities", playStorePackageName = "org.localsend.localsend_app", sourceUrl = "https://localsend.org"),
-
-            // System Services
-            AppInfo(name = "Huawei Mobile Services", packageName = "com.huawei.hwid", category = "System Services", playStorePackageName = "com.huawei.hwid", sourceUrl = "https://appgallery.huawei.com"),
-            AppInfo(name = "Huawei AppGallery", packageName = "com.huawei.appmarket", category = "System Services", playStorePackageName = null, sourceUrl = "https://appgallery.huawei.com"),
-            AppInfo(name = "microG Services", packageName = "com.google.android.gms", category = "System Services", playStorePackageName = null, sourceUrl = "https://microg.org"),
-            AppInfo(name = "microG Companion", packageName = "com.android.vending", category = "System Services", playStorePackageName = null, sourceUrl = "https://microg.org"),
 
             // Social
             AppInfo(nameRes = R.string.app_wechat, packageName = "com.tencent.mm", category = "Social", playStorePackageName = "com.tencent.mm", sourceUrl = "https://wechat.com"),
             AppInfo(nameRes = R.string.app_qq, packageName = "com.tencent.mobileqq", category = "Social", playStorePackageName = "com.tencent.mobileqq", sourceUrl = "https://im.qq.com")
         )
+        // IO loading is deferred: call ensureLoaded() when the Installer tab is first visited.
+    }
+
+    /**
+     * Loads installation statuses and icons lazily, the first time the Installer tab is visited.
+     * Subsequent calls are no-ops (guarded by loadStarted flag).
+     */
+    fun ensureLoaded() {
+        if (loadStarted) return
+        loadStarted = true
 
         viewModelScope.launch(Dispatchers.IO) {
             // SoC-based Recommendations

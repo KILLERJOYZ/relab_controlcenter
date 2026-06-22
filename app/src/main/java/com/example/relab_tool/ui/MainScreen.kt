@@ -286,7 +286,11 @@ fun MainScreen(viewModel: AppInstallerViewModel, windowSizeClass: WindowSizeClas
                                     deviceInfoViewModel.requestInfoTab(tabIndex)
                                 }
                             )
-                            1 -> AppInstallerContent(apps = apps, viewModel = viewModel, windowSizeClass = windowSizeClass, isLoaded = isAppsLoaded)
+                            1 -> {
+                                // Trigger lazy load the first time the installer tab is visited
+                                LaunchedEffect(Unit) { viewModel.ensureLoaded() }
+                                AppInstallerContent(apps = apps, viewModel = viewModel, windowSizeClass = windowSizeClass, isLoaded = isAppsLoaded)
+                            }
                             2 -> BenchmarksScreen(viewModel = performanceViewModel, windowSizeClass = windowSizeClass)
                             3 -> DeviceInfoScreen(viewModel = deviceInfoViewModel, windowSizeClass = windowSizeClass)
                             4 -> SettingsScreen(onLaunchCIT = onLaunchCIT)

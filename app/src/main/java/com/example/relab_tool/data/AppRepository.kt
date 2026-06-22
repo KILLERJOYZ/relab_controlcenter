@@ -23,17 +23,13 @@ class AppRepository(private val context: Context) {
         _apps.update { currentApps ->
             currentApps.map { app ->
                 val installedVersion = getInstalledVersion(app.packageName)
-                val (latestVersion, downloadUrl) = crawler.getLatestVersionInfo(app.packageName)
                 val fetchedIcon = if (app.iconUrl.isNullOrEmpty()) {
                     crawler.getAppIconUrl(app.packageName)
                 } else app.iconUrl
                 
                 app.copy(
                     installedVersion = installedVersion,
-                    latestVersion = latestVersion,
-                    sourceUrl = downloadUrl ?: app.sourceUrl,
                     iconUrl = fetchedIcon ?: app.iconUrl,
-                    hasUpdate = isUpdateAvailable(installedVersion, latestVersion),
                     status = if (installedVersion != null) InstallationStatus.INSTALLED else InstallationStatus.NOT_INSTALLED
                 )
             }
@@ -49,17 +45,10 @@ class AppRepository(private val context: Context) {
         }
     }
 
-    private fun isUpdateAvailable(installed: String?, latest: String?): Boolean {
-        if (installed == null || latest == null) return false
-        // Simple version comparison logic
-        return installed != latest
-    }
-
     private fun initialApps() = listOf(
-        AppInfo("Geekbench 6", "com.primatelabs.geekbench6", "Benchmark", nameRes = R.string.app_geekbench, playStorePackageName = "com.primatelabs.geekbench6", sourceUrl = "https://apkpure.com/geekbench-6/com.primatelabs.geekbench6"),
+        AppInfo("Geekbench 6", "com.primatelabs.geekbench6", "Benchmark", nameRes = R.string.app_geekbench, playStorePackageName = "com.primatelabs.geekbench6", sourceUrl = "https://www.geekbench.com/"),
         AppInfo("Antutu Benchmark", "com.antutu.ABenchMark", "Benchmark", nameRes = R.string.app_antutu, playStorePackageName = null, sourceUrl = "https://www.antutu.com/en/index.htm"),
-        AppInfo("3DMark", "com.futuremark.dmandroid.application", "Benchmark", nameRes = R.string.app_3dmark, playStorePackageName = "com.futuremark.dmandroid.application", sourceUrl = "https://apkpure.com/3dmark/com.futuremark.dmandroid.application"),
-        AppInfo("Genshin Impact VN", "com.miHoYo.GenshinImpact.vn", "Games", nameRes = R.string.app_genshin_vn, playStorePackageName = "com.miHoYo.GenshinImpact.vn", sourceUrl = "https://genshin.hoyoverse.com/"),
-        AppInfo("Aurora Store", "com.aurora.store", "Utilities", nameRes = R.string.app_aurora_store, playStorePackageName = null, sourceUrl = "https://auroraoss.com/")
+        AppInfo("3DMark", "com.futuremark.dmandroid.application", "Benchmark", nameRes = R.string.app_3dmark, playStorePackageName = "com.futuremark.dmandroid.application", sourceUrl = "https://benchmarks.ul.com/3dmark-android"),
+        AppInfo("Genshin Impact VN", "com.miHoYo.GenshinImpact.vn", "Games", nameRes = R.string.app_genshin_vn, playStorePackageName = "com.miHoYo.GenshinImpact.vn", sourceUrl = "https://genshin.hoyoverse.com/")
     )
 }

@@ -433,7 +433,7 @@ fun CoreHistorySparkline(coreHistory: List<Float>, chartColor: Color, modifier: 
 
     Canvas(modifier = modifier) {
         path.reset()
-        val stepX = size.width / 19f
+        val stepX = size.width / (coreHistory.size - 1).coerceAtLeast(1)
         coreHistory.forEachIndexed { ci, cv ->
             val x = ci * stepX
             val y = size.height - (cv / 100f * size.height)
@@ -462,7 +462,7 @@ fun CoreHistorySparkline(coreHistory: List<Float>, chartColor: Color, modifier: 
                 val chartColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                 Canvas(modifier = Modifier.fillMaxWidth().height(40.dp).align(Alignment.BottomCenter)) {
                     path.reset()
-                    val stepX = size.width / 19f
+                    val stepX = size.width / (history.size - 1).coerceAtLeast(1)
                     history.forEachIndexed { i, v ->
                         val x = i * stepX
                         val y = size.height - (v / 100f * size.height)
@@ -500,7 +500,7 @@ fun CoreHistorySparkline(coreHistory: List<Float>, chartColor: Color, modifier: 
                 val chartColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                 Canvas(modifier = Modifier.fillMaxWidth().height(40.dp).align(Alignment.BottomCenter)) {
                     path.reset()
-                    val stepX = size.width / 19f
+                    val stepX = size.width / (history.size - 1).coerceAtLeast(1)
                     history.forEachIndexed { i, v ->
                         val x = i * stepX
                         val y = size.height - (v / 100f * size.height)
@@ -542,7 +542,7 @@ fun CoreHistorySparkline(coreHistory: List<Float>, chartColor: Color, modifier: 
                 val chartColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                 Canvas(modifier = Modifier.fillMaxWidth().height(32.dp).align(Alignment.BottomCenter)) {
                     path.reset()
-                    val stepX = size.width / 19f
+                    val stepX = size.width / (history.size - 1).coerceAtLeast(1)
                     history.forEachIndexed { i, v ->
                         val x = i * stepX
                         val y = size.height - (v / graphMax * size.height)
@@ -619,7 +619,7 @@ fun CoreHistorySparkline(coreHistory: List<Float>, chartColor: Color, modifier: 
                     val strokeColor = lineColorDl.copy(alpha = 0.8f)
                     Canvas(modifier = Modifier.fillMaxWidth().height(40.dp).align(Alignment.BottomCenter)) {
                         pathDl.reset()
-                        val stepX = size.width / 19f
+                        val stepX = size.width / (downloadHistory.size - 1).coerceAtLeast(1)
                         downloadHistory.forEachIndexed { i, v ->
                             val x = i * stepX
                             val y = size.height - (v / graphMaxDl * size.height)
@@ -663,7 +663,7 @@ fun CoreHistorySparkline(coreHistory: List<Float>, chartColor: Color, modifier: 
                     val strokeColor = lineColorUl.copy(alpha = 0.8f)
                     Canvas(modifier = Modifier.fillMaxWidth().height(40.dp).align(Alignment.BottomCenter)) {
                         pathUl.reset()
-                        val stepX = size.width / 19f
+                        val stepX = size.width / (uploadHistory.size - 1).coerceAtLeast(1)
                         uploadHistory.forEachIndexed { i, v ->
                             val x = i * stepX
                             val y = size.height - (v / graphMaxUl * size.height)
@@ -699,7 +699,7 @@ fun CoreHistorySparkline(coreHistory: List<Float>, chartColor: Color, modifier: 
     val path = remember { Path() }
     val density = LocalDensity.current
     val stroke = remember(density) { Stroke(with(density) { 3.dp.toPx() }, cap = StrokeCap.Round) }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = { Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { Text("$current%", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Black, color = color); Box(modifier = Modifier.fillMaxWidth().height(150.dp).padding(vertical = 16.dp)) { Canvas(modifier = Modifier.fillMaxSize()) { if (history.isNotEmpty()) { path.reset(); val stepX = size.width / 20f; history.forEachIndexed { i, v -> val x = i * stepX; val y = size.height - (v / 100f * size.height); if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }; drawPath(path, color, style = stroke) } } } } }, confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } })
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = { Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { Text("$current%", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Black, color = color); Box(modifier = Modifier.fillMaxWidth().height(150.dp).padding(vertical = 16.dp)) { Canvas(modifier = Modifier.fillMaxSize()) { if (history.isNotEmpty()) { path.reset(); val stepX = size.width / (history.size - 1).coerceAtLeast(1); history.forEachIndexed { i, v -> val x = i * stepX; val y = size.height - (v / 100f * size.height); if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }; drawPath(path, color, style = stroke) } } } } }, confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } })
 }
 
 @Composable fun WattageFullHistoryDialog(wattage: String, history: List<Float>, onDismiss: () -> Unit) {
@@ -950,7 +950,7 @@ fun CoreHistorySparkline(coreHistory: List<Float>, chartColor: Color, modifier: 
                             val canvasWidth = this.size.width
                             val canvasHeight = this.size.height
                             path.reset()
-                            val stepX = canvasWidth / 19f
+                            val stepX = canvasWidth / (history.size - 1).coerceAtLeast(1)
                             history.forEachIndexed { i, v ->
                                 val x = i * stepX
                                 val y = canvasHeight - (v / 100f * canvasHeight)
@@ -1068,7 +1068,7 @@ fun CoreHistorySparkline(coreHistory: List<Float>, chartColor: Color, modifier: 
                             val canvasWidth = this.size.width
                             val canvasHeight = this.size.height
                             path.reset()
-                            val stepX = canvasWidth / 19f
+                            val stepX = canvasWidth / (history.size - 1).coerceAtLeast(1)
                             history.forEachIndexed { i, v ->
                                 val x = i * stepX
                                 val y = canvasHeight - (v / 100f * canvasHeight)
@@ -1112,7 +1112,7 @@ fun CoreHistorySparkline(coreHistory: List<Float>, chartColor: Color, modifier: 
                             val canvasWidth = this.size.width
                             val canvasHeight = this.size.height
                             path.reset()
-                            val stepX = canvasWidth / 19f
+                            val stepX = canvasWidth / (history.size - 1).coerceAtLeast(1)
                             history.forEachIndexed { i, v ->
                                 val x = i * stepX
                                 val y = canvasHeight - (v / 100f * canvasHeight)
@@ -1226,7 +1226,7 @@ fun CoreHistorySparkline(coreHistory: List<Float>, chartColor: Color, modifier: 
                             val canvasWidth = this.size.width
                             val canvasHeight = this.size.height
                             path.reset()
-                            val stepX = canvasWidth / 19f
+                            val stepX = canvasWidth / (history.size - 1).coerceAtLeast(1)
                             history.forEachIndexed { i, v ->
                                 val x = i * stepX
                                 val y = canvasHeight - (v / 100f * canvasHeight)
@@ -1270,7 +1270,7 @@ fun CoreHistorySparkline(coreHistory: List<Float>, chartColor: Color, modifier: 
                             val canvasWidth = this.size.width
                             val canvasHeight = this.size.height
                             path.reset()
-                            val stepX = canvasWidth / 19f
+                            val stepX = canvasWidth / (history.size - 1).coerceAtLeast(1)
                             history.forEachIndexed { i, v ->
                                 val x = i * stepX
                                 val y = canvasHeight - (v / 100f * canvasHeight)
@@ -2956,6 +2956,7 @@ fun ProcessorSummaryCard(
 }
 
 @Composable fun DeviceTab(viewModel: DeviceInfoViewModel) {
+    LaunchedEffect(Unit) { viewModel.ensureTabDataLoaded("system") }
     val summary by viewModel.deviceSummary.collectAsStateWithLifecycle()
     val system by viewModel.systemInfo.collectAsStateWithLifecycle()
     val cpu by viewModel.cpuInfo.collectAsStateWithLifecycle()
@@ -3111,6 +3112,7 @@ enum class SocTabType { CPU, GPU }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun SocTab(v: DeviceInfoViewModel) {
+    LaunchedEffect(Unit) { v.ensureTabDataLoaded("soc") }
     var showCoreDetails by remember { mutableStateOf(false) }
     
     AnimatedContent(
@@ -3688,6 +3690,7 @@ enum class SocTabType { CPU, GPU }
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable fun DisplayTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
+    LaunchedEffect(Unit) { v.ensureTabDataLoaded("system") }
     val info by v.displayInfo.collectAsStateWithLifecycle()
     info?.let { i -> 
         LazyColumn(contentPadding = PaddingValues(16.dp)) { 
@@ -3798,6 +3801,7 @@ enum class SocTabType { CPU, GPU }
 }
 
 @Composable fun MemoryTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
+    LaunchedEffect(Unit) { v.ensureTabDataLoaded("system") }
     val info by v.memoryInfo.collectAsStateWithLifecycle()
     val isWideScreen = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
     val bottomContentPadding = if (isWideScreen) 16.dp else 120.dp
@@ -4033,15 +4037,16 @@ enum class SocTabType { CPU, GPU }
     val hasRequestedBefore = prefs.getBoolean("location_permission_requested", false)
     val isPermanentlyDenied = !hasPermission && !shouldShowRationale && hasRequestedBefore
 
+    LaunchedEffect(Unit) { v.ensureTabDataLoaded("network") }
     LaunchedEffect(isPermanentlyDenied) {
         prefs.edit().putBoolean("location_permission_permanently_denied", isPermanentlyDenied).apply()
-        v.loadAdvancedInfo()
+        v.ensureTabDataLoaded("network")
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
-            v.loadAdvancedInfo()
+            v.ensureTabDataLoaded("network")
         }
     )
 
@@ -4243,6 +4248,7 @@ enum class SocTabType { CPU, GPU }
 
 @Composable
 fun CellularTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
+    LaunchedEffect(Unit) { v.ensureTabDataLoaded("network") }
     val info by v.networkInfo.collectAsStateWithLifecycle()
     info?.let { i ->
         LazyColumn(contentPadding = PaddingValues(16.dp)) {
@@ -4339,6 +4345,7 @@ fun CellularTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
 
 
 @Composable fun CodecsTab(v: DeviceInfoViewModel) {
+    LaunchedEffect(Unit) { v.ensureTabDataLoaded("codecs") }
     val codecs by v.codecs.collectAsStateWithLifecycle()
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
@@ -4360,6 +4367,7 @@ fun CellularTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
 }
 
 @Composable fun UsbTab(v: DeviceInfoViewModel) {
+    LaunchedEffect(Unit) { v.ensureTabDataLoaded("usb") }
     val devices by v.usbDevices.collectAsStateWithLifecycle()
     if (devices.isEmpty()) {
         EmptyState(Icons.Outlined.UsbOff, stringResource(R.string.no_usb))
@@ -4386,6 +4394,7 @@ fun CellularTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
 }
 
 @Composable fun SensorsTab(v: DeviceInfoViewModel) {
+    LaunchedEffect(Unit) { v.ensureTabDataLoaded("system") }
     val sensors by v.sensors.collectAsStateWithLifecycle()
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
@@ -4415,6 +4424,7 @@ fun CellularTab(v: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
 enum class AppFilterType { ALL, INSTALLED, SYSTEM }
 
 @Composable fun AppsTab(v: DeviceInfoViewModel) {
+    LaunchedEffect(Unit) { v.ensureTabDataLoaded("apps") }
     val apps by v.installedApps.collectAsStateWithLifecycle()
     val playStore by v.isPlayStoreAvailable.collectAsStateWithLifecycle()
     var activeFilter by remember { mutableStateOf(AppFilterType.ALL) }
@@ -4573,11 +4583,13 @@ enum class AppFilterType { ALL, INSTALLED, SYSTEM }
 }
 
 @Composable fun CamerasTab(viewModel: DeviceInfoViewModel, windowSizeClass: WindowSizeClass) {
+    LaunchedEffect(Unit) { viewModel.ensureTabDataLoaded("camera") }
     val cameraSpecViewModel: CameraSpecViewModel = viewModel()
     CameraSpecScreen(cameraSpecViewModel)
 }
 
 @Composable fun BluetoothTab(v: DeviceInfoViewModel) {
+    LaunchedEffect(Unit) { v.ensureTabDataLoaded("bluetooth") }
     val info by v.bluetoothInfo.collectAsStateWithLifecycle()
     info?.let { bt ->
         LazyVerticalGrid(
@@ -4697,6 +4709,7 @@ enum class AppFilterType { ALL, INSTALLED, SYSTEM }
 }
 
 @Composable fun SecurityTab(v: DeviceInfoViewModel) {
+    LaunchedEffect(Unit) { v.ensureTabDataLoaded("security") }
     val info by v.securityInfo.collectAsStateWithLifecycle()
     val drmInfos by v.drmInfos.collectAsStateWithLifecycle()
     info?.let { sec ->

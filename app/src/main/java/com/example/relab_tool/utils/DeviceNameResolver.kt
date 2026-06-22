@@ -6,7 +6,6 @@ import android.os.Build
 import android.provider.Settings
 import android.util.Log
 import com.example.relab_tool.utils.AppConfig
-import com.google.ai.client.generativeai.GenerativeModel
 import org.json.JSONArray
 
 object DeviceNameResolver {
@@ -49,24 +48,7 @@ object DeviceNameResolver {
         return "${Build.MANUFACTURER} ${Build.MODEL}"
     }
 
-    /**
-     * Attempts to resolve the device name using Gemini AI.
-     * This is a suspend function as it involves network.
-     */
-    suspend fun resolveWithGemini(apiKey: String, manufacturer: String, model: String, device: String): String? {
-        return try {
-            val generativeModel = GenerativeModel(
-                modelName = AppConfig.GEMINI_MODEL_NAME,
-                apiKey = apiKey
-            )
-            val prompt = String.format(AppConfig.GEMINI_PROMPT_TEMPLATE, manufacturer, model, device)
-            val response = generativeModel.generateContent(prompt)
-            response.text?.trim()
-        } catch (e: Exception) {
-            Log.e(TAG, "Gemini resolution failed", e)
-            null
-        }
-    }
+
 
     private fun getPlayStoreMarketingName(context: Context): String? {
         return try {

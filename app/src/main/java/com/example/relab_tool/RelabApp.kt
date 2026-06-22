@@ -7,7 +7,6 @@ import com.example.relab_tool.ui.theme.UnitSettings
 import com.example.relab_tool.ui.theme.ThemeSettings
 import com.example.relab_tool.ui.DashboardLayoutSettings
 import com.example.relab_tool.utils.NotificationHelper
-import com.example.relab_tool.worker.UpdateCheckWorker
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
@@ -15,7 +14,6 @@ class RelabApp : Application() {
     override fun onCreate() {
         super.onCreate()
         NotificationHelper.createNotificationChannel(this)
-        UpdateCheckWorker.schedule(this)
         UnitSettings.init(this)
         ThemeSettings.init(this)
         DashboardLayoutSettings.initIfNeeded(this)
