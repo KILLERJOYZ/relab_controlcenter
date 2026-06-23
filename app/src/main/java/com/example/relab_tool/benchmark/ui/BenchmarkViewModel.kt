@@ -7,6 +7,7 @@ import com.example.relab_tool.benchmark.domain.BenchmarkOrchestrator
 import com.example.relab_tool.benchmark.domain.BenchmarkOrchestratorState
 import com.example.relab_tool.benchmark.domain.BenchmarkRepository
 import com.example.relab_tool.benchmark.domain.model.BenchmarkResult
+import com.example.relab_tool.benchmark.domain.model.BenchmarkPillar
 import com.example.relab_tool.benchmark.scoring.PercentileCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -82,6 +83,41 @@ class BenchmarkViewModel @Inject constructor(
         activeJob?.cancel()
         activeJob = viewModelScope.launch {
             orchestrator.runBenchmark(isQuickTest = true, includeNetwork = false).collect { state ->
+                when (state) {
+                    is BenchmarkOrchestratorState.Running -> {
+                        _uiState.value = BenchmarkUiState.Running(
+                            currentPillar = state.currentPillar,
+                            currentSubTestLabel = state.currentSubTestLabel,
+                            pillarProgress = state.pillarProgress,
+                            overallProgress = state.overallProgress,
+                            completedPillarScores = state.completedPillarScores,
+                            thermalStatus = state.thermalStatus,
+                            thermalHeadroom = state.thermalHeadroom,
+                            estimatedRemainingSeconds = state.estimatedRemainingSeconds,
+                            isThermalPaused = state.isThermalPaused,
+                            runningHardwareScore = state.runningHardwareScore
+                        )
+                    }
+                    is BenchmarkOrchestratorState.Complete -> {
+                        repository.saveResult(state.result)
+                        val percentile = percentileCalculator.calculatePercentile(state.result.totalScore)
+                        val nearest = percentileCalculator.getNearestReferenceDevice(state.result.totalScore)
+                        
+                        _uiState.value = BenchmarkUiState.Complete(
+                            result = state.result,
+                            globalPercentile = percentile,
+                            nearestReferenceDevice = nearest
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun startSinglePillar(pillar: BenchmarkPillar) {
+        activeJob?.cancel()
+        activeJob = viewModelScope.launch {
+            orchestrator.runSinglePillar(pillar).collect { state ->
                 when (state) {
                     is BenchmarkOrchestratorState.Running -> {
                         _uiState.value = BenchmarkUiState.Running(

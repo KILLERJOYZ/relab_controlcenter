@@ -8,6 +8,9 @@ interface BenchmarkDao {
     @Query("SELECT * FROM benchmark_results ORDER BY timestamp DESC")
     fun getAllResultsFlow(): Flow<List<BenchmarkResultEntity>>
 
+    @Query("SELECT * FROM benchmark_results")
+    fun getAllResultsSync(): List<BenchmarkResultEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertResult(result: BenchmarkResultEntity): Long
 

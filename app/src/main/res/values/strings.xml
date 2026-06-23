@@ -1603,6 +1603,7 @@
     <string name="pillar_cpu_single">CPU Single-Core</string>
     <string name="pillar_cpu_multi">CPU Multi-Core</string>
     <string name="pillar_gpu">GPU Rendering</string>
+    <string name="pillar_gaming_simulation">Gaming Simulation</string>
     <string name="pillar_memory">Memory Subsystem</string>
     <string name="pillar_storage">Storage I/O</string>
     <string name="pillar_ai_ml">AI / ML Inference</string>

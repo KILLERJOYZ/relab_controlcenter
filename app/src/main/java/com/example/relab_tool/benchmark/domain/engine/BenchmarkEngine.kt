@@ -5,6 +5,6 @@ import com.example.relab_tool.benchmark.domain.model.SubScore
 
 interface BenchmarkEngine {
     val pillar: BenchmarkPillar
-    suspend fun run(onProgress: (Float) -> Unit): List<SubScore>
+    suspend fun run(onProgress: suspend (Float) -> Unit): List<SubScore>
     fun isAvailable(): Boolean = true
 }

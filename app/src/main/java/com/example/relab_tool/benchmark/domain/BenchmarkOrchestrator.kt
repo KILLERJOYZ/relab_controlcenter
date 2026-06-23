@@ -52,12 +52,10 @@ class BenchmarkOrchestrator(
             completedPillarScores = emptyList(),
             thermalStatus = 0,
             thermalHeadroom = 0.3f,
-            estimatedRemainingSeconds = pillarsToRun.size * 15,
+            estimatedRemainingSeconds = calculateRemainingSeconds(pillarsToRun, 0, 0f),
             isThermalPaused = false,
             runningHardwareScore = 0
         ))
-        
-        val startTime = System.currentTimeMillis()
         
         for ((index, pillar) in pillarsToRun.withIndex()) {
             val engine = engines.find { it.pillar == pillar }
@@ -75,7 +73,7 @@ class BenchmarkOrchestrator(
                     completedPillarScores = completedScores.toList(),
                     thermalStatus = curStatus,
                     thermalHeadroom = curHeadroom,
-                    estimatedRemainingSeconds = (pillarsToRun.size - index) * 15,
+                    estimatedRemainingSeconds = calculateRemainingSeconds(pillarsToRun, index, 0f),
                     isThermalPaused = true,
                     runningHardwareScore = calculateRunningScore(completedScores, pillarsToRun)
                 ))
@@ -92,7 +90,7 @@ class BenchmarkOrchestrator(
                 completedPillarScores = completedScores.toList(),
                 thermalStatus = curStatus,
                 thermalHeadroom = curHeadroom,
-                estimatedRemainingSeconds = (pillarsToRun.size - index) * 15,
+                estimatedRemainingSeconds = calculateRemainingSeconds(pillarsToRun, index, 0f),
                 isThermalPaused = false,
                 runningHardwareScore = calculateRunningScore(completedScores, pillarsToRun)
             ))
@@ -100,7 +98,20 @@ class BenchmarkOrchestrator(
             val subScores = if (engine != null && engine.isAvailable()) {
                 try {
                     engine.run { progress ->
-                        // we update sub progress when called
+                        val currentStatus = getThermalStatus(powerManager)
+                        val currentHeadroom = getThermalHeadroom(powerManager)
+                        emit(BenchmarkOrchestratorState.Running(
+                            currentPillar = pillar,
+                            currentSubTestLabel = "Running ${pillar.name}...",
+                            pillarProgress = progress,
+                            overallProgress = (index.toFloat() + progress) / pillarsToRun.size.toFloat(),
+                            completedPillarScores = completedScores.toList(),
+                            thermalStatus = currentStatus,
+                            thermalHeadroom = currentHeadroom,
+                            estimatedRemainingSeconds = calculateRemainingSeconds(pillarsToRun, index, progress),
+                            isThermalPaused = false,
+                            runningHardwareScore = calculateRunningScore(completedScores, pillarsToRun)
+                        ))
                     }
                 } catch (e: Throwable) {
                     Log.e(TAG, "Engine failed for $pillar", e)
@@ -125,7 +136,7 @@ class BenchmarkOrchestrator(
                 completedPillarScores = completedScores.toList(),
                 thermalStatus = finalStatus,
                 thermalHeadroom = finalHeadroom,
-                estimatedRemainingSeconds = (pillarsToRun.size - index - 1) * 15,
+                estimatedRemainingSeconds = calculateRemainingSeconds(pillarsToRun, index, 1.0f),
                 isThermalPaused = false,
                 runningHardwareScore = calculateRunningScore(completedScores, pillarsToRun)
             ))
@@ -133,6 +144,111 @@ class BenchmarkOrchestrator(
         }
         
         val finalResult = compileFinalResult(completedScores, isQuickTest)
+        emit(BenchmarkOrchestratorState.Complete(finalResult))
+    }.flowOn(Dispatchers.Default)
+
+    fun runSinglePillar(pillar: BenchmarkPillar): Flow<BenchmarkOrchestratorState> = flow {
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val completedScores = mutableListOf<PillarScore>()
+        
+        emit(BenchmarkOrchestratorState.Running(
+            currentPillar = pillar,
+            currentSubTestLabel = "Starting...",
+            pillarProgress = 0f,
+            overallProgress = 0f,
+            completedPillarScores = emptyList(),
+            thermalStatus = 0,
+            thermalHeadroom = 0.3f,
+            estimatedRemainingSeconds = getPillarEstimatedDuration(pillar),
+            isThermalPaused = false,
+            runningHardwareScore = 0
+        ))
+        
+        val engine = engines.find { it.pillar == pillar }
+        
+        var isThermalPaused = false
+        while (isThermalThrottled(powerManager)) {
+            isThermalPaused = true
+            val curStatus = getThermalStatus(powerManager)
+            val curHeadroom = getThermalHeadroom(powerManager)
+            emit(BenchmarkOrchestratorState.Running(
+                currentPillar = pillar,
+                currentSubTestLabel = "Thermal Limit Reached. Cooling down device...",
+                pillarProgress = 0f,
+                overallProgress = 0f,
+                completedPillarScores = completedScores.toList(),
+                thermalStatus = curStatus,
+                thermalHeadroom = curHeadroom,
+                estimatedRemainingSeconds = getPillarEstimatedDuration(pillar),
+                isThermalPaused = true,
+                runningHardwareScore = 0
+            ))
+            delay(3000L)
+        }
+        
+        val curStatus = getThermalStatus(powerManager)
+        val curHeadroom = getThermalHeadroom(powerManager)
+        emit(BenchmarkOrchestratorState.Running(
+            currentPillar = pillar,
+            currentSubTestLabel = "Running ${pillar.name}...",
+            pillarProgress = 0f,
+            overallProgress = 0f,
+            completedPillarScores = completedScores.toList(),
+            thermalStatus = curStatus,
+            thermalHeadroom = curHeadroom,
+            estimatedRemainingSeconds = getPillarEstimatedDuration(pillar),
+            isThermalPaused = false,
+            runningHardwareScore = 0
+        ))
+        
+        val subScores = if (engine != null && engine.isAvailable()) {
+            try {
+                engine.run { progress ->
+                    val cStatus = getThermalStatus(powerManager)
+                    val cHeadroom = getThermalHeadroom(powerManager)
+                    emit(BenchmarkOrchestratorState.Running(
+                        currentPillar = pillar,
+                        currentSubTestLabel = "Running ${pillar.name}...",
+                        pillarProgress = progress,
+                        overallProgress = progress,
+                        completedPillarScores = completedScores.toList(),
+                        thermalStatus = cStatus,
+                        thermalHeadroom = cHeadroom,
+                        estimatedRemainingSeconds = ((1f - progress) * getPillarEstimatedDuration(pillar)).roundToInt().coerceAtLeast(0),
+                        isThermalPaused = false,
+                        runningHardwareScore = 0
+                    ))
+                }
+            } catch (e: Throwable) {
+                Log.e(TAG, "Engine failed for $pillar", e)
+                emptyList()
+            }
+        } else {
+            emptyList()
+        }
+        
+        val isSkipped = subScores.isEmpty()
+        val pillarAvgScore = if (subScores.isNotEmpty()) subScores.map { it.score }.average().roundToInt() else 0
+        val pScore = PillarScore(pillar, pillarAvgScore, subScores, isSkipped)
+        completedScores.add(pScore)
+        
+        val finalStatus = getThermalStatus(powerManager)
+        val finalHeadroom = getThermalHeadroom(powerManager)
+        emit(BenchmarkOrchestratorState.Running(
+            currentPillar = pillar,
+            currentSubTestLabel = "Completed ${pillar.name}",
+            pillarProgress = 1.0f,
+            overallProgress = 1.0f,
+            completedPillarScores = completedScores.toList(),
+            thermalStatus = finalStatus,
+            thermalHeadroom = finalHeadroom,
+            estimatedRemainingSeconds = 0,
+            isThermalPaused = false,
+            runningHardwareScore = 0
+        ))
+        delay(200L)
+        
+        val finalResult = compileFinalResult(completedScores, isQuickTest = false)
         emit(BenchmarkOrchestratorState.Complete(finalResult))
     }.flowOn(Dispatchers.Default)
 
@@ -198,14 +314,14 @@ class BenchmarkOrchestrator(
         }
         
         val hardwareScore = if (hardwareWeightSum > 0) {
-            (hardwareScoreSum / hardwareWeightSum * 88.0).roundToInt()
+            ((hardwareScoreSum / hardwareWeightSum).coerceIn(0f, 1000f) / 1000f * 88000f).roundToInt()
         } else 0
         
         val connectivityScore = if (connectivityWeightSum > 0) {
-            (connectivityScoreSum / connectivityWeightSum * 12.0).roundToInt()
+            ((connectivityScoreSum / connectivityWeightSum).coerceIn(0f, 1000f) / 1000f * 12000f).roundToInt()
         } else 0
         
-        val totalScore = hardwareScore + connectivityScore
+        val totalScore = (hardwareScore + connectivityScore).coerceAtMost(100000)
         
         return BenchmarkResult(
             timestamp = System.currentTimeMillis(),
@@ -218,6 +334,27 @@ class BenchmarkOrchestrator(
             pillarScores = scores,
             isQuickTest = isQuickTest
         )
+    }
+
+    private fun getPillarEstimatedDuration(pillar: BenchmarkPillar): Int {
+        return if (pillar == BenchmarkPillar.THERMAL_EFFICIENCY) 390 else 10
+    }
+
+    private fun calculateRemainingSeconds(
+        pillars: List<BenchmarkPillar>,
+        currentIndex: Int,
+        currentProgress: Float
+    ): Int {
+        var seconds = 0.0f
+        for (i in currentIndex until pillars.size) {
+            val duration = getPillarEstimatedDuration(pillars[i]).toFloat()
+            if (i == currentIndex) {
+                seconds += (1.0f - currentProgress) * duration
+            } else {
+                seconds += duration
+            }
+        }
+        return seconds.roundToInt().coerceAtLeast(0)
     }
 }
 

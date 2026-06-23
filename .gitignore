@@ -13,3 +13,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+*.apk
+/scratch
+/.kotlin
+/.vscode
+.antigravityrules
+.cursorrules
+

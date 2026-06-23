@@ -1,4 +1,4 @@
-# Relab Control Center (rlcc) - v0.4.3.1-devbeta
+# Relab Control Center (rlcc) - v0.4.3.2-devbeta
 
 **Relab Control Center** is a professional-grade utility and diagnostic suite built for Android enthusiasts, developers, and power users. It combines deep hardware intelligence with real-time performance telemetry and a specialized installer hub to provide total transparency into the Android ecosystem.
 

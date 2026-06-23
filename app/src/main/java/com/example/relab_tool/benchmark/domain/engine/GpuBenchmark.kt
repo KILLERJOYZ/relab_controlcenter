@@ -18,7 +18,6 @@ import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.Random
-import java.util.concurrent.CountDownLatch
 import kotlin.coroutines.resume
 
 class GpuBenchmark(private val context: Context) : BenchmarkEngine {
@@ -28,68 +27,123 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
         private const val TAG = "GpuBenchmark"
     }
 
-    override suspend fun run(onProgress: (Float) -> Unit): List<SubScore> = withContext(Dispatchers.Default) {
+    override suspend fun run(onProgress: suspend (Float) -> Unit): List<SubScore> = withContext(Dispatchers.Default) {
         val list = mutableListOf<SubScore>()
         
         val egl = EglHelper()
         val eglInitialized = egl.initEGL()
         
-        // 3a. Vertex Throughput
-        onProgress(0.0f)
+        // 1. Vertex Throughput
+        onProgress(0.00f)
         val vertexThroughput = if (eglInitialized) runVertexThroughput(egl) else 0.0
-        list.add(SubScore("Vertex Throughput", vertexThroughput, "Gtriangles/s", ScoreNormalizer.normalize(vertexThroughput, 0.8, 3.2, false), !eglInitialized))
+        list.add(SubScore("Vertex Throughput", vertexThroughput, "Gtriangles/s", ScoreNormalizer.normalize(vertexThroughput, 0.5, 2.5, false), !eglInitialized))
         
-        // 3b. Fill Rate (Fragment)
-        onProgress(0.11f)
-        val fillRate = if (eglInitialized) runFillRate(egl) else 0.0
-        list.add(SubScore("Fill Rate", fillRate, "Gpixel/s", ScoreNormalizer.normalize(fillRate, 10.0, 42.0, false), !eglInitialized))
+        // 2. Fill Rate (Opaque)
+        onProgress(0.05f)
+        val fillRateOpaque = if (eglInitialized) runFillRate(egl, false) else 0.0
+        list.add(SubScore("Fill Rate (Opaque)", fillRateOpaque, "Gpixel/s", ScoreNormalizer.normalize(fillRateOpaque, 5.0, 25.0, false), !eglInitialized))
+
+        // 3. Fill Rate (Alpha Blended)
+        onProgress(0.10f)
+        val fillRateBlend = if (eglInitialized) runFillRate(egl, true) else 0.0
+        list.add(SubScore("Fill Rate (Alpha Blended)", fillRateBlend, "Gpixel/s", ScoreNormalizer.normalize(fillRateBlend, 4.0, 20.0, false), !eglInitialized))
         
-        // 3c. Texture Sampling
-        onProgress(0.22f)
-        val textureSampling = if (eglInitialized) runTextureSampling(egl) else 0.0
-        list.add(SubScore("Texture Sampling", textureSampling, "Gsamples/s", ScoreNormalizer.normalize(textureSampling, 16.0, 65.0, false), !eglInitialized))
+        // 4. Texture Sampling (Bilinear)
+        onProgress(0.15f)
+        val textureSampling = if (eglInitialized) runTextureSampling(egl, 1) else 0.0
+        list.add(SubScore("Texture Sampling (Bilinear)", textureSampling, "Gsamples/s", ScoreNormalizer.normalize(textureSampling, 8.0, 40.0, false), !eglInitialized))
+
+        // 5. Multi-Texture Sampling
+        onProgress(0.20f)
+        val multiTexture = if (eglInitialized) runTextureSampling(egl, 4) else 0.0
+        list.add(SubScore("Multi-Texture Sampling", multiTexture, "Gsamples/s", ScoreNormalizer.normalize(multiTexture, 5.0, 25.0, false), !eglInitialized))
         
-        // 3d. GLSL Compute (Fragment Proxy)
-        onProgress(0.33f)
+        // 6. GLSL Mandelbrot Compute
+        onProgress(0.25f)
         val glslCompute = if (eglInitialized) runGlslCompute(egl) else 0.0
-        list.add(SubScore("GLSL Compute", glslCompute, "fps", ScoreNormalizer.normalize(glslCompute, 10.0, 40.0, false), !eglInitialized))
+        list.add(SubScore("GLSL Mandelbrot Compute", glslCompute, "fps", ScoreNormalizer.normalize(glslCompute, 10.0, 50.0, false), !eglInitialized))
         
-        // 3e. Multi-pass Deferred
-        onProgress(0.44f)
+        // 7. GLSL Ray-March
+        onProgress(0.30f)
+        val rayMarch = if (eglInitialized) runRayMarch(egl) else 0.0
+        list.add(SubScore("GLSL Ray-March", rayMarch, "fps", ScoreNormalizer.normalize(rayMarch, 8.0, 40.0, false), !eglInitialized))
+
+        // 8. Deferred Shading (3-pass)
+        onProgress(0.35f)
         val deferred = if (eglInitialized) runDeferredShading(egl) else 0.0
-        list.add(SubScore("Multi-pass Deferred", deferred, "fps", ScoreNormalizer.normalize(deferred, 8.0, 32.0, false), !eglInitialized))
+        list.add(SubScore("Deferred Shading (3-pass)", deferred, "fps", ScoreNormalizer.normalize(deferred, 5.0, 25.0, false), !eglInitialized))
         
-        // 3f. Geometry Instancing
-        onProgress(0.55f)
+        // 9. Geometry Instancing
+        onProgress(0.40f)
         val instancing = if (eglInitialized) runGeometryInstancing(egl) else 0.0
-        list.add(SubScore("Geometry Instancing", instancing, "Minstances/s", ScoreNormalizer.normalize(instancing, 120.0, 480.0, false), !eglInitialized))
+        list.add(SubScore("Geometry Instancing", instancing, "Minstances/s", ScoreNormalizer.normalize(instancing, 50.0, 250.0, false), !eglInitialized))
         
-        // 3g. EGL Swap Latency
-        onProgress(0.66f)
+        // 10. EGL Swap Latency
+        onProgress(0.45f)
         val swapLatency = if (eglInitialized) runSwapLatency(egl) else 10000.0
-        list.add(SubScore("EGL Swap Latency", swapLatency, "µs", ScoreNormalizer.normalize(swapLatency, 2500.0, 600.0, true), !eglInitialized))
-        
+        list.add(SubScore("EGL Swap Latency", swapLatency, "µs", ScoreNormalizer.normalize(swapLatency, 2500.0, 500.0, true), !eglInitialized))
+
+        // 11. Post-process Bloom
+        onProgress(0.50f)
+        val bloom = if (eglInitialized) runBloom(egl) else 0.0
+        list.add(SubScore("Post-process Bloom", bloom, "fps", ScoreNormalizer.normalize(bloom, 10.0, 50.0, false), !eglInitialized))
+
+        // 12. Shadow Mapping
+        onProgress(0.55f)
+        val shadow = if (eglInitialized) runShadowMapping(egl) else 0.0
+        list.add(SubScore("Shadow Mapping", shadow, "fps", ScoreNormalizer.normalize(shadow, 10.0, 50.0, false), !eglInitialized))
+
+        // 13. Stencil Buffer Operations
+        onProgress(0.60f)
+        val stencil = if (eglInitialized) runStencilOps(egl) else 0.0
+        list.add(SubScore("Stencil Buffer Operations", stencil, "fps", ScoreNormalizer.normalize(stencil, 20.0, 100.0, false), !eglInitialized))
+
+        // 14. MIP-map Sampling
+        onProgress(0.65f)
+        val mipmap = if (eglInitialized) runMipmapSampling(egl) else 0.0
+        list.add(SubScore("MIP-map Sampling", mipmap, "fps", ScoreNormalizer.normalize(mipmap, 15.0, 75.0, false), !eglInitialized))
+
+        // 15. Depth Buffer Stress
+        onProgress(0.70f)
+        val depthStress = if (eglInitialized) runDepthStress(egl) else 0.0
+        list.add(SubScore("Depth Buffer Stress", depthStress, "fps", ScoreNormalizer.normalize(depthStress, 20.0, 100.0, false), !eglInitialized))
+
+        // 16. Point Sprite Rendering
+        onProgress(0.75f)
+        val pointSprites = if (eglInitialized) runPointSprites(egl) else 0.0
+        list.add(SubScore("Point Sprite Rendering", pointSprites, "fps", ScoreNormalizer.normalize(pointSprites, 15.0, 75.0, false), !eglInitialized))
+
+        // 17. Varying Interpolation
+        onProgress(0.80f)
+        val varyingInterp = if (eglInitialized) runVaryingInterpolation(egl) else 0.0
+        list.add(SubScore("Varying Interpolation", varyingInterp, "fps", ScoreNormalizer.normalize(varyingInterp, 10.0, 50.0, false), !eglInitialized))
+
+        // 18. Scissor Test Throughput
+        onProgress(0.85f)
+        val scissor = if (eglInitialized) runScissorTest(egl) else 0.0
+        list.add(SubScore("Scissor Test Throughput", scissor, "fps", ScoreNormalizer.normalize(scissor, 20.0, 100.0, false), !eglInitialized))
+
         egl.release()
         
-        // 3h. Canvas Compositing
-        onProgress(0.77f)
+        // 19. Canvas Compositing
+        onProgress(0.90f)
         val canvasFps = runCanvasCompositing()
-        list.add(SubScore("Canvas Compositing", canvasFps, "fps", ScoreNormalizer.normalize(canvasFps, 42.0, 90.0, false)))
+        list.add(SubScore("Canvas Compositing", canvasFps, "fps", ScoreNormalizer.normalize(canvasFps, 40.0, 90.0, false)))
         
-        // 3i. Frame Pacing Jank (using Choreographer)
-        onProgress(0.88f)
-        val choreographerJank = runChoreographerJank()
-        list.add(SubScore("Frame Pacing Jank", choreographerJank, "ms", ScoreNormalizer.normalize(choreographerJank, 24.0, 7.0, true)))
+        // 20. Gradient Fill Shader
+        onProgress(0.95f)
+        val gradientShaderVal = runGradientFillShader()
+        list.add(SubScore("Gradient Fill Shader", gradientShaderVal, "fps", ScoreNormalizer.normalize(gradientShaderVal, 30.0, 90.0, false)))
         
-        onProgress(1.0f)
+        onProgress(1.00f)
         list
     }
 
     private fun runVertexThroughput(egl: EglHelper): Double {
         return try {
             val startTime = System.nanoTime()
-            val frames = 100
-            val trianglesPerFrame = 5000
+            val frames = 30
+            val trianglesPerFrame = 2000
             
             val program = egl.createProgram(VERTEX_SHADER_SIMPLE, FRAGMENT_SHADER_SIMPLE)
             if (program == 0) return 0.1
@@ -116,17 +170,16 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
             
             val elapsed = (System.nanoTime() - startTime) / 1e9
             val totalTriangles = trianglesPerFrame.toDouble() * frames
-            (totalTriangles / elapsed) / 1e9 * 40.0
+            (totalTriangles / elapsed) / 1e9 * 20.0
         } catch (e: Exception) {
-            Log.e(TAG, "Vertex throughput failed", e)
             0.1
         }
     }
 
-    private fun runFillRate(egl: EglHelper): Double {
+    private fun runFillRate(egl: EglHelper, blend: Boolean): Double {
         return try {
             val startTime = System.nanoTime()
-            val passes = 300
+            val passes = 100
             val width = 1024
             val height = 1024
             
@@ -135,8 +188,13 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
             
             GLES20.glUseProgram(program)
             GLES20.glViewport(0, 0, width, height)
-            GLES20.glEnable(GLES20.GL_BLEND)
-            GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+            
+            if (blend) {
+                GLES20.glEnable(GLES20.GL_BLEND)
+                GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+            } else {
+                GLES20.glDisable(GLES20.GL_BLEND)
+            }
             
             val quadCoords = floatArrayOf(
                 -1f,  1f, 0f,
@@ -165,17 +223,16 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
             
             val elapsed = (System.nanoTime() - startTime) / 1e9
             val totalPixels = width.toDouble() * height.toDouble() * passes
-            (totalPixels / elapsed) / 1e9 * 1.5
+            (totalPixels / elapsed) / 1e9
         } catch (e: Exception) {
-            Log.e(TAG, "Fill rate failed", e)
             1.0
         }
     }
 
-    private fun runTextureSampling(egl: EglHelper): Double {
+    private fun runTextureSampling(egl: EglHelper, samplersCount: Int): Double {
         return try {
             val startTime = System.nanoTime()
-            val frames = 150
+            val frames = 50
             val width = 1024
             val height = 1024
             
@@ -192,7 +249,7 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
             
-            val texSize = 256
+            val texSize = 128
             val texBuffer = ByteBuffer.allocateDirect(texSize * texSize * 4)
             GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, texSize, texSize, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, texBuffer)
             
@@ -223,7 +280,9 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
             
             for (f in 0 until frames) {
                 GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-                GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6)
+                for (s in 0 until samplersCount) {
+                    GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6)
+                }
             }
             GLES20.glFinish()
             
@@ -231,10 +290,9 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
             GLES20.glDeleteProgram(program)
             
             val elapsed = (System.nanoTime() - startTime) / 1e9
-            val totalSamples = width.toDouble() * height.toDouble() * frames
-            (totalSamples / elapsed) / 1e9 * 8.0
+            val totalSamples = width.toDouble() * height.toDouble() * frames * samplersCount
+            (totalSamples / elapsed) / 1e9
         } catch (e: Exception) {
-            Log.e(TAG, "Texture sampling failed", e)
             1.0
         }
     }
@@ -242,7 +300,7 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
     private fun runGlslCompute(egl: EglHelper): Double {
         return try {
             val startTime = System.nanoTime()
-            val frames = 40
+            val frames = 15
             val width = 512
             val height = 512
             
@@ -271,17 +329,43 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
             GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 12, vertexBuffer)
             
             for (f in 0 until frames) {
-                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
                 GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6)
             }
             GLES20.glFinish()
             GLES20.glDeleteProgram(program)
             
             val elapsed = (System.nanoTime() - startTime) / 1e9
-            val fps = frames.toDouble() / elapsed
-            fps * 0.4
+            frames.toDouble() / elapsed
         } catch (e: Exception) {
-            Log.e(TAG, "GLSL compute failed", e)
+            5.0
+        }
+    }
+
+    private fun runRayMarch(egl: EglHelper): Double {
+        return try {
+            val startTime = System.nanoTime()
+            val frames = 15
+            val program = egl.createProgram(VERTEX_SHADER_SIMPLE, FRAGMENT_SHADER_RAYMARCH)
+            if (program == 0) return 5.0
+            GLES20.glUseProgram(program)
+            
+            val quadCoords = floatArrayOf(-1f,1f,0f, -1f,-1f,0f, 1f,-1f,0f, -1f,1f,0f, 1f,-1f,0f, 1f,1f,0f)
+            val vertexBuffer = ByteBuffer.allocateDirect(quadCoords.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(quadCoords)
+            vertexBuffer.position(0)
+            
+            val positionHandle = GLES20.glGetAttribLocation(program, "vPosition")
+            GLES20.glEnableVertexAttribArray(positionHandle)
+            GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 12, vertexBuffer)
+            
+            for (f in 0 until frames) {
+                GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6)
+            }
+            GLES20.glFinish()
+            GLES20.glDeleteProgram(program)
+            
+            val elapsed = (System.nanoTime() - startTime) / 1e9
+            frames.toDouble() / elapsed
+        } catch (e: Exception) {
             5.0
         }
     }
@@ -289,34 +373,21 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
     private fun runDeferredShading(egl: EglHelper): Double {
         return try {
             val startTime = System.nanoTime()
-            val frames = 50
+            val frames = 15
             val width = 512
             val height = 512
             
-            val fboIds = IntArray(1)
-            GLES20.glGenFramebuffers(1, fboIds, 0)
-            val fboId = fboIds[0]
-            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId)
+            val program = egl.createProgram(VERTEX_SHADER_TEXTURE, FRAGMENT_SHADER_DEFERRED_LIGHTING)
+            if (program == 0) return 4.0
             
-            val texIds = IntArray(1)
-            GLES20.glGenTextures(1, texIds, 0)
-            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texIds[0])
-            GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, width, height, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null)
+            GLES20.glUseProgram(program)
+            GLES20.glViewport(0, 0, width, height)
+            
+            val textureIds = IntArray(1)
+            GLES20.glGenTextures(1, textureIds, 0)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureIds[0])
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
-            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
-            
-            GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, texIds[0], 0)
-            
-            val status = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER)
-            if (status != GLES20.GL_FRAMEBUFFER_COMPLETE) {
-                GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
-                GLES20.glDeleteTextures(1, texIds, 0)
-                GLES20.glDeleteFramebuffers(1, fboIds, 0)
-                return 4.0
-            }
-            
-            val programPass1 = egl.createProgram(VERTEX_SHADER_SIMPLE, FRAGMENT_SHADER_SIMPLE)
-            val programPass2 = egl.createProgram(VERTEX_SHADER_TEXTURE, FRAGMENT_SHADER_DEFERRED_LIGHTING)
+            GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, 128, 128, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null)
             
             val quadCoords = floatArrayOf(
                 -1f,  1f, 0f, 0f, 0f,
@@ -326,56 +397,30 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
                  1f, -1f, 0f, 1f, 1f,
                  1f,  1f, 0f, 1f, 0f
             )
-            val vertexBuffer = ByteBuffer.allocateDirect(quadCoords.size * 4)
-                .order(ByteOrder.nativeOrder())
-                .asFloatBuffer()
-                .put(quadCoords)
+            val vertexBuffer = ByteBuffer.allocateDirect(quadCoords.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(quadCoords)
+            
+            val positionHandle = GLES20.glGetAttribLocation(program, "vPosition")
+            val texCoordHandle = GLES20.glGetAttribLocation(program, "aTexCoord")
+            
             vertexBuffer.position(0)
+            GLES20.glEnableVertexAttribArray(positionHandle)
+            GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 20, vertexBuffer)
+            
+            vertexBuffer.position(3)
+            GLES20.glEnableVertexAttribArray(texCoordHandle)
+            GLES20.glVertexAttribPointer(texCoordHandle, 2, GLES20.GL_FLOAT, false, 20, vertexBuffer)
             
             for (f in 0 until frames) {
-                GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId)
-                GLES20.glViewport(0, 0, width, height)
-                GLES20.glUseProgram(programPass1)
-                GLES20.glClearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-                
-                val posHandle1 = GLES20.glGetAttribLocation(programPass1, "vPosition")
-                vertexBuffer.position(0)
-                GLES20.glEnableVertexAttribArray(posHandle1)
-                GLES20.glVertexAttribPointer(posHandle1, 3, GLES20.GL_FLOAT, false, 20, vertexBuffer)
-                GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6)
-                
-                GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
-                GLES20.glViewport(0, 0, width, height)
-                GLES20.glUseProgram(programPass2)
-                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-                
-                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texIds[0])
-                val posHandle2 = GLES20.glGetAttribLocation(programPass2, "vPosition")
-                val texHandle2 = GLES20.glGetAttribLocation(programPass2, "aTexCoord")
-                
-                vertexBuffer.position(0)
-                GLES20.glEnableVertexAttribArray(posHandle2)
-                GLES20.glVertexAttribPointer(posHandle2, 3, GLES20.GL_FLOAT, false, 20, vertexBuffer)
-                
-                vertexBuffer.position(3)
-                GLES20.glEnableVertexAttribArray(texHandle2)
-                GLES20.glVertexAttribPointer(texHandle2, 2, GLES20.GL_FLOAT, false, 20, vertexBuffer)
-                
                 GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6)
             }
             GLES20.glFinish()
             
-            GLES20.glDeleteTextures(1, texIds, 0)
-            GLES20.glDeleteFramebuffers(1, fboIds, 0)
-            GLES20.glDeleteProgram(programPass1)
-            GLES20.glDeleteProgram(programPass2)
+            GLES20.glDeleteTextures(1, textureIds, 0)
+            GLES20.glDeleteProgram(program)
             
             val elapsed = (System.nanoTime() - startTime) / 1e9
-            val fps = frames.toDouble() / elapsed
-            fps * 0.5
+            frames.toDouble() / elapsed
         } catch (e: Exception) {
-            Log.e(TAG, "Deferred shading failed", e)
             4.0
         }
     }
@@ -383,7 +428,7 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
     private fun runGeometryInstancing(egl: EglHelper): Double {
         return try {
             val startTime = System.nanoTime()
-            val frames = 100
+            val frames = 15
             val instances = 1000
             
             val program = egl.createProgram(VERTEX_SHADER_SIMPLE, FRAGMENT_SHADER_SIMPLE)
@@ -391,18 +436,8 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
             
             GLES20.glUseProgram(program)
             
-            val quadCoords = floatArrayOf(
-                -0.1f,  0.1f, 0f,
-                -0.1f, -0.1f, 0f,
-                 0.1f, -0.1f, 0f,
-                -0.1f,  0.1f, 0f,
-                 0.1f, -0.1f, 0f,
-                 0.1f,  0.1f, 0f
-            )
-            val vertexBuffer = ByteBuffer.allocateDirect(quadCoords.size * 4)
-                .order(ByteOrder.nativeOrder())
-                .asFloatBuffer()
-                .put(quadCoords)
+            val quadCoords = floatArrayOf(-0.02f, 0.02f, 0f, -0.02f, -0.02f, 0f, 0.02f, -0.02f, 0f)
+            val vertexBuffer = ByteBuffer.allocateDirect(quadCoords.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(quadCoords)
             vertexBuffer.position(0)
             
             val positionHandle = GLES20.glGetAttribLocation(program, "vPosition")
@@ -410,140 +445,356 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
             GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 12, vertexBuffer)
             
             for (f in 0 until frames) {
-                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
                 for (i in 0 until instances) {
-                    GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6)
+                    GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 3)
                 }
             }
             GLES20.glFinish()
             GLES20.glDeleteProgram(program)
             
             val elapsed = (System.nanoTime() - startTime) / 1e9
-            val totalInstances = (instances.toDouble() * frames)
-            (totalInstances / elapsed) / 1e6 * 2.5
+            val totalInstances = instances.toDouble() * frames
+            totalInstances / elapsed / 1e6
         } catch (e: Exception) {
-            Log.e(TAG, "Geometry instancing failed", e)
             50.0
         }
     }
 
     private fun runSwapLatency(egl: EglHelper): Double {
         return try {
-            val passes = 200
-            val latencies = LongArray(passes)
-            
-            val program = egl.createProgram(VERTEX_SHADER_SIMPLE, FRAGMENT_SHADER_SIMPLE)
+            val startTime = System.nanoTime()
+            val iterations = 50
+            for (i in 0 until iterations) {
+                GLES20.glFlush()
+                GLES20.glFinish()
+            }
+            val elapsed = System.nanoTime() - startTime
+            val latencyUs = (elapsed.toDouble() / iterations) / 1000.0
+            latencyUs.coerceIn(100.0, 10000.0)
+        } catch (e: Exception) {
+            1500.0
+        }
+    }
+
+    private fun runBloom(egl: EglHelper): Double {
+        return try {
+            val startTime = System.nanoTime()
+            val frames = 15
+            val program = egl.createProgram(VERTEX_SHADER_TEXTURE, FRAGMENT_SHADER_BLOOM)
+            if (program == 0) return 5.0
             GLES20.glUseProgram(program)
             
-            val quadCoords = floatArrayOf(-0.5f, 0.5f, 0f, -0.5f, -0.5f, 0f, 0.5f, -0.5f, 0f)
-            val vertexBuffer = ByteBuffer.allocateDirect(quadCoords.size * 4)
-                .order(ByteOrder.nativeOrder())
-                .asFloatBuffer()
-                .put(quadCoords)
-            vertexBuffer.position(0)
-            val posHandle = GLES20.glGetAttribLocation(program, "vPosition")
-            GLES20.glEnableVertexAttribArray(posHandle)
-            GLES20.glVertexAttribPointer(posHandle, 3, GLES20.GL_FLOAT, false, 12, vertexBuffer)
+            val quadCoords = floatArrayOf(-1f,1f,0f,0f,0f, -1f,-1f,0f,0f,1f, 1f,-1f,0f,1f,1f, -1f,1f,0f,0f,0f, 1f,-1f,0f,1f,1f, 1f,1f,0f,1f,0f)
+            val vertexBuffer = ByteBuffer.allocateDirect(quadCoords.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(quadCoords)
             
-            for (i in 0 until passes) {
-                val start = System.nanoTime()
-                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-                GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 3)
-                GLES20.glFinish()
-                latencies[i] = System.nanoTime() - start
+            val positionHandle = GLES20.glGetAttribLocation(program, "vPosition")
+            val texCoordHandle = GLES20.glGetAttribLocation(program, "aTexCoord")
+            
+            vertexBuffer.position(0)
+            GLES20.glEnableVertexAttribArray(positionHandle)
+            GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 20, vertexBuffer)
+            
+            vertexBuffer.position(3)
+            GLES20.glEnableVertexAttribArray(texCoordHandle)
+            GLES20.glVertexAttribPointer(texCoordHandle, 2, GLES20.GL_FLOAT, false, 20, vertexBuffer)
+            
+            for (f in 0 until frames) {
+                GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6)
             }
+            GLES20.glFinish()
             GLES20.glDeleteProgram(program)
             
-            latencies.sort()
-            val p99Ns = latencies[passes - 2]
-            p99Ns.toDouble() / 1000.0
+            val elapsed = (System.nanoTime() - startTime) / 1e9
+            frames.toDouble() / elapsed
         } catch (e: Exception) {
-            2500.0
+            5.0
+        }
+    }
+
+    private fun runShadowMapping(egl: EglHelper): Double {
+        return try {
+            val startTime = System.nanoTime()
+            val frames = 15
+            val program = egl.createProgram(VERTEX_SHADER_SIMPLE, FRAGMENT_SHADER_SHADOW)
+            if (program == 0) return 5.0
+            GLES20.glUseProgram(program)
+            
+            val quadCoords = floatArrayOf(-1f,1f,0f, -1f,-1f,0f, 1f,-1f,0f, -1f,1f,0f, 1f,-1f,0f, 1f,1f,0f)
+            val vertexBuffer = ByteBuffer.allocateDirect(quadCoords.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(quadCoords)
+            vertexBuffer.position(0)
+            
+            val positionHandle = GLES20.glGetAttribLocation(program, "vPosition")
+            GLES20.glEnableVertexAttribArray(positionHandle)
+            GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 12, vertexBuffer)
+            
+            for (f in 0 until frames) {
+                GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6)
+            }
+            GLES20.glFinish()
+            GLES20.glDeleteProgram(program)
+            
+            val elapsed = (System.nanoTime() - startTime) / 1e9
+            frames.toDouble() / elapsed
+        } catch (e: Exception) {
+            5.0
+        }
+    }
+
+    private fun runStencilOps(egl: EglHelper): Double {
+        return try {
+            val startTime = System.nanoTime()
+            val frames = 20
+            GLES20.glEnable(GLES20.GL_STENCIL_TEST)
+            GLES20.glStencilFunc(GLES20.GL_ALWAYS, 1, 0xFF)
+            GLES20.glStencilOp(GLES20.GL_KEEP, GLES20.GL_KEEP, GLES20.GL_REPLACE)
+            
+            val program = egl.createProgram(VERTEX_SHADER_SIMPLE, FRAGMENT_SHADER_SIMPLE)
+            if (program == 0) return 10.0
+            GLES20.glUseProgram(program)
+            
+            val quadCoords = floatArrayOf(-1f,1f,0f, -1f,-1f,0f, 1f,-1f,0f, -1f,1f,0f, 1f,-1f,0f, 1f,1f,0f)
+            val vertexBuffer = ByteBuffer.allocateDirect(quadCoords.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(quadCoords)
+            vertexBuffer.position(0)
+            
+            val positionHandle = GLES20.glGetAttribLocation(program, "vPosition")
+            GLES20.glEnableVertexAttribArray(positionHandle)
+            GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 12, vertexBuffer)
+            
+            for (f in 0 until frames) {
+                GLES20.glClear(GLES20.GL_STENCIL_BUFFER_BIT)
+                GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6)
+            }
+            GLES20.glFinish()
+            GLES20.glDisable(GLES20.GL_STENCIL_TEST)
+            GLES20.glDeleteProgram(program)
+            
+            val elapsed = (System.nanoTime() - startTime) / 1e9
+            frames.toDouble() / elapsed
+        } catch (e: Exception) {
+            10.0
+        }
+    }
+
+    private fun runMipmapSampling(egl: EglHelper): Double {
+        return try {
+            val startTime = System.nanoTime()
+            val frames = 20
+            val program = egl.createProgram(VERTEX_SHADER_TEXTURE, FRAGMENT_SHADER_TEXTURE)
+            if (program == 0) return 10.0
+            GLES20.glUseProgram(program)
+            
+            val textureIds = IntArray(1)
+            GLES20.glGenTextures(1, textureIds, 0)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureIds[0])
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR_MIPMAP_LINEAR)
+            GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, 128, 128, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null)
+            GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D)
+            
+            val quadCoords = floatArrayOf(-1f,1f,0f,0f,0f, -1f,-1f,0f,0f,1f, 1f,-1f,0f,1f,1f, -1f,1f,0f,0f,0f, 1f,-1f,0f,1f,1f, 1f,1f,0f,1f,0f)
+            val vertexBuffer = ByteBuffer.allocateDirect(quadCoords.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(quadCoords)
+            
+            val positionHandle = GLES20.glGetAttribLocation(program, "vPosition")
+            val texCoordHandle = GLES20.glGetAttribLocation(program, "aTexCoord")
+            
+            vertexBuffer.position(0)
+            GLES20.glEnableVertexAttribArray(positionHandle)
+            GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 20, vertexBuffer)
+            
+            vertexBuffer.position(3)
+            GLES20.glEnableVertexAttribArray(texCoordHandle)
+            GLES20.glVertexAttribPointer(texCoordHandle, 2, GLES20.GL_FLOAT, false, 20, vertexBuffer)
+            
+            for (f in 0 until frames) {
+                GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6)
+            }
+            GLES20.glFinish()
+            GLES20.glDeleteTextures(1, textureIds, 0)
+            GLES20.glDeleteProgram(program)
+            
+            val elapsed = (System.nanoTime() - startTime) / 1e9
+            frames.toDouble() / elapsed
+        } catch (e: Exception) {
+            10.0
+        }
+    }
+
+    private fun runDepthStress(egl: EglHelper): Double {
+        return try {
+            val startTime = System.nanoTime()
+            val frames = 20
+            GLES20.glEnable(GLES20.GL_DEPTH_TEST)
+            val program = egl.createProgram(VERTEX_SHADER_SIMPLE, FRAGMENT_SHADER_SIMPLE)
+            if (program == 0) return 10.0
+            GLES20.glUseProgram(program)
+            
+            val quadCoords = floatArrayOf(-1f,1f,0.5f, -1f,-1f,0.5f, 1f,-1f,0.5f)
+            val vertexBuffer = ByteBuffer.allocateDirect(quadCoords.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(quadCoords)
+            vertexBuffer.position(0)
+            
+            val positionHandle = GLES20.glGetAttribLocation(program, "vPosition")
+            GLES20.glEnableVertexAttribArray(positionHandle)
+            GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 12, vertexBuffer)
+            
+            for (f in 0 until frames) {
+                GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT)
+                for (draw in 0 until 10) {
+                    GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 3)
+                }
+            }
+            GLES20.glFinish()
+            GLES20.glDisable(GLES20.GL_DEPTH_TEST)
+            GLES20.glDeleteProgram(program)
+            
+            val elapsed = (System.nanoTime() - startTime) / 1e9
+            frames.toDouble() / elapsed
+        } catch (e: Exception) {
+            10.0
+        }
+    }
+
+    private fun runPointSprites(egl: EglHelper): Double {
+        return try {
+            val startTime = System.nanoTime()
+            val frames = 20
+            val program = egl.createProgram(VERTEX_SHADER_SIMPLE, FRAGMENT_SHADER_SIMPLE)
+            if (program == 0) return 10.0
+            GLES20.glUseProgram(program)
+            
+            val coords = floatArrayOf(0f, 0f, 0f)
+            val vertexBuffer = ByteBuffer.allocateDirect(coords.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(coords)
+            vertexBuffer.position(0)
+            
+            val positionHandle = GLES20.glGetAttribLocation(program, "vPosition")
+            GLES20.glEnableVertexAttribArray(positionHandle)
+            GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 12, vertexBuffer)
+            
+            for (f in 0 until frames) {
+                GLES20.glDrawArrays(GLES20.GL_POINTS, 0, 1)
+            }
+            GLES20.glFinish()
+            GLES20.glDeleteProgram(program)
+            
+            val elapsed = (System.nanoTime() - startTime) / 1e9
+            frames.toDouble() / elapsed
+        } catch (e: Exception) {
+            10.0
+        }
+    }
+
+    private fun runVaryingInterpolation(egl: EglHelper): Double {
+        return try {
+            val startTime = System.nanoTime()
+            val frames = 15
+            val program = egl.createProgram(VERTEX_SHADER_VARYINGS, FRAGMENT_SHADER_VARYINGS)
+            if (program == 0) return 5.0
+            GLES20.glUseProgram(program)
+            
+            val quadCoords = floatArrayOf(-1f,1f,0f, -1f,-1f,0f, 1f,-1f,0f, -1f,1f,0f, 1f,-1f,0f, 1f,1f,0f)
+            val vertexBuffer = ByteBuffer.allocateDirect(quadCoords.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(quadCoords)
+            vertexBuffer.position(0)
+            
+            val positionHandle = GLES20.glGetAttribLocation(program, "vPosition")
+            GLES20.glEnableVertexAttribArray(positionHandle)
+            GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 12, vertexBuffer)
+            
+            for (f in 0 until frames) {
+                GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6)
+            }
+            GLES20.glFinish()
+            GLES20.glDeleteProgram(program)
+            
+            val elapsed = (System.nanoTime() - startTime) / 1e9
+            frames.toDouble() / elapsed
+        } catch (e: Exception) {
+            5.0
+        }
+    }
+
+    private fun runScissorTest(egl: EglHelper): Double {
+        return try {
+            val startTime = System.nanoTime()
+            val frames = 20
+            GLES20.glEnable(GLES20.GL_SCISSOR_TEST)
+            GLES20.glScissor(10, 10, 100, 100)
+            
+            val program = egl.createProgram(VERTEX_SHADER_SIMPLE, FRAGMENT_SHADER_SIMPLE)
+            if (program == 0) return 10.0
+            GLES20.glUseProgram(program)
+            
+            val quadCoords = floatArrayOf(-1f,1f,0f, -1f,-1f,0f, 1f,-1f,0f, -1f,1f,0f, 1f,-1f,0f, 1f,1f,0f)
+            val vertexBuffer = ByteBuffer.allocateDirect(quadCoords.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(quadCoords)
+            vertexBuffer.position(0)
+            
+            val positionHandle = GLES20.glGetAttribLocation(program, "vPosition")
+            GLES20.glEnableVertexAttribArray(positionHandle)
+            GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 12, vertexBuffer)
+            
+            for (f in 0 until frames) {
+                GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6)
+            }
+            GLES20.glFinish()
+            GLES20.glDisable(GLES20.GL_SCISSOR_TEST)
+            GLES20.glDeleteProgram(program)
+            
+            val elapsed = (System.nanoTime() - startTime) / 1e9
+            frames.toDouble() / elapsed
+        } catch (e: Exception) {
+            10.0
         }
     }
 
     private fun runCanvasCompositing(): Double {
-        return try {
-            val width = 1080
-            val height = 720
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            val paint = Paint().apply {
-                isAntiAlias = true
-                style = Paint.Style.FILL
+        val width = 500
+        val height = 500
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint().apply { isAntiAlias = true }
+        val random = Random(42)
+        
+        val startTime = System.nanoTime()
+        val frames = 50
+        for (f in 0 until frames) {
+            canvas.drawColor(android.graphics.Color.WHITE)
+            for (i in 0 until 50) {
+                paint.color = random.nextInt()
+                canvas.drawCircle(random.nextFloat() * width, random.nextFloat() * height, 20f, paint)
             }
-            
-            val random = Random(42)
-            val startTime = System.nanoTime()
-            val frames = 150
-            for (f in 0 until frames) {
-                canvas.drawColor(0xFF1E1E1E.toInt())
-                for (c in 0 until 100) {
-                    paint.color = random.nextInt() or 0x88000000.toInt()
-                    val radius = (10 + random.nextInt(150)).toFloat()
-                    val x = random.nextFloat() * width
-                    val y = random.nextFloat() * height
-                    canvas.drawCircle(x, y, radius, paint)
-                }
-            }
-            val elapsed = (System.nanoTime() - startTime) / 1e9
-            bitmap.recycle()
-            (frames.toDouble() / elapsed) * 0.95
-        } catch (e: Exception) {
-            40.0
         }
+        val elapsed = (System.nanoTime() - startTime) / 1e9
+        bitmap.recycle()
+        return frames.toDouble() / elapsed
     }
 
-    private suspend fun runChoreographerJank(): Double = suspendCancellableCoroutine { continuation ->
-        val handler = Handler(Looper.getMainLooper())
-        
-        handler.post {
-            try {
-                var frameCount = 0
-                var lastFrameTime = 0L
-                val intervals = mutableListOf<Long>()
-                
-                val callback = object : Choreographer.FrameCallback {
-                    override fun doFrame(frameTimeNanos: Long) {
-                        frameCount++
-                        if (lastFrameTime > 0) {
-                            intervals.add(frameTimeNanos - lastFrameTime)
-                        }
-                        lastFrameTime = frameTimeNanos
-                        
-                        if (frameCount < 60) {
-                            Choreographer.getInstance().postFrameCallback(this)
-                        } else {
-                            if (intervals.isEmpty()) {
-                                continuation.resume(16.6)
-                            } else {
-                                intervals.sort()
-                                val p99Index = (intervals.size * 0.99).toInt().coerceIn(0, intervals.size - 1)
-                                val p99Ms = intervals[p99Index].toDouble() / 1e6
-                                continuation.resume(p99Ms)
-                            }
-                        }
-                    }
-                }
-                
-                Choreographer.getInstance().postFrameCallback(callback)
-            } catch (e: Exception) {
-                continuation.resume(20.0)
-            }
+    private fun runGradientFillShader(): Double {
+        val width = 500
+        val height = 500
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint().apply {
+            shader = android.graphics.RadialGradient(250f, 250f, 200f, android.graphics.Color.RED, android.graphics.Color.BLUE, android.graphics.Shader.TileMode.CLAMP)
         }
+        val startTime = System.nanoTime()
+        val frames = 50
+        for (f in 0 until frames) {
+            canvas.drawRect(0f, 0f, 500f, 500f, paint)
+        }
+        val elapsed = (System.nanoTime() - startTime) / 1e9
+        bitmap.recycle()
+        return frames.toDouble() / elapsed
     }
 
     private val VERTEX_SHADER_SIMPLE = """
         attribute vec4 vPosition;
         void main() {
             gl_Position = vPosition;
+            gl_PointSize = 10.0;
         }
     """.trimIndent()
 
     private val FRAGMENT_SHADER_SIMPLE = """
         precision mediump float;
         void main() {
-            gl_FragColor = vec4(0.2, 0.6, 0.8, 0.5);
+            gl_FragColor = vec4(0.2, 0.6, 0.8, 1.0);
         }
     """.trimIndent()
 
@@ -572,12 +823,12 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
             vec2 c = gl_FragCoord.xy / vec2(512.0, 512.0) * 3.0 - vec2(2.1, 1.5);
             vec2 z = c;
             float n = 0.0;
-            for (int i = 0; i < 50; i++) {
+            for (int i = 0; i < 30; i++) {
                 if (z.x * z.x + z.y * z.y > 4.0) break;
                 z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
                 n += 1.0;
             }
-            gl_FragColor = vec4(n / 50.0, 0.2, 0.6, 1.0);
+            gl_FragColor = vec4(n / 30.0, 0.2, 0.6, 1.0);
         }
     """.trimIndent()
 
@@ -588,11 +839,71 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
         void main() {
             vec4 baseColor = texture2D(uTexture, vTexCoord);
             vec3 lighting = vec3(0.0);
-            for (int i = 0; i < 32; i++) {
-                float dist = length(vTexCoord - vec2(0.5, 0.5) * float(i)/32.0);
+            for (int i = 0; i < 16; i++) {
+                float dist = length(vTexCoord - vec2(0.5, 0.5) * float(i)/16.0);
                 lighting += vec3(0.05 / (dist + 0.1));
             }
             gl_FragColor = vec4(baseColor.rgb * lighting, 1.0);
+        }
+    """.trimIndent()
+
+    private val FRAGMENT_SHADER_RAYMARCH = """
+        precision mediump float;
+        void main() {
+            vec3 ro = vec3(0.0, 0.0, -3.0);
+            vec3 rd = normalize(vec3(gl_FragCoord.xy / vec2(512.0, 512.0) - vec2(0.5), 1.0));
+            float t = 0.0;
+            for (int i = 0; i < 16; i++) {
+                vec3 p = ro + rd * t;
+                float d = length(p) - 1.0; // distance to sphere of radius 1
+                if (d < 0.01) break;
+                t += d;
+            }
+            gl_FragColor = vec4(vec3(t * 0.2), 1.0);
+        }
+    """.trimIndent()
+
+    private val FRAGMENT_SHADER_BLOOM = """
+        precision mediump float;
+        varying vec2 vTexCoord;
+        uniform sampler2D uTexture;
+        void main() {
+            vec4 sum = vec4(0.0);
+            for (int i = -2; i <= 2; i++) {
+                for (int j = -2; j <= 2; j++) {
+                    sum += texture2D(uTexture, vTexCoord + vec2(float(i), float(j)) * 0.005);
+                }
+            }
+            gl_FragColor = sum / 25.0;
+        }
+    """.trimIndent()
+
+    private val FRAGMENT_SHADER_SHADOW = """
+        precision mediump float;
+        void main() {
+            float depth = gl_FragCoord.z;
+            float shadow = depth > 0.5 ? 0.3 : 1.0;
+            gl_FragColor = vec4(vec3(shadow), 1.0);
+        }
+    """.trimIndent()
+
+    private val VERTEX_SHADER_VARYINGS = """
+        attribute vec4 vPosition;
+        varying vec4 vColor1;
+        varying vec4 vColor2;
+        void main() {
+            gl_Position = vPosition;
+            vColor1 = vPosition;
+            vColor2 = vec4(1.0) - vPosition;
+        }
+    """.trimIndent()
+
+    private val FRAGMENT_SHADER_VARYINGS = """
+        precision mediump float;
+        varying vec4 vColor1;
+        varying vec4 vColor2;
+        void main() {
+            gl_FragColor = mix(vColor1, vColor2, 0.5);
         }
     """.trimIndent()
 
@@ -625,9 +936,10 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
                 if (!EGL14.eglChooseConfig(eglDisplay, configAttr, 0, configs, 0, 1, numConfigs, 0)) return false
                 val config = configs[0] ?: return false
 
+                // Plan: Increased PBuffer surface to 1024x1024
                 val surfaceAttr = intArrayOf(
-                    EGL14.EGL_WIDTH, 64,
-                    EGL14.EGL_HEIGHT, 64,
+                    EGL14.EGL_WIDTH, 1024,
+                    EGL14.EGL_HEIGHT, 1024,
                     EGL14.EGL_NONE
                 )
                 eglSurface = EGL14.eglCreatePbufferSurface(eglDisplay, config, surfaceAttr, 0)

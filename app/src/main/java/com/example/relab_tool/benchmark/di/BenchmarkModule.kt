@@ -43,6 +43,7 @@ object BenchmarkModule {
             CpuSingleCoreBenchmark(),
             CpuMultiCoreBenchmark(),
             GpuBenchmark(context),
+            GamingBenchmark(context),
             MemoryBenchmark(context),
             StorageBenchmark(context),
             AiBenchmark(context),

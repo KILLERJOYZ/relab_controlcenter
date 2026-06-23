@@ -74,6 +74,7 @@ fun BenchmarkScreen(
                         history = history,
                         onRunFull = { viewModel.requestConsent() },
                         onRunQuick = { viewModel.startQuickBenchmark() },
+                        onRunSinglePillar = { viewModel.startSinglePillar(it) },
                         onDeleteResult = { viewModel.deleteResult(it) },
                         onClearAll = { viewModel.clearHistory() },
                         bottomPadding = bottomContentPadding
@@ -144,6 +145,7 @@ fun IdleScreen(
     history: List<BenchmarkResult>,
     onRunFull: () -> Unit,
     onRunQuick: () -> Unit,
+    onRunSinglePillar: (BenchmarkPillar) -> Unit,
     onDeleteResult: (BenchmarkResult) -> Unit,
     onClearAll: () -> Unit,
     bottomPadding: androidx.compose.ui.unit.Dp
@@ -207,6 +209,72 @@ fun IdleScreen(
             }
         }
         
+        item {
+            Text(
+                text = "INDIVIDUAL PILLAR BENCHMARKS",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            )
+        }
+        
+        val chunks = BenchmarkPillar.entries.chunked(2)
+        chunks.forEach { rowPillars ->
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    rowPillars.forEach { pillar ->
+                        Card(
+                            onClick = { onRunSinglePillar(pillar) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(64.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                            )
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Column {
+                                        Text(
+                                            text = stringResource(pillar.displayNameRes),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            text = "Weight: ${(pillar.weight * 100).toInt()}%",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (rowPillars.size < 2) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
