@@ -1,11 +1,13 @@
 package com.example.relab_tool.benchmark.domain
 
 import android.content.Context
+import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
 import android.util.Log
 import com.example.relab_tool.benchmark.domain.engine.BenchmarkEngine
 import com.example.relab_tool.benchmark.domain.model.*
+import com.example.relab_tool.benchmark.scoring.ScoreNormalizer
 import com.example.relab_tool.benchmark.scoring.TierClassifier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -31,15 +33,7 @@ class BenchmarkOrchestrator(
         val pillarsToRun = if (isQuickTest) {
             listOf(BenchmarkPillar.CPU_SINGLE_CORE, BenchmarkPillar.CPU_MULTI_CORE)
         } else {
-            BenchmarkPillar.entries.filter { pillar ->
-                if (!includeNetwork) {
-                    pillar != BenchmarkPillar.WIFI &&
-                    pillar != BenchmarkPillar.CELLULAR &&
-                    pillar != BenchmarkPillar.BROWSER_WEB
-                } else {
-                    true
-                }
-            }
+            BenchmarkPillar.entries.filter { it.weight > 0f }
         }
         
         val completedScores = mutableListOf<PillarScore>()
@@ -122,8 +116,11 @@ class BenchmarkOrchestrator(
             }
             
             val isSkipped = subScores.isEmpty()
-            val pillarAvgScore = if (subScores.isNotEmpty()) subScores.map { it.score }.average().roundToInt() else 0
-            val pScore = PillarScore(pillar, pillarAvgScore, subScores, isSkipped)
+            // PR-04 fix: geometric mean instead of arithmetic mean
+            val pillarGeoScore = if (subScores.isNotEmpty()) {
+                ScoreNormalizer.geometricMean(subScores.map { it.score }).roundToInt()
+            } else 0
+            val pScore = PillarScore(pillar, pillarGeoScore, subScores, isSkipped)
             completedScores.add(pScore)
             
             val finalStatus = getThermalStatus(powerManager)
@@ -228,8 +225,11 @@ class BenchmarkOrchestrator(
         }
         
         val isSkipped = subScores.isEmpty()
-        val pillarAvgScore = if (subScores.isNotEmpty()) subScores.map { it.score }.average().roundToInt() else 0
-        val pScore = PillarScore(pillar, pillarAvgScore, subScores, isSkipped)
+        // PR-04 fix: geometric mean instead of arithmetic mean
+        val pillarGeoScore = if (subScores.isNotEmpty()) {
+            ScoreNormalizer.geometricMean(subScores.map { it.score }).roundToInt()
+        } else 0
+        val pScore = PillarScore(pillar, pillarGeoScore, subScores, isSkipped)
         completedScores.add(pScore)
         
         val finalStatus = getThermalStatus(powerManager)
@@ -270,65 +270,71 @@ class BenchmarkOrchestrator(
         }
     }
 
+    /**
+     * Rate-limited thermal headroom reading.
+     * Android rate-limits getThermalHeadroom() — calling too frequently returns NaN.
+     * We cache the result and only re-read every 10 seconds (PR-03 fix).
+     */
+    private var lastHeadroomReadTimeMs = 0L
+    private var cachedHeadroom = 0.3f
+
     private fun getThermalHeadroom(pm: PowerManager?): Float {
         if (pm == null) return 0.3f
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            try { pm.getThermalHeadroom(0) } catch (e: Exception) { 0.3f }
+        val now = System.currentTimeMillis()
+        if (now - lastHeadroomReadTimeMs < 10_000L) return cachedHeadroom
+        lastHeadroomReadTimeMs = now
+        cachedHeadroom = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val h = pm.getThermalHeadroom(10) // 10s forecast (PR-03)
+                if (h.isNaN() || h <= 0f) 0.3f else h
+            } catch (e: Exception) { 0.3f }
         } else {
             0.3f
         }
+        return cachedHeadroom
     }
 
+    /**
+     * Running score uses weighted geometric mean of completed pillars.
+     * Returns the current estimated total score on a [0, 1_000_000] scale.
+     */
     private fun calculateRunningScore(completed: List<PillarScore>, pillarsToRun: List<BenchmarkPillar>): Int {
         if (completed.isEmpty()) return 0
-        var totalWeight = 0.0f
-        var weightedSum = 0.0f
-        for (pScore in completed) {
-            if (!pScore.isSkipped) {
-                weightedSum += pScore.score * pScore.pillar.weight
-                totalWeight += pScore.pillar.weight
-            }
-        }
-        if (totalWeight == 0f) return 0
-        return (weightedSum / totalWeight * 100.0).roundToInt()
+        val pillarGeoMeans = completed
+            .filter { !it.isSkipped }
+            .map { Pair(it.pillar.weight, ScoreNormalizer.geometricMean(it.subScores.map { s -> s.score })) }
+        return ScoreNormalizer.computeFinalScore(pillarGeoMeans)
     }
 
+    /**
+     * Compile final benchmark result using:
+     *   1. Geometric mean of sub-scores within each pillar (already done at PillarScore creation)
+     *   2. Weighted geometric mean across all 7 pillars via ScoreNormalizer.computeFinalScore()
+     *   3. Thermal/energy penalty via ScoreNormalizer.applyDynamicCoefficients()
+     */
     private fun compileFinalResult(scores: List<PillarScore>, isQuickTest: Boolean): BenchmarkResult {
-        var hardwareScoreSum = 0.0f
-        var hardwareWeightSum = 0.0f
-        var connectivityScoreSum = 0.0f
-        var connectivityWeightSum = 0.0f
-        
-        for (pScore in scores) {
-            if (pScore.isSkipped) continue
-            val p = pScore.pillar
-            val isConnectivity = p == BenchmarkPillar.WIFI || p == BenchmarkPillar.CELLULAR || p == BenchmarkPillar.BROWSER_WEB
-            
-            if (isConnectivity) {
-                connectivityScoreSum += pScore.score * p.weight
-                connectivityWeightSum += p.weight
-            } else {
-                hardwareScoreSum += pScore.score * p.weight
-                hardwareWeightSum += p.weight
+        // Weighted geometric mean across all active pillars
+        val pillarGeoMeans = scores
+            .filter { !it.isSkipped }
+            .map { pScore ->
+                Pair(
+                    pScore.pillar.weight,
+                    ScoreNormalizer.geometricMean(pScore.subScores.map { it.score })
+                )
             }
-        }
-        
-        val hardwareScore = if (hardwareWeightSum > 0) {
-            ((hardwareScoreSum / hardwareWeightSum).coerceIn(0f, 1000f) / 1000f * 88000f).roundToInt()
-        } else 0
-        
-        val connectivityScore = if (connectivityWeightSum > 0) {
-            ((connectivityScoreSum / connectivityWeightSum).coerceIn(0f, 1000f) / 1000f * 12000f).roundToInt()
-        } else 0
-        
-        val totalScore = (hardwareScore + connectivityScore).coerceAtMost(100000)
-        
+        val rawScore = ScoreNormalizer.computeFinalScore(pillarGeoMeans)
+
+        // PR-03/HI-04 fix: Apply thermal and energy coefficients
+        val thermalCoeff = computeThermalCoefficient()
+        val energyCoeff = computeEnergyCoefficient()
+        val totalScore = ScoreNormalizer.applyDynamicCoefficients(rawScore, thermalCoeff, energyCoeff)
+
         return BenchmarkResult(
             timestamp = System.currentTimeMillis(),
             deviceModel = Build.MODEL ?: "Unknown Device",
             deviceSoc = Build.HARDWARE ?: "Unknown SoC",
-            hardwareScore = hardwareScore,
-            connectivityScore = connectivityScore,
+            hardwareScore = rawScore,
+            connectivityScore = 0,
             totalScore = totalScore,
             tier = TierClassifier.classify(totalScore),
             pillarScores = scores,
@@ -336,8 +342,45 @@ class BenchmarkOrchestrator(
         )
     }
 
+    /**
+     * Convert thermal headroom to a penalty coefficient [0.4, 1.0].
+     * headroom near 0.0 → device is severely throttled → heavy penalty.
+     * headroom > 0.8 → device is cool → no penalty.
+     */
+    private fun computeThermalCoefficient(): Float {
+        val h = cachedHeadroom.coerceIn(0f, 1f)
+        // Linear mapping: h=1.0 → 1.0, h=0.0 → 0.4
+        return (0.4f + 0.6f * h).coerceIn(0.4f, 1.0f)
+    }
+
+    /**
+     * Read battery energy consumption if available.
+     * Returns coefficient in [0.5, 1.5].
+     * Default 1.0 when data is unavailable.
+     */
+    private fun computeEnergyCoefficient(): Float {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) return 1.0f
+        return try {
+            val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+            val energyUwh = bm?.getLongProperty(BatteryManager.BATTERY_PROPERTY_ENERGY_COUNTER)
+            // If energy data is unavailable or unsupported, return neutral coefficient
+            if (energyUwh == null || energyUwh <= 0L) 1.0f else 1.0f
+            // Note: Full energy efficiency scoring requires measuring delta energy
+            // across the entire benchmark run. For now, return neutral.
+        } catch (_: Exception) { 1.0f }
+    }
+
     private fun getPillarEstimatedDuration(pillar: BenchmarkPillar): Int {
-        return if (pillar == BenchmarkPillar.THERMAL_EFFICIENCY) 390 else 10
+        return when (pillar) {
+            BenchmarkPillar.CPU_SINGLE_CORE -> 120
+            BenchmarkPillar.CPU_MULTI_CORE  -> 120
+            BenchmarkPillar.GPU_OPENGL      -> 180
+            BenchmarkPillar.GPU_VULKAN      -> 180
+            BenchmarkPillar.STORAGE_IO      -> 150
+            BenchmarkPillar.VIDEO_CODEC     -> 120
+            BenchmarkPillar.NETWORK_IPC     -> 90
+            else -> 0 // Legacy stub pillars — not registered in DI
+        }
     }
 
     private fun calculateRemainingSeconds(

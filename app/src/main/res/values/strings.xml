@@ -1599,13 +1599,19 @@
     <string name="settings_root_warning_title">Enable Root Features?</string>
     <string name="settings_root_warning_message">This will run commands using \'su\'. Enable this only if your device is rooted. Root tools can affect system stability. Do you want to proceed?</string>
 
-    <!-- ControlCenter Benchmark Suite Strings -->
+    <!-- ControlCenter Benchmark Suite Strings — v2.0 (140 tests, 7 subsystems) -->
     <string name="pillar_cpu_single">CPU Single-Core</string>
     <string name="pillar_cpu_multi">CPU Multi-Core</string>
+    <string name="pillar_gpu_vulkan">GPU · Vulkan</string>
+    <string name="pillar_gpu_opengl">GPU · OpenGL ES</string>
+    <string name="pillar_storage">Storage I/O</string>
+    <string name="pillar_video_codec">Video &amp; Codec</string>
+    <string name="pillar_network_ipc">Network &amp; IPC</string>
+
+    <!-- Legacy strings kept for backwards DB compat -->
     <string name="pillar_gpu">GPU Rendering</string>
     <string name="pillar_gaming_simulation">Gaming Simulation</string>
     <string name="pillar_memory">Memory Subsystem</string>
-    <string name="pillar_storage">Storage I/O</string>
     <string name="pillar_ai_ml">AI / ML Inference</string>
     <string name="pillar_ux">UX Smoothness</string>
     <string name="pillar_codec_media">Codec &amp; Media</string>
@@ -1614,45 +1620,59 @@
     <string name="pillar_cellular">Cellular Quality</string>
     <string name="pillar_browser_web">Browser Page Load</string>
 
+    <!-- Score Tiers — 7-tier 1,000,000-point scale -->
     <string name="tier_entry">Entry-Level</string>
-    <string name="tier_entry_desc">Entry level device. Suitable for basic messaging, web browsing, and simple tasks.</string>
+    <string name="tier_entry_desc">Entry-level device. Capable of basic messaging, web browsing, and simple tasks only.</string>
+    <string name="tier_entry_mid">Entry-Mid</string>
+    <string name="tier_entry_mid_desc">Entry-mid range device. Handles everyday social media, camera use, and casual gaming.</string>
     <string name="tier_mid">Mid-Range</string>
-    <string name="tier_mid_desc">Mid range device. Balanced performance, smooth everyday multitasking, and light gaming.</string>
+    <string name="tier_mid_desc">Mid-range device. Smooth everyday multitasking, competent gaming, reliable performance.</string>
+    <string name="tier_mid_high">Mid-High</string>
+    <string name="tier_mid_high_desc">Mid-high device. Near-flagship performance with excellent gaming and multitasking capability.</string>
     <string name="tier_high">High-End</string>
-    <string name="tier_high_desc">High performance device. Excellent multitasking, high-fidelity gaming, and demanding apps.</string>
+    <string name="tier_high_desc">High-end device. Excellent multitasking, high-fidelity gaming, professional-grade compute.</string>
     <string name="tier_flagship">Flagship</string>
-    <string name="tier_flagship_desc">Top tier flagship device. Exceptional performance, hyper-fast response, and future-proof power.</string>
+    <string name="tier_flagship_desc">Top-tier flagship. Exceptional multi-threaded performance, advanced GPU, and future-proof power.</string>
     <string name="tier_elite">Elite</string>
-    <string name="tier_elite_desc">Extraordinary bleeding-edge device. Best-in-class processing power exceeding standard flagships.</string>
+    <string name="tier_elite_desc">Bleeding-edge elite device. Best-in-class compute with next-generation silicon architecture.</string>
 
     <string name="bench_quick_test">Quick CPU Test</string>
     <string name="bench_full_test">Run Full Benchmark</string>
     <string name="bench_consent_title">Benchmark Consent &amp; Warning</string>
-    <string name="bench_consent_desc">ControlCenter Benchmark is a comprehensive, multi-phase hardware test suite. Please read the following disclosures before starting:</string>
+    <string name="bench_consent_desc">ControlCenter Benchmark is a comprehensive 140-test hardware evaluation suite (7 subsystems × 20 tests). Please read the following disclosures before starting:</string>
     <string name="bench_consent_data">- 100% Offline: All performance data is processed on-device. No personal identifiers or scores leave your device.</string>
-    <string name="bench_consent_network">- Network Data Usage: If toggled on, Wi-Fi and Cellular tests will download up to 25 MB of test files. Mobile data charges may apply.</string>
-    <string name="bench_consent_heating">- Heating &amp; Thermal Load: Heavy CPU, GPU, and memory tasks will stress your hardware. Your device may feel warm.</string>
+    <string name="bench_consent_network">- Network Tests: All network tests use localhost loopback (127.0.0.1) only. Zero external data is transmitted.</string>
+    <string name="bench_consent_heating">- Heating &amp; Thermal Load: Heavy CPU, GPU, and storage tasks will stress your hardware. Your device will feel warm. The benchmark may pause automatically if the device reaches critical thermal levels.</string>
+    <string name="bench_consent_endurance">- Endurance Mode (Optional): If enabled, an additional 15-minute sustained stress test runs after the main benchmark. This is a separate opt-in mode and will be clearly disclosed before starting.</string>
     <string name="bench_consent_disclaimer">Legal Disclaimer: ControlCenter Benchmark is not affiliated with or endorsed by AnTuTu®, Geekbench®, or PCMark Mobile®.</string>
-    <string name="bench_include_network">Include Network &amp; Browser tests</string>
+    <string name="bench_include_network">Include Network &amp; IPC tests</string>
     <string name="bench_consent_accept">Agree &amp; Start Benchmark</string>
-    
+
+    <string name="bench_endurance_title">Endurance Mode</string>
+    <string name="bench_endurance_desc">Endurance Mode runs a 15-minute sustained CPU + GPU + Storage stress test to measure thermal stability and sustained performance. Your device will get hot. Battery will drain significantly. This test is optional and will not affect your main benchmark score.</string>
+    <string name="bench_endurance_start">Start Endurance Test</string>
+    <string name="bench_endurance_skip">Skip, Use Main Score Only</string>
+    <string name="bench_endurance_running">Endurance Test Running (%1$d/%2$d min)</string>
+
     <string name="bench_running_title">Running Benchmark</string>
     <string name="bench_running_est_time">Estimated remaining: %1$d seconds</string>
     <string name="bench_running_thermal_paused">Benchmark Paused: cooling down device…</string>
-    <string name="bench_running_hardware_score">Est. Hardware Score: %1$d</string>
+    <string name="bench_running_hardware_score">Est. Score: %1$d</string>
     <string name="bench_running_cancel">Cancel Benchmark</string>
-    
+
     <string name="bench_complete_title">Benchmark Complete</string>
     <string name="bench_share">Share Score Card</string>
     <string name="bench_run_again">Run Again</string>
     <string name="bench_compare_device">Compare Device</string>
     <string name="bench_history">Benchmark History</string>
     <string name="bench_clear_history">Clear History</string>
-    
-    <string name="bench_score_hardware">Hardware Score</string>
-    <string name="bench_score_connectivity">Connectivity Score</string>
+
+    <string name="bench_score_hardware">Performance Score</string>
+    <string name="bench_score_connectivity">Network Score</string>
     <string name="bench_score_total">Total Score</string>
     <string name="bench_faster_than">Faster than %1$.0f%% of all tested devices</string>
     <string name="bench_nearest_device">Performance level close to %1$s (%2$s)</string>
-    <string name="bench_quick_test_desc">Quick test covering CPU Single-Core and CPU Multi-Core. (~90 seconds)</string>
-</resources>
+    <string name="bench_quick_test_desc">Quick test covering CPU Single-Core and CPU Multi-Core only. (~90 seconds)</string>
+    <string name="bench_thermal_coefficient">Thermal Stability: %1$.2f×</string>
+    <string name="bench_energy_efficiency">Power Efficiency: %1$.0f ops/J</string>
+</resources>

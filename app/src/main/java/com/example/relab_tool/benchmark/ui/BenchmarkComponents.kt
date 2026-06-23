@@ -43,19 +43,23 @@ import kotlin.math.sin
 @Composable
 fun TierBadge(tier: ScoreTier) {
     val containerColor = when (tier) {
-        ScoreTier.ENTRY -> MaterialTheme.colorScheme.errorContainer
-        ScoreTier.MID -> MaterialTheme.colorScheme.tertiaryContainer
-        ScoreTier.HIGH -> MaterialTheme.colorScheme.secondaryContainer
-        ScoreTier.FLAGSHIP -> MaterialTheme.colorScheme.primaryContainer
-        ScoreTier.ELITE -> MaterialTheme.colorScheme.inversePrimary
+        ScoreTier.ENTRY     -> MaterialTheme.colorScheme.errorContainer
+        ScoreTier.ENTRY_MID -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+        ScoreTier.MID       -> MaterialTheme.colorScheme.tertiaryContainer
+        ScoreTier.MID_HIGH  -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.8f)
+        ScoreTier.HIGH      -> MaterialTheme.colorScheme.secondaryContainer
+        ScoreTier.FLAGSHIP  -> MaterialTheme.colorScheme.primaryContainer
+        ScoreTier.ELITE     -> MaterialTheme.colorScheme.inversePrimary
     }
     
     val textColor = when (tier) {
-        ScoreTier.ENTRY -> MaterialTheme.colorScheme.onErrorContainer
-        ScoreTier.MID -> MaterialTheme.colorScheme.onTertiaryContainer
-        ScoreTier.HIGH -> MaterialTheme.colorScheme.onSecondaryContainer
-        ScoreTier.FLAGSHIP -> MaterialTheme.colorScheme.onPrimaryContainer
-        ScoreTier.ELITE -> MaterialTheme.colorScheme.onPrimary
+        ScoreTier.ENTRY     -> MaterialTheme.colorScheme.onErrorContainer
+        ScoreTier.ENTRY_MID -> MaterialTheme.colorScheme.onErrorContainer
+        ScoreTier.MID       -> MaterialTheme.colorScheme.onTertiaryContainer
+        ScoreTier.MID_HIGH  -> MaterialTheme.colorScheme.onTertiaryContainer
+        ScoreTier.HIGH      -> MaterialTheme.colorScheme.onSecondaryContainer
+        ScoreTier.FLAGSHIP  -> MaterialTheme.colorScheme.onPrimaryContainer
+        ScoreTier.ELITE     -> MaterialTheme.colorScheme.onPrimary
     }
 
     Surface(
@@ -87,19 +91,24 @@ fun RadarChartView(
     val entriesWithLabels = remember(pillarScores) {
         RadarChartData.fromPillarScores(pillarScores).map { entry ->
             val baseLabel = when (entry.pillar) {
-                BenchmarkPillar.CPU_SINGLE_CORE -> "CPU Single"
-                BenchmarkPillar.CPU_MULTI_CORE -> "CPU Multi"
-                BenchmarkPillar.GPU_RENDERING -> "GPU Render"
-                BenchmarkPillar.GAMING_SIMULATION -> "Gaming"
-                BenchmarkPillar.MEMORY -> "Memory"
-                BenchmarkPillar.STORAGE_IO -> "Storage"
-                BenchmarkPillar.AI_ML -> "AI/ML"
-                BenchmarkPillar.UX_SMOOTHNESS -> "UX Smooth"
-                BenchmarkPillar.CODEC_MEDIA -> "Codec"
+                BenchmarkPillar.CPU_SINGLE_CORE    -> "CPU Single"
+                BenchmarkPillar.CPU_MULTI_CORE     -> "CPU Multi"
+                BenchmarkPillar.GPU_VULKAN         -> "GPU Vulkan"
+                BenchmarkPillar.GPU_OPENGL         -> "GPU OpenGL"
+                BenchmarkPillar.STORAGE_IO         -> "Storage"
+                BenchmarkPillar.VIDEO_CODEC        -> "Codec"
+                BenchmarkPillar.NETWORK_IPC        -> "Network"
+                // Legacy stubs (weight=0, not shown in active runs)
+                BenchmarkPillar.GPU_RENDERING      -> "GPU Render"
+                BenchmarkPillar.GAMING_SIMULATION  -> "Gaming"
+                BenchmarkPillar.MEMORY             -> "Memory"
+                BenchmarkPillar.AI_ML              -> "AI/ML"
+                BenchmarkPillar.UX_SMOOTHNESS      -> "UX Smooth"
+                BenchmarkPillar.CODEC_MEDIA        -> "Codec"
                 BenchmarkPillar.THERMAL_EFFICIENCY -> "Thermal"
-                BenchmarkPillar.WIFI -> "Wi-Fi"
-                BenchmarkPillar.CELLULAR -> "Cellular"
-                BenchmarkPillar.BROWSER_WEB -> "Browser"
+                BenchmarkPillar.WIFI               -> "Wi-Fi"
+                BenchmarkPillar.CELLULAR           -> "Cellular"
+                BenchmarkPillar.BROWSER_WEB        -> "Browser"
             }
             val scoreStr = if (entry.score > 0) " (${entry.score})" else ""
             RadarChartLabelEntry(entry, "$baseLabel$scoreStr")

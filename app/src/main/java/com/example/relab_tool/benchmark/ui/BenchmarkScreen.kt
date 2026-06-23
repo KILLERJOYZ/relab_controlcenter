@@ -245,7 +245,7 @@ fun IdleScreen(
             )
         }
         
-        val chunks = BenchmarkPillar.entries.chunked(2)
+        val chunks = BenchmarkPillar.entries.filter { it.weight > 0f }.chunked(2)
         chunks.forEach { rowPillars ->
             item {
                 Row(
@@ -439,7 +439,7 @@ fun RunningScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items(BenchmarkPillar.entries) { pillar ->
+                items(BenchmarkPillar.entries.filter { it.weight > 0f }) { pillar ->
                     val isActive = state.currentPillar == pillar
                     val completedObj = state.completedPillarScores.find { it.pillar == pillar }
                     val isComplete = completedObj != null
@@ -824,11 +824,13 @@ fun BenchmarkSummaryCard(
 
 private fun tierDescriptionRes(tier: ScoreTier): Int {
     return when (tier) {
-        ScoreTier.ENTRY -> R.string.tier_entry_desc
-        ScoreTier.MID -> R.string.tier_mid_desc
-        ScoreTier.HIGH -> R.string.tier_high_desc
-        ScoreTier.FLAGSHIP -> R.string.tier_flagship_desc
-        ScoreTier.ELITE -> R.string.tier_elite_desc
+        ScoreTier.ENTRY     -> R.string.tier_entry_desc
+        ScoreTier.ENTRY_MID -> R.string.tier_entry_mid_desc
+        ScoreTier.MID       -> R.string.tier_mid_desc
+        ScoreTier.MID_HIGH  -> R.string.tier_mid_high_desc
+        ScoreTier.HIGH      -> R.string.tier_high_desc
+        ScoreTier.FLAGSHIP  -> R.string.tier_flagship_desc
+        ScoreTier.ELITE     -> R.string.tier_elite_desc
     }
 }
 

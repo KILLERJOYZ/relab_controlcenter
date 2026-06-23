@@ -16,6 +16,17 @@ android {
         versionCode = 7
         versionName = "0.4.3.3"
 
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
+
+        externalNativeBuild {
+            cmake {
+                cFlags("-Os", "-fvisibility=hidden")
+                arguments("-DANDROID_STL=none")
+            }
+        }
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -39,6 +50,12 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    java {
+        toolchain {
+            languageVersion.set(JavaLanguageVersion.of(21))
+        }
+    }
+
     buildFeatures {
         compose = true
         viewBinding = true
@@ -55,6 +72,13 @@ android {
         metricsDestination = layout.buildDirectory.dir("compose_metrics")
         // Tell the compiler that your domain model types and ImmutableList are stable
         stabilityConfigurationFile = rootProject.file("stability_config.conf")
+    }
+
+    externalNativeBuild {
+        cmake {
+            path("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     packaging {
