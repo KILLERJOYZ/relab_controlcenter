@@ -89,6 +89,7 @@ fun BenchmarkScreen(
                         onRunSinglePillar = { viewModel.startSinglePillar(it) },
                         onDeleteResult = { viewModel.deleteResult(it) },
                         onClearAll = { viewModel.clearHistory() },
+                        onSelectResult = { viewModel.selectHistoricalResult(it) },
                         bottomPadding = bottomContentPadding
                     )
                 }
@@ -169,6 +170,7 @@ fun IdleScreen(
     onRunSinglePillar: (BenchmarkPillar) -> Unit,
     onDeleteResult: (BenchmarkResult) -> Unit,
     onClearAll: () -> Unit,
+    onSelectResult: (BenchmarkResult) -> Unit,
     bottomPadding: androidx.compose.ui.unit.Dp
 ) {
     val lastResult = history.firstOrNull()
@@ -190,7 +192,10 @@ fun IdleScreen(
                 )
             }
             item {
-                BenchmarkSummaryCard(result = lastResult)
+                BenchmarkSummaryCard(
+                    result = lastResult,
+                    onClick = { onSelectResult(lastResult) }
+                )
             }
         } else {
             item {
@@ -360,7 +365,7 @@ fun IdleScreen(
                 HistoryListItem(
                     result = result,
                     onDelete = { onDeleteResult(result) },
-                    onClick = {}
+                    onClick = { onSelectResult(result) }
                 )
             }
         }
@@ -768,9 +773,14 @@ fun CompleteScreen(
 }
 
 @Composable
-fun BenchmarkSummaryCard(result: BenchmarkResult) {
+fun BenchmarkSummaryCard(
+    result: BenchmarkResult,
+    onClick: () -> Unit
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
     ) {

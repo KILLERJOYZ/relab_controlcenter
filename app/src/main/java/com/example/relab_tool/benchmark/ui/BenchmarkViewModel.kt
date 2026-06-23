@@ -161,6 +161,16 @@ class BenchmarkViewModel @Inject constructor(
         }
     }
 
+    fun selectHistoricalResult(result: BenchmarkResult) {
+        val percentile = percentileCalculator.calculatePercentile(result.totalScore)
+        val nearest = percentileCalculator.getNearestReferenceDevice(result.totalScore)
+        _uiState.value = BenchmarkUiState.Complete(
+            result = result,
+            globalPercentile = percentile,
+            nearestReferenceDevice = nearest
+        )
+    }
+
     fun clearHistory() {
         viewModelScope.launch {
             repository.clearHistory()
