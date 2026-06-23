@@ -1,20 +1,33 @@
-# Walkthrough: Fix Bluetooth Connected Devices Count
+# Walkthrough: USB Information Tab Implementation
 
-## Problem
-The Bluetooth connected devices count on the Dashboard and in the Bluetooth info section was consistently showing `0`, even when devices like headphones (A2DP) were connected.
+## Goal
+Implement a comprehensive USB information tab in the Device Info section to provide users with deep insights into their device's USB capabilities, current connection status, OTG devices, video output support, and security settings.
 
-This occurred because `BluetoothManager.getConnectedDevices(profile)` is documented to return an empty list for many common profiles (A2DP, Headset) unless a specific Profile Proxy is established, which is an asynchronous and complex process unsuitable for a rapid status polling loop.
+## Implementation Details
 
-## Solution
-I implemented a multi-tiered detection strategy in [DeviceInfoViewModel.kt](file:///C:/Users/luken/StudioProjects/relab_controlcenter/app/src/main/java/com/example/relab_tool/ui/DeviceInfoViewModel.kt) to reliably count connected devices without adding latency or complexity.
+### Data Models
+I expanded the `UsbInfo` model and introduced `UsbStatusInfo` in [DeviceInfoModels.kt](file:///C:/Users/luken/StudioProjects/relab_controlcenter/app/src/main/java/com/example/relab_tool/model/DeviceInfoModels.kt) to capture:
+- Detailed OTG device metadata (Manufacturer, Product Name, Serial Number).
+- Comprehensive connection status (Mode, Uptime).
+- Hardware standards (Version, Connector Type, Bandwidth).
+- Advanced features (Video Output, Security).
 
-### Multi-tiered Detection Logic
-1.  **GATT Profile Check**: Uses the standard API to detect many Low Energy (LE) devices.
-2.  **Reflection-based `isConnected()` Check**: Iterates through all bonded (paired) devices and reflectively calls the hidden `isConnected()` method. This is the industry-standard "hack" to reliably detect active connections for A2DP, HFP, and HID profiles in a synchronous manner.
-3.  **Broad Profile Fallback**: Performs standard checks for multiple profiles including A2DP, Headset, HID Host, and LE Audio, as some OEM implementations may populate these lists.
+### ViewModel Integration
+In `DeviceInfoViewModel.kt`, I implemented:
+- **Real-time Monitoring**: A `usbReceiver` (`BroadcastReceiver`) tracks `ACTION_USB_DEVICE_ATTACHED`, `ACTION_USB_DEVICE_DETACHED`, and `USB_STATE` to update the UI immediately when a cable is plugged in or a mode changes.
+- **Hardware Probing**: Logic to detect USB versions and connector types using system properties and sysfs path heuristics.
+- **OTG Scanning**: Uses `UsbManager` to list connected peripherals and maps their class codes to human-readable labels (e.g., "Mass Storage", "HID").
+- **Security Audit**: Monitors ADB status and calculates USB tethering state.
 
-The result is a set of unique device addresses that accurately represents the total number of connected Bluetooth peripherals.
+### UI Design
+The [UsbTab](file:///C:/Users/luken/StudioProjects/relab_controlcenter/app/src/main/java/com/example/relab_tool/ui/DeviceInfoScreen.kt) was rewritten using Jetpack Compose and Material3:
+1.  **Connection Status Card**: Shows real-time connection state, mode (Charging/MTP/etc.), and a live connection uptime counter.
+2.  **USB Standard Card**: Displays identified USB versions and bandwidth capabilities.
+3.  **OTG Devices Card**: Lists all connected peripherals with their IDs and classes.
+4.  **Video Output Card**: Highlights DisplayPort and HDMI Alt Mode support (or lack thereof).
+5.  **USB Security Card**: Shows ADB and Tethering status for quick auditing.
 
 ## Verification Results
-- **Static Analysis**: Verified with `analyze_file` to ensure no syntax errors or permission handling regressions were introduced.
-- **Logic Integrity**: The implementation handles `BLUETOOTH_CONNECT` permissions (API 31+) and gracefully catches exceptions during reflection or profile polling.
+- **Reactive UI**: Confirmed that the `usbStatus` StateFlow correctly triggers UI updates.
+- **Robustness**: Implemented fallback values ("N/A", "Không xác định") and try-catch blocks for hardware-specific property lookups to prevent crashes on non-compliant devices.
+- **Design Consistency**: Followed the app's `InfoGroupCard` and `InfoRow` patterns with Material3 color tokens.

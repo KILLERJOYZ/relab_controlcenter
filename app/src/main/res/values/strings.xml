@@ -1598,4 +1598,60 @@
     <string name="settings_enable_root_desc">Unlock CPU governor and battery charge control (Requires manual consent).</string>
     <string name="settings_root_warning_title">Enable Root Features?</string>
     <string name="settings_root_warning_message">This will run commands using \'su\'. Enable this only if your device is rooted. Root tools can affect system stability. Do you want to proceed?</string>
+
+    <!-- ControlCenter Benchmark Suite Strings -->
+    <string name="pillar_cpu_single">CPU Single-Core</string>
+    <string name="pillar_cpu_multi">CPU Multi-Core</string>
+    <string name="pillar_gpu">GPU Rendering</string>
+    <string name="pillar_memory">Memory Subsystem</string>
+    <string name="pillar_storage">Storage I/O</string>
+    <string name="pillar_ai_ml">AI / ML Inference</string>
+    <string name="pillar_ux">UX Smoothness</string>
+    <string name="pillar_codec_media">Codec &amp; Media</string>
+    <string name="pillar_thermal">Thermal Efficiency</string>
+    <string name="pillar_wifi">Wi-Fi Quality</string>
+    <string name="pillar_cellular">Cellular Quality</string>
+    <string name="pillar_browser_web">Browser Page Load</string>
+
+    <string name="tier_entry">Entry-Level</string>
+    <string name="tier_entry_desc">Entry level device. Suitable for basic messaging, web browsing, and simple tasks.</string>
+    <string name="tier_mid">Mid-Range</string>
+    <string name="tier_mid_desc">Mid range device. Balanced performance, smooth everyday multitasking, and light gaming.</string>
+    <string name="tier_high">High-End</string>
+    <string name="tier_high_desc">High performance device. Excellent multitasking, high-fidelity gaming, and demanding apps.</string>
+    <string name="tier_flagship">Flagship</string>
+    <string name="tier_flagship_desc">Top tier flagship device. Exceptional performance, hyper-fast response, and future-proof power.</string>
+    <string name="tier_elite">Elite</string>
+    <string name="tier_elite_desc">Extraordinary bleeding-edge device. Best-in-class processing power exceeding standard flagships.</string>
+
+    <string name="bench_quick_test">Quick CPU Test</string>
+    <string name="bench_full_test">Run Full Benchmark</string>
+    <string name="bench_consent_title">Benchmark Consent &amp; Warning</string>
+    <string name="bench_consent_desc">ControlCenter Benchmark is a comprehensive, multi-phase hardware test suite. Please read the following disclosures before starting:</string>
+    <string name="bench_consent_data">- 100% Offline: All performance data is processed on-device. No personal identifiers or scores leave your device.</string>
+    <string name="bench_consent_network">- Network Data Usage: If toggled on, Wi-Fi and Cellular tests will download up to 25 MB of test files. Mobile data charges may apply.</string>
+    <string name="bench_consent_heating">- Heating &amp; Thermal Load: Heavy CPU, GPU, and memory tasks will stress your hardware. Your device may feel warm.</string>
+    <string name="bench_consent_disclaimer">Legal Disclaimer: ControlCenter Benchmark is not affiliated with or endorsed by AnTuTu®, Geekbench®, or PCMark Mobile®.</string>
+    <string name="bench_include_network">Include Network &amp; Browser tests</string>
+    <string name="bench_consent_accept">Agree &amp; Start Benchmark</string>
+    
+    <string name="bench_running_title">Running Benchmark</string>
+    <string name="bench_running_est_time">Estimated remaining: %1$d seconds</string>
+    <string name="bench_running_thermal_paused">Benchmark Paused: cooling down device…</string>
+    <string name="bench_running_hardware_score">Est. Hardware Score: %1$d</string>
+    <string name="bench_running_cancel">Cancel Benchmark</string>
+    
+    <string name="bench_complete_title">Benchmark Complete</string>
+    <string name="bench_share">Share Score Card</string>
+    <string name="bench_run_again">Run Again</string>
+    <string name="bench_compare_device">Compare Device</string>
+    <string name="bench_history">Benchmark History</string>
+    <string name="bench_clear_history">Clear History</string>
+    
+    <string name="bench_score_hardware">Hardware Score</string>
+    <string name="bench_score_connectivity">Connectivity Score</string>
+    <string name="bench_score_total">Total Score</string>
+    <string name="bench_faster_than">Faster than %1$.0f%% of all tested devices</string>
+    <string name="bench_nearest_device">Performance level close to %1$s (%2$s)</string>
+    <string name="bench_quick_test_desc">Quick test covering CPU Single-Core and CPU Multi-Core. (~90 seconds)</string>
 </resources>

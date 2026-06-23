@@ -77,6 +77,10 @@ android {
     }
 }
 
+kotlin {
+    jvmToolchain(21)
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
 
@@ -110,6 +114,14 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.datastore.preferences)
+
+    // Room
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    // LiteRT (TensorFlow Lite Successor)
+    implementation("com.google.ai.edge.litert:litert:2.1.0")
 
     // Hybrid View support
     implementation("androidx.fragment:fragment-compose:1.8.6")

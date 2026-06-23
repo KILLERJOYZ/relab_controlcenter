@@ -9,4 +9,10 @@
     <external-files-path
         name="my_documents"
         path="Documents/" />
+    <cache-path
+        name="cache"
+        path="." />
+    <files-path
+        name="files"
+        path="." />
 </paths>
