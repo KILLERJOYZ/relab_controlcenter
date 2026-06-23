@@ -74,7 +74,7 @@ class ThermalBenchmark(private val context: Context) : BenchmarkEngine {
 
     private fun getThermalHeadroom(powerManager: PowerManager?): Float {
         if (powerManager == null) return 0.3f
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val hr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
                 powerManager.getThermalHeadroom(5)
             } catch (e: Exception) {
@@ -83,6 +83,7 @@ class ThermalBenchmark(private val context: Context) : BenchmarkEngine {
         } else {
             getBatteryTempHeadroomProxy()
         }
+        return if (hr.isNaN()) getBatteryTempHeadroomProxy() else hr
     }
 
     private fun getBatteryTempHeadroomProxy(): Float {

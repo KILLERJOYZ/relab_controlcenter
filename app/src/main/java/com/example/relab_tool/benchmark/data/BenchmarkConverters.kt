@@ -22,7 +22,8 @@ class BenchmarkConverters {
             for (sub in pillarScore.subScores) {
                 val subObj = JSONObject()
                 subObj.put("name", sub.name)
-                subObj.put("rawValue", sub.rawValue)
+                val safeRawValue = if (sub.rawValue.isNaN() || sub.rawValue.isInfinite()) 0.0 else sub.rawValue
+                subObj.put("rawValue", safeRawValue)
                 subObj.put("unit", sub.unit)
                 subObj.put("score", sub.score)
                 subObj.put("isPartial", sub.isPartial)

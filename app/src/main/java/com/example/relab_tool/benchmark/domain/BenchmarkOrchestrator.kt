@@ -102,7 +102,7 @@ class BenchmarkOrchestrator(
                     engine.run { progress ->
                         // we update sub progress when called
                     }
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
                     Log.e(TAG, "Engine failed for $pillar", e)
                     emptyList()
                 }
