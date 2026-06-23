@@ -23,6 +23,9 @@
 @rem
 @rem ##########################################################################
 
+@rem Force JAVA_HOME to a valid JDK with jlink
+set JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
+
 @rem Set local scope for the variables with windows NT shell
 if "%OS%"=="Windows_NT" setlocal
 

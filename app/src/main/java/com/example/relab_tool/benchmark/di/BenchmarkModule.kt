@@ -40,19 +40,14 @@ object BenchmarkModule {
     @Singleton
     fun provideBenchmarkEngines(@ApplicationContext context: Context): List<BenchmarkEngine> {
         return listOf(
+            // ── 7-Pillar New Architecture ──────────────────────────────────
             CpuSingleCoreBenchmark(),
             CpuMultiCoreBenchmark(),
-            GpuBenchmark(context),
-            GamingBenchmark(context),
-            MemoryBenchmark(context),
-            StorageBenchmark(context),
-            AiBenchmark(context),
-            UxBenchmark(context),
-            CodecBenchmark(),
-            ThermalBenchmark(context),
-            WifiBenchmark(context),
-            CellularBenchmark(context),
-            BrowserBenchmark(context)
+            GpuOpenGLBenchmark(context),    // GPU_OPENGL — OpenGL ES 3.x (20 tests)
+            GpuVulkanBenchmark(context),    // GPU_VULKAN — GLES 3.1 Compute (20 tests)
+            StorageBenchmark(context),      // STORAGE_IO — Full I/O stack (20 tests)
+            VideoCodecBenchmark(),          // VIDEO_CODEC — MediaCodec (20 tests)
+            NetworkIpcBenchmark(),          // NETWORK_IPC — Loopback only (20 tests)
         )
     }
 
