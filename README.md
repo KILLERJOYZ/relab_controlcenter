@@ -1,4 +1,4 @@
-# Relab Control Center (rlcc) - v0.4.2
+# Relab Control Center (rlcc) - v0.4.3-devbeta
 
 **Relab Control Center** is a professional-grade utility and diagnostic suite built for Android enthusiasts, developers, and power users. It combines deep hardware intelligence with real-time performance telemetry and a specialized installer hub to provide total transparency into the Android ecosystem.
 
@@ -105,7 +105,7 @@ This release focuses on detailed hardware spec explanations and deep internation
 
 ## 📥 Getting Started
 
-1.  **Download**: Obtain the latest `rlcc_beta_v0.4.2.apk` from the [Releases](https://github.com/KILLERJOYZ/relab_controlcenter/releases) page.
+1.  **Download**: Obtain the latest `rlcc_devbeta_v0.4.3.apk` from the [Releases](https://github.com/KILLERJOYZ/relab_controlcenter/releases) page.
 2.  **Permissions**: Grant Camera, Location, and Phone permissions to enable physical sensor detection and network identification.
 3.  **Installation**: Enable "Install from Unknown Sources" for the App Hub to function as an alternative installer.
 
