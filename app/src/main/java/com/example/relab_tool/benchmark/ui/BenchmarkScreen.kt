@@ -43,6 +43,10 @@ import java.text.SimpleDateFormat
 import android.util.Log
 import android.graphics.Color
 
+private enum class BenchmarkScreenType {
+    IDLE, AWAITING_CONSENT, RUNNING, COMPLETE, ERROR
+}
+
 @OptIn(ExperimentalAnimationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun BenchmarkScreen(
@@ -55,6 +59,14 @@ fun BenchmarkScreen(
     
     val isWideScreen = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
     val bottomContentPadding = if (isWideScreen) 16.dp else 100.dp
+
+    val screenType = when (uiState) {
+        is BenchmarkUiState.Idle -> BenchmarkScreenType.IDLE
+        is BenchmarkUiState.AwaitingConsent -> BenchmarkScreenType.AWAITING_CONSENT
+        is BenchmarkUiState.Running -> BenchmarkScreenType.RUNNING
+        is BenchmarkUiState.Complete -> BenchmarkScreenType.COMPLETE
+        is BenchmarkUiState.Error -> BenchmarkScreenType.ERROR
+    }
     
     Box(
         modifier = Modifier
@@ -62,14 +74,14 @@ fun BenchmarkScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         AnimatedContent(
-            targetState = uiState,
+            targetState = screenType,
             transitionSpec = {
                 fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
             },
             label = "screen_transitions"
-        ) { state ->
-            when (state) {
-                is BenchmarkUiState.Idle -> {
+        ) { type ->
+            when (type) {
+                BenchmarkScreenType.IDLE -> {
                     IdleScreen(
                         history = history,
                         onRunFull = { viewModel.requestConsent() },
@@ -80,7 +92,7 @@ fun BenchmarkScreen(
                         bottomPadding = bottomContentPadding
                     )
                 }
-                is BenchmarkUiState.AwaitingConsent -> {
+                BenchmarkScreenType.AWAITING_CONSENT -> {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -95,42 +107,51 @@ fun BenchmarkScreen(
                         )
                     }
                 }
-                is BenchmarkUiState.Running -> {
-                    RunningScreen(
-                        state = state,
-                        onCancel = { viewModel.cancelBenchmark() }
-                    )
+                BenchmarkScreenType.RUNNING -> {
+                    val runningState = uiState as? BenchmarkUiState.Running
+                    if (runningState != null) {
+                        RunningScreen(
+                            state = runningState,
+                            onCancel = { viewModel.cancelBenchmark() }
+                        )
+                    }
                 }
-                is BenchmarkUiState.Complete -> {
-                    CompleteScreen(
-                        state = state,
-                        onShare = { shareScoreCard(context, state.result) },
-                        onReset = { viewModel.resetToIdle() },
-                        bottomPadding = bottomContentPadding
-                    )
+                BenchmarkScreenType.COMPLETE -> {
+                    val completeState = uiState as? BenchmarkUiState.Complete
+                    if (completeState != null) {
+                        CompleteScreen(
+                            state = completeState,
+                            onShare = { shareScoreCard(context, completeState.result) },
+                            onReset = { viewModel.resetToIdle() },
+                            bottomPadding = bottomContentPadding
+                        )
+                    }
                 }
-                is BenchmarkUiState.Error -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                BenchmarkScreenType.ERROR -> {
+                    val errorState = uiState as? BenchmarkUiState.Error
+                    if (errorState != null) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Error,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(64.dp)
-                            )
-                            Text(
-                                text = state.message,
-                                style = MaterialTheme.typography.titleMedium,
-                                textAlign = TextAlign.Center
-                            )
-                            Button(onClick = { viewModel.resetToIdle() }) {
-                                Text(stringResource(R.string.nav_back))
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Error,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Text(
+                                    text = errorState.message,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    textAlign = TextAlign.Center
+                                )
+                                Button(onClick = { viewModel.resetToIdle() }) {
+                                    Text(stringResource(R.string.nav_back))
+                                }
                             }
                         }
                     }
