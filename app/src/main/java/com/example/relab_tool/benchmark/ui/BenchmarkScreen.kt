@@ -472,6 +472,7 @@ fun RunningScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompleteScreen(
     state: BenchmarkUiState.Complete,
@@ -578,11 +579,48 @@ fun CompleteScreen(
                         .size(260.dp)
                         .padding(12.dp)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Explanatory Legend for the Radar Chart
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), RoundedCornerShape(2.dp))
+                            .border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Device Score", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+                    
+                    Spacer(modifier = Modifier.width(20.dp))
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .border(1.5.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(2.dp))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Baseline (SD778G = 500)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "The blue area shows your device's relative score in each category. The gray outline represents a standard reference baseline (500 pts). A larger blue area signifies higher overall capability.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                
                 Text(
                     text = stringResource(R.string.bench_nearest_device, state.nearestReferenceDevice.deviceName, state.nearestReferenceDevice.soc),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -594,9 +632,13 @@ fun CompleteScreen(
             modifier = Modifier.fillMaxWidth()
         )
         
+        val expandedStates = remember { mutableStateMapOf<BenchmarkPillar, Boolean>() }
+        
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             state.result.pillarScores.forEach { pillarScore ->
+                val isExpanded = expandedStates[pillarScore.pillar] ?: false
                 Card(
+                    onClick = { expandedStates[pillarScore.pillar] = !isExpanded },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
@@ -607,11 +649,21 @@ fun CompleteScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = stringResource(pillarScore.pillar.displayNameRes),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = stringResource(pillarScore.pillar.displayNameRes),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                             Text(
                                 text = "${pillarScore.score} pts",
                                 style = MaterialTheme.typography.titleMedium,
@@ -619,25 +671,57 @@ fun CompleteScreen(
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
-                        if (pillarScore.subScores.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            pillarScore.subScores.forEach { sub ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = sub.name,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = "${String.format(Locale.US, "%.1f", sub.rawValue)} ${sub.unit} (${sub.score} pts)",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium
-                                    )
+                        if (isExpanded && pillarScore.subScores.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(start = 8.dp)
+                            ) {
+                                pillarScore.subScores.forEach { sub ->
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
+                                        ),
+                                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                text = sub.name,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "${String.format(Locale.US, "%.1f", sub.rawValue)} ${sub.unit}",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                                                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                                                ) {
+                                                    Text(
+                                                        text = "${sub.score} pts",
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

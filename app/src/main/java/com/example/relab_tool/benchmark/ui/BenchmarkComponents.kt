@@ -21,6 +21,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -71,20 +73,47 @@ fun TierBadge(tier: ScoreTier) {
     }
 }
 
+data class RadarChartLabelEntry(
+    val entry: RadarChartEntry,
+    val label: String
+)
+
 @Composable
 fun RadarChartView(
     pillarScores: List<PillarScore>,
     modifier: Modifier = Modifier
 ) {
-    val entries = remember(pillarScores) { RadarChartData.fromPillarScores(pillarScores) }
+    val context = LocalContext.current
+    val entriesWithLabels = remember(pillarScores) {
+        RadarChartData.fromPillarScores(pillarScores).map { entry ->
+            val label = when (entry.pillar) {
+                BenchmarkPillar.CPU_SINGLE_CORE -> "CPU Single"
+                BenchmarkPillar.CPU_MULTI_CORE -> "CPU Multi"
+                BenchmarkPillar.GPU_RENDERING -> "GPU Render"
+                BenchmarkPillar.GAMING_SIMULATION -> "Gaming"
+                BenchmarkPillar.MEMORY -> "Memory"
+                BenchmarkPillar.STORAGE_IO -> "Storage"
+                BenchmarkPillar.AI_ML -> "AI/ML"
+                BenchmarkPillar.UX_SMOOTHNESS -> "UX Smooth"
+                BenchmarkPillar.CODEC_MEDIA -> "Codec"
+                BenchmarkPillar.THERMAL_EFFICIENCY -> "Thermal"
+                BenchmarkPillar.WIFI -> "Wi-Fi"
+                BenchmarkPillar.CELLULAR -> "Cellular"
+                BenchmarkPillar.BROWSER_WEB -> "Browser"
+            }
+            RadarChartLabelEntry(entry, label)
+        }
+    }
     
     val primaryColor = MaterialTheme.colorScheme.primary
     val secondaryColor = MaterialTheme.colorScheme.secondary
     val outlineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+    val textColor = MaterialTheme.colorScheme.onSurface
     
     Canvas(modifier = modifier) {
         val center = Offset(size.width / 2f, size.height / 2f)
-        val maxRadius = (Math.min(size.width, size.height) / 2f) * 0.8f
+        val maxRadius = (Math.min(size.width, size.height) / 2f) * 0.62f
+        val count = entriesWithLabels.size
         
         // 1. Draw 4 circular concentric guidelines (250, 500, 750, 1000 scores)
         for (i in 1..4) {
@@ -97,10 +126,18 @@ fun RadarChartView(
             )
         }
         
-        val angleStep = (2f * Math.PI / 12f).toFloat()
+        if (count == 0) return@Canvas
+        val angleStep = (2f * Math.PI / count).toFloat()
         
-        // 2. Draw 12 spoke lines radiating from center
-        for (i in 0 until 12) {
+        // 2. Draw spoke lines radiating from center & label text
+        val labelPaint = android.graphics.Paint().apply {
+            color = textColor.toArgb()
+            textSize = 9.sp.toPx()
+            isAntiAlias = true
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+        }
+        
+        for (i in 0 until count) {
             val angle = i * angleStep - Math.PI.toFloat() / 2f
             val endX = center.x + maxRadius * cos(angle)
             val endY = center.y + maxRadius * sin(angle)
@@ -110,11 +147,31 @@ fun RadarChartView(
                 end = Offset(endX, endY),
                 strokeWidth = 1.dp.toPx()
             )
+            
+            // Draw Label outside maxRadius
+            val cosVal = cos(angle)
+            val sinVal = sin(angle)
+            val labelRadius = maxRadius + 14.dp.toPx()
+            val labelX = center.x + labelRadius * cosVal
+            val labelY = center.y + labelRadius * sinVal + 3.dp.toPx() // center text vertically
+            
+            labelPaint.textAlign = when {
+                cosVal < -0.2f -> android.graphics.Paint.Align.RIGHT
+                cosVal > 0.2f -> android.graphics.Paint.Align.LEFT
+                else -> android.graphics.Paint.Align.CENTER
+            }
+            
+            drawContext.canvas.nativeCanvas.drawText(
+                entriesWithLabels[i].label,
+                labelX,
+                labelY,
+                labelPaint
+            )
         }
         
-        // 3. Draw Reference Poly (Snapdragon 778G baseline: score 500 on all spokes)
+        // 3. Draw Reference Poly (baseline: score 500 on all spokes)
         val refPath = Path()
-        for (i in 0 until 12) {
+        for (i in 0 until count) {
             val angle = i * angleStep - Math.PI.toFloat() / 2f
             val r = maxRadius * 0.5f // 500 / 1000
             val x = center.x + r * cos(angle)
@@ -130,9 +187,9 @@ fun RadarChartView(
         
         // 4. Draw Device Score Poly
         val devicePath = Path()
-        for (i in 0 until 12) {
+        for (i in 0 until count) {
             val angle = i * angleStep - Math.PI.toFloat() / 2f
-            val scoreFraction = (entries[i].score / 1000f).coerceIn(0f, 1f)
+            val scoreFraction = (entriesWithLabels[i].entry.score / 1000f).coerceIn(0f, 1f)
             val r = maxRadius * scoreFraction
             val x = center.x + r * cos(angle)
             val y = center.y + r * sin(angle)
