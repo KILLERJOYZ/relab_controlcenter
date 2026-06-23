@@ -10,7 +10,7 @@ import com.example.relab_tool.benchmark.scoring.TierClassifier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlin.math.roundToInt
 
@@ -25,7 +25,7 @@ class BenchmarkOrchestrator(
     fun runBenchmark(
         isQuickTest: Boolean,
         includeNetwork: Boolean
-    ): Flow<BenchmarkOrchestratorState> = flow {
+    ): Flow<BenchmarkOrchestratorState> = channelFlow {
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
         
         val pillarsToRun = if (isQuickTest) {
@@ -44,7 +44,7 @@ class BenchmarkOrchestrator(
         
         val completedScores = mutableListOf<PillarScore>()
         
-        emit(BenchmarkOrchestratorState.Running(
+        send(BenchmarkOrchestratorState.Running(
             currentPillar = pillarsToRun[0],
             currentSubTestLabel = "Starting...",
             pillarProgress = 0f,
@@ -65,7 +65,7 @@ class BenchmarkOrchestrator(
                 isThermalPaused = true
                 val curStatus = getThermalStatus(powerManager)
                 val curHeadroom = getThermalHeadroom(powerManager)
-                emit(BenchmarkOrchestratorState.Running(
+                send(BenchmarkOrchestratorState.Running(
                     currentPillar = pillar,
                     currentSubTestLabel = "Thermal Limit Reached. Cooling down device...",
                     pillarProgress = 0f,
@@ -82,7 +82,7 @@ class BenchmarkOrchestrator(
             
             val curStatus = getThermalStatus(powerManager)
             val curHeadroom = getThermalHeadroom(powerManager)
-            emit(BenchmarkOrchestratorState.Running(
+            send(BenchmarkOrchestratorState.Running(
                 currentPillar = pillar,
                 currentSubTestLabel = "Running ${pillar.name}...",
                 pillarProgress = 0f,
@@ -100,7 +100,7 @@ class BenchmarkOrchestrator(
                     engine.run { progress ->
                         val currentStatus = getThermalStatus(powerManager)
                         val currentHeadroom = getThermalHeadroom(powerManager)
-                        emit(BenchmarkOrchestratorState.Running(
+                        send(BenchmarkOrchestratorState.Running(
                             currentPillar = pillar,
                             currentSubTestLabel = "Running ${pillar.name}...",
                             pillarProgress = progress,
@@ -128,7 +128,7 @@ class BenchmarkOrchestrator(
             
             val finalStatus = getThermalStatus(powerManager)
             val finalHeadroom = getThermalHeadroom(powerManager)
-            emit(BenchmarkOrchestratorState.Running(
+            send(BenchmarkOrchestratorState.Running(
                 currentPillar = pillar,
                 currentSubTestLabel = "Completed ${pillar.name}",
                 pillarProgress = 1.0f,
@@ -144,14 +144,14 @@ class BenchmarkOrchestrator(
         }
         
         val finalResult = compileFinalResult(completedScores, isQuickTest)
-        emit(BenchmarkOrchestratorState.Complete(finalResult))
+        send(BenchmarkOrchestratorState.Complete(finalResult))
     }.flowOn(Dispatchers.Default)
 
-    fun runSinglePillar(pillar: BenchmarkPillar): Flow<BenchmarkOrchestratorState> = flow {
+    fun runSinglePillar(pillar: BenchmarkPillar): Flow<BenchmarkOrchestratorState> = channelFlow {
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
         val completedScores = mutableListOf<PillarScore>()
         
-        emit(BenchmarkOrchestratorState.Running(
+        send(BenchmarkOrchestratorState.Running(
             currentPillar = pillar,
             currentSubTestLabel = "Starting...",
             pillarProgress = 0f,
@@ -171,7 +171,7 @@ class BenchmarkOrchestrator(
             isThermalPaused = true
             val curStatus = getThermalStatus(powerManager)
             val curHeadroom = getThermalHeadroom(powerManager)
-            emit(BenchmarkOrchestratorState.Running(
+            send(BenchmarkOrchestratorState.Running(
                 currentPillar = pillar,
                 currentSubTestLabel = "Thermal Limit Reached. Cooling down device...",
                 pillarProgress = 0f,
@@ -188,7 +188,7 @@ class BenchmarkOrchestrator(
         
         val curStatus = getThermalStatus(powerManager)
         val curHeadroom = getThermalHeadroom(powerManager)
-        emit(BenchmarkOrchestratorState.Running(
+        send(BenchmarkOrchestratorState.Running(
             currentPillar = pillar,
             currentSubTestLabel = "Running ${pillar.name}...",
             pillarProgress = 0f,
@@ -206,7 +206,7 @@ class BenchmarkOrchestrator(
                 engine.run { progress ->
                     val cStatus = getThermalStatus(powerManager)
                     val cHeadroom = getThermalHeadroom(powerManager)
-                    emit(BenchmarkOrchestratorState.Running(
+                    send(BenchmarkOrchestratorState.Running(
                         currentPillar = pillar,
                         currentSubTestLabel = "Running ${pillar.name}...",
                         pillarProgress = progress,
@@ -234,7 +234,7 @@ class BenchmarkOrchestrator(
         
         val finalStatus = getThermalStatus(powerManager)
         val finalHeadroom = getThermalHeadroom(powerManager)
-        emit(BenchmarkOrchestratorState.Running(
+        send(BenchmarkOrchestratorState.Running(
             currentPillar = pillar,
             currentSubTestLabel = "Completed ${pillar.name}",
             pillarProgress = 1.0f,
@@ -249,7 +249,7 @@ class BenchmarkOrchestrator(
         delay(200L)
         
         val finalResult = compileFinalResult(completedScores, isQuickTest = false)
-        emit(BenchmarkOrchestratorState.Complete(finalResult))
+        send(BenchmarkOrchestratorState.Complete(finalResult))
     }.flowOn(Dispatchers.Default)
 
     private fun isThermalThrottled(pm: PowerManager?): Boolean {

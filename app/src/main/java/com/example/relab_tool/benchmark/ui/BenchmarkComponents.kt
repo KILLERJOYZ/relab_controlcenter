@@ -213,8 +213,9 @@ fun ThermalStatusChip(status: Int, headroom: Float) {
                     .background(color, CircleShape)
             )
             Spacer(modifier = Modifier.width(6.dp))
+            val headroomText = if (headroom.isNaN()) "" else " (${String.format(Locale.US, "%.2f", headroom)}x)"
             Text(
-                text = "$text (${String.format(Locale.US, "%.2f", headroom)}x)",
+                text = "$text$headroomText",
                 style = MaterialTheme.typography.labelSmall,
                 color = color,
                 fontWeight = FontWeight.Bold
