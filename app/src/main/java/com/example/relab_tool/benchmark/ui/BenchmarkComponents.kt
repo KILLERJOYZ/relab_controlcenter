@@ -86,7 +86,7 @@ fun RadarChartView(
     val context = LocalContext.current
     val entriesWithLabels = remember(pillarScores) {
         RadarChartData.fromPillarScores(pillarScores).map { entry ->
-            val label = when (entry.pillar) {
+            val baseLabel = when (entry.pillar) {
                 BenchmarkPillar.CPU_SINGLE_CORE -> "CPU Single"
                 BenchmarkPillar.CPU_MULTI_CORE -> "CPU Multi"
                 BenchmarkPillar.GPU_RENDERING -> "GPU Render"
@@ -101,7 +101,8 @@ fun RadarChartView(
                 BenchmarkPillar.CELLULAR -> "Cellular"
                 BenchmarkPillar.BROWSER_WEB -> "Browser"
             }
-            RadarChartLabelEntry(entry, label)
+            val scoreStr = if (entry.score > 0) " (${entry.score})" else ""
+            RadarChartLabelEntry(entry, "$baseLabel$scoreStr")
         }
     }
     
@@ -115,6 +116,14 @@ fun RadarChartView(
         val maxRadius = (Math.min(size.width, size.height) / 2f) * 0.62f
         val count = entriesWithLabels.size
         
+        val gridLabelPaint = android.graphics.Paint().apply {
+            color = textColor.copy(alpha = 0.4f).toArgb()
+            textSize = 7.5.sp.toPx()
+            isAntiAlias = true
+            textAlign = android.graphics.Paint.Align.LEFT
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.NORMAL)
+        }
+        
         // 1. Draw 4 circular concentric guidelines (250, 500, 750, 1000 scores)
         for (i in 1..4) {
             val r = maxRadius * (i / 4f)
@@ -123,6 +132,14 @@ fun RadarChartView(
                 radius = r,
                 center = center,
                 style = Stroke(width = 1.dp.toPx())
+            )
+            
+            // Draw scale values (250, 500, 750, 1000) along the top vertical axis, slightly offset to the right
+            drawContext.canvas.nativeCanvas.drawText(
+                (i * 250).toString(),
+                center.x + 6.dp.toPx(),
+                center.y - r + 3.dp.toPx(),
+                gridLabelPaint
             )
         }
         
@@ -153,7 +170,11 @@ fun RadarChartView(
             val sinVal = sin(angle)
             val labelRadius = maxRadius + 14.dp.toPx()
             val labelX = center.x + labelRadius * cosVal
-            val labelY = center.y + labelRadius * sinVal + 3.dp.toPx() // center text vertically
+            val labelY = center.y + labelRadius * sinVal + when {
+                sinVal < -0.8f -> -2.dp.toPx()
+                sinVal > 0.8f -> 7.dp.toPx()
+                else -> 3.dp.toPx()
+            }
             
             labelPaint.textAlign = when {
                 cosVal < -0.2f -> android.graphics.Paint.Align.RIGHT
@@ -535,3 +556,31 @@ fun ConsentCard(
         }
     }
 }
+
+@Composable
+fun getScoreBadgeColors(score: Int): Triple<Color, Color, Color> {
+    val scheme = MaterialTheme.colorScheme
+    return when {
+        score >= 800 -> Triple(
+            scheme.primaryContainer.copy(alpha = 0.5f),
+            scheme.primary,
+            scheme.primary.copy(alpha = 0.4f)
+        )
+        score >= 500 -> Triple(
+            scheme.secondaryContainer.copy(alpha = 0.5f),
+            scheme.secondary,
+            scheme.secondary.copy(alpha = 0.4f)
+        )
+        score >= 300 -> Triple(
+            scheme.tertiaryContainer.copy(alpha = 0.5f),
+            scheme.tertiary,
+            scheme.tertiary.copy(alpha = 0.4f)
+        )
+        else -> Triple(
+            scheme.errorContainer.copy(alpha = 0.5f),
+            scheme.error,
+            scheme.error.copy(alpha = 0.4f)
+        )
+    }
+}
+

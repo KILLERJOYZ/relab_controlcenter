@@ -576,8 +576,9 @@ fun CompleteScreen(
                 RadarChartView(
                     pillarScores = state.result.pillarScores,
                     modifier = Modifier
-                        .size(260.dp)
-                        .padding(12.dp)
+                        .fillMaxWidth()
+                        .height(280.dp)
+                        .padding(horizontal = 8.dp, vertical = 12.dp)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 
@@ -678,6 +679,12 @@ fun CompleteScreen(
                                 modifier = Modifier.padding(start = 8.dp)
                             ) {
                                 pillarScore.subScores.forEach { sub ->
+                                    val (badgeBg, badgeText, badgeBorder) = getScoreBadgeColors(sub.score)
+                                    val formattedVal = if (sub.rawValue % 1.0 == 0.0) {
+                                        String.format(Locale.US, "%,.0f", sub.rawValue)
+                                    } else {
+                                        String.format(Locale.US, "%,.1f", sub.rawValue)
+                                    }
                                     Card(
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(12.dp),
@@ -702,20 +709,20 @@ fun CompleteScreen(
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Text(
-                                                    text = "${String.format(Locale.US, "%.1f", sub.rawValue)} ${sub.unit}",
+                                                    text = "$formattedVal ${sub.unit}",
                                                     style = MaterialTheme.typography.bodyMedium,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                                 Surface(
                                                     shape = RoundedCornerShape(8.dp),
-                                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                                                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                                                    color = badgeBg,
+                                                    border = BorderStroke(0.5.dp, badgeBorder)
                                                 ) {
                                                     Text(
                                                         text = "${sub.score} pts",
                                                         style = MaterialTheme.typography.labelMedium,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = MaterialTheme.colorScheme.primary,
+                                                        color = badgeText,
                                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                                     )
                                                 }
