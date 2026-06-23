@@ -198,11 +198,11 @@ class BenchmarkOrchestrator(
         }
         
         val hardwareScore = if (hardwareWeightSum > 0) {
-            (hardwareScoreSum / hardwareWeightSum * 880.0).roundToInt()
+            (hardwareScoreSum / hardwareWeightSum * 88.0).roundToInt()
         } else 0
         
         val connectivityScore = if (connectivityWeightSum > 0) {
-            (connectivityScoreSum / connectivityWeightSum * 120.0).roundToInt()
+            (connectivityScoreSum / connectivityWeightSum * 12.0).roundToInt()
         } else 0
         
         val totalScore = hardwareScore + connectivityScore

@@ -1568,6 +1568,15 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                 cpuGovernor = getCpuGovernor()
             )
 
+            // Load clusters list early for CPU Core Frequency Dashboard Card fallback
+            val clustersList = getClustersList()
+            _socInfo.value = SocInfo(
+                cpuClusters = clustersList,
+                processor = SoCUtils.getCommercialName(context),
+                cores = Runtime.getRuntime().availableProcessors().toString()
+            )
+
+
             // Display Info — reuse displayManager declared above (already fetched via DisplayService)
             val display = displayManager.getDisplay(Display.DEFAULT_DISPLAY)
             val currentRefreshRate = display?.refreshRate ?: 60f
@@ -3696,7 +3705,17 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
 
             cpuFiles.forEach { file ->
                 try {
-                    val maxFreq = File(file, "cpufreq/cpuinfo_max_freq").readText().trim().toLong()
+                    val maxFreq = try {
+                        val f = File(file, "cpufreq/cpuinfo_max_freq")
+                        if (f.exists()) {
+                            f.readText().trim().toLong()
+                        } else {
+                            val f2 = File(file, "cpufreq/scaling_max_freq")
+                            if (f2.exists()) f2.readText().trim().toLong() else 2000000L
+                        }
+                    } catch (e: Exception) {
+                        2000000L
+                    }
                     
                     var implementer = ""
                     var part = ""
@@ -3709,34 +3728,52 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                         }
                     } catch (e: Exception) {}
 
-                    val cpuId = file.name.substring(3).toInt()
-                    RandomAccessFile("/proc/cpuinfo", "r").use { reader ->
-                        var line: String?
-                        var currentProc = -1
-                        while (reader.readLine().also { line = it } != null) {
-                            if (line?.startsWith("processor") == true) {
-                                currentProc = line!!.split(":")[1].trim().toInt()
+                    try {
+                        val cpuId = file.name.substring(3).toIntOrNull()
+                        if (cpuId != null) {
+                            RandomAccessFile("/proc/cpuinfo", "r").use { reader ->
+                                var line: String?
+                                var currentProc = -1
+                                while (reader.readLine().also { line = it } != null) {
+                                    if (line?.startsWith("processor") == true) {
+                                        val parts = line!!.split(":")
+                                        if (parts.size > 1) {
+                                            currentProc = parts[1].trim().toIntOrNull() ?: -1
+                                        }
+                                    }
+                                    if (currentProc == cpuId) {
+                                        if (line?.contains("CPU implementer") == true) {
+                                            val parts = line!!.split(":")
+                                            if (parts.size > 1) implementer = parts[1].trim()
+                                        }
+                                        if (line?.contains("CPU part") == true) {
+                                            val parts = line!!.split(":")
+                                            if (parts.size > 1) part = parts[1].trim()
+                                        }
+                                    }
+                                    if (implementer.isNotEmpty() && part.isNotEmpty() && currentProc == cpuId) break
+                                }
                             }
-                            if (currentProc == cpuId) {
-                                if (line?.contains("CPU implementer") == true) implementer = line!!.split(":")[1].trim()
-                                if (line?.contains("CPU part") == true) part = line!!.split(":")[1].trim()
-                            }
-                            if (implementer.isNotEmpty() && part.isNotEmpty() && currentProc == cpuId) break
                         }
-                    }
+                    } catch (e: Exception) {}
 
                     val identity = CoreIdentity(implementer, part, maxFreq, capacity)
                     groups.getOrPut(identity) { mutableListOf() }.add(file)
                 } catch (e: Exception) {}
             }
             
-            if (groups.isEmpty()) return emptyList()
-            
-            val sortedClusters = groups.entries.sortedWith(
-                compareByDescending<Map.Entry<CoreIdentity, MutableList<File>>> { it.key.maxFreq }
-                .thenByDescending { it.key.capacity }
-                .thenByDescending { it.value.size }
-            )
+            val sortedClusters = if (groups.isEmpty()) {
+                val coreCount = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+                val dummyFiles = (0 until coreCount).map { File(cpuDir, "cpu$it") }
+                val identity = CoreIdentity("", "", 2000000L, 0L)
+                listOf(java.util.AbstractMap.SimpleEntry(identity, dummyFiles.toMutableList()))
+            } else {
+                groups.entries.sortedWith(
+                    compareByDescending<Map.Entry<CoreIdentity, MutableList<File>>> { it.key.maxFreq }
+                    .thenByDescending { it.key.capacity }
+                    .thenByDescending { it.value.size }
+                )
+            }
 
             sortedClusters.mapIndexed { index, entry ->
                 val identity = entry.key
@@ -3744,7 +3781,16 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                 
                 var minFreq = getApplication<Application>().getString(R.string.unknown)
                 try {
-                    val min = File(cores.first(), "cpufreq/cpuinfo_min_freq").readText().trim().toLong() / 1000
+                    val min = try {
+                        val f = File(cores.first(), "cpufreq/cpuinfo_min_freq")
+                        if (f.exists()) f.readText().trim().toLong() / 1000
+                        else {
+                            val f2 = File(cores.first(), "cpufreq/scaling_min_freq")
+                            if (f2.exists()) f2.readText().trim().toLong() / 1000 else 300L
+                        }
+                    } catch (e: Exception) {
+                        300L
+                    }
                     minFreq = "$min MHz"
                 } catch (e: Exception) {}
 
@@ -3786,7 +3832,19 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                 )
             }
         } catch (e: Exception) {
-            emptyList()
+            val coreCount = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+            val indices = (0 until coreCount).toList()
+            listOf(
+                CpuCluster(
+                    id = 0,
+                    name = "Core",
+                    architecture = "Cortex",
+                    coreCount = coreCount,
+                    minFreq = "N/A",
+                    maxFreq = "N/A",
+                    coreIndices = indices
+                )
+            )
         }
     }
 
