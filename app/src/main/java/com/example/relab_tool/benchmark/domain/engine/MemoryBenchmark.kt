@@ -25,102 +25,102 @@ class MemoryBenchmark(private val context: Context) : BenchmarkEngine {
         
         // 1. Sequential Write BW
         onProgress(0.00f)
-        val seqWriteVal = runSeqWriteBw(size, isLowMem)
+        val seqWriteVal = BenchmarkHarness.medianOfThreeLight { runSeqWriteBw(size, isLowMem) }
         list.add(SubScore("Sequential Write BW", seqWriteVal, "GB/s", ScoreNormalizer.normalize(seqWriteVal, 10.0, 50.0, false), isLowMem))
         
         // 2. Sequential Read BW
         onProgress(0.05f)
-        val seqReadVal = runSeqReadBw(size, isLowMem)
+        val seqReadVal = BenchmarkHarness.medianOfThreeLight { runSeqReadBw(size, isLowMem) }
         list.add(SubScore("Sequential Read BW", seqReadVal, "GB/s", ScoreNormalizer.normalize(seqReadVal, 15.0, 75.0, false), isLowMem))
         
         // 3. Streaming Copy
         onProgress(0.10f)
-        val streamCopyVal = runStreamingCopy(size, isLowMem)
+        val streamCopyVal = BenchmarkHarness.medianOfThreeLight { runStreamingCopy(size, isLowMem) }
         list.add(SubScore("Streaming Copy", streamCopyVal, "GB/s", ScoreNormalizer.normalize(streamCopyVal, 8.0, 40.0, false), isLowMem))
         
         // 4. Reverse Sequential Read
         onProgress(0.15f)
-        val revSeqReadVal = runReverseSeqRead(size, isLowMem)
+        val revSeqReadVal = BenchmarkHarness.medianOfThreeLight { runReverseSeqRead(size, isLowMem) }
         list.add(SubScore("Reverse Sequential Read", revSeqReadVal, "GB/s", ScoreNormalizer.normalize(revSeqReadVal, 10.0, 50.0, false), isLowMem))
         
         // 5. Random Pointer Chase (DRAM)
         onProgress(0.20f)
-        val dramLatency = runRandomPointerChase(1024 * 1024)
+        val dramLatency = BenchmarkHarness.medianOfThreeLight { runRandomPointerChase(1024 * 1024) }
         list.add(SubScore("DRAM Random Latency", dramLatency, "ns", ScoreNormalizer.normalize(dramLatency, 100.0, 20.0, true), false))
         
-        // 6. Stride-1 Latency (L1 Cache)
+        // 6. L1 Cache Latency (8KB = 2048 ints — fits in 32KB L1D)
         onProgress(0.25f)
-        val l1Latency = runRandomPointerChase(1024) // 4KB
-        list.add(SubScore("L1 Cache Latency", l1Latency, "ns", ScoreNormalizer.normalize(l1Latency, 3.0, 0.5, true), false))
+        val l1Latency = BenchmarkHarness.medianOfThreeLight { runRandomPointerChase(2048) }
+        list.add(SubScore("L1 Cache Latency", l1Latency, "ns", ScoreNormalizer.normalize(l1Latency, 2.5, 1.0, true), false))
         
-        // 7. Stride-16 Latency (L2 Cache)
+        // 7. L2 Cache Latency (256KB = 65536 ints — spills L1, fits L2)
         onProgress(0.30f)
-        val l2Latency = runRandomPointerChase(64 * 1024 / 4) // 64KB
-        list.add(SubScore("L2 Cache Latency", l2Latency, "ns", ScoreNormalizer.normalize(l2Latency, 10.0, 2.0, true), false))
+        val l2Latency = BenchmarkHarness.medianOfThreeLight { runRandomPointerChase(65536) }
+        list.add(SubScore("L2 Cache Latency", l2Latency, "ns", ScoreNormalizer.normalize(l2Latency, 8.0, 3.0, true), false))
         
-        // 8. Stride-256 Latency (L3 Cache)
+        // 8. L3/LLC Cache Latency (4MB = 1048576 ints — spills L2, exercises L3/DRAM boundary)
         onProgress(0.35f)
-        val l3Latency = runRandomPointerChase(512 * 1024 / 4) // 512KB
-        list.add(SubScore("L3 Cache Latency", l3Latency, "ns", ScoreNormalizer.normalize(l3Latency, 25.0, 5.0, true), false))
+        val l3Latency = BenchmarkHarness.medianOfThreeLight { runRandomPointerChase(1048576) }
+        list.add(SubScore("L3 Cache Latency", l3Latency, "ns", ScoreNormalizer.normalize(l3Latency, 30.0, 8.0, true), false))
         
         // 9. Cache Hierarchy Sweep
         onProgress(0.40f)
-        val cacheSweepVal = runCacheSweep()
+        val cacheSweepVal = BenchmarkHarness.medianOfThreeLight { runCacheSweep() }
         list.add(SubScore("Cache Sweep Throughput", cacheSweepVal, "M-ops/s", ScoreNormalizer.normalize(cacheSweepVal, 50.0, 250.0, false), false))
         
         // 10. Allocation Pressure (Large)
         onProgress(0.45f)
-        val largeAllocVal = runLargeAllocations(isLowMem)
+        val largeAllocVal = BenchmarkHarness.medianOfThreeLight { runLargeAllocations(isLowMem) }
         list.add(SubScore("Large Block Alloc Speed", largeAllocVal, "allocs/s", ScoreNormalizer.normalize(largeAllocVal, 100.0, 500.0, false), false))
         
         // 11. Allocation Pressure (Small)
         onProgress(0.50f)
-        val smallAllocVal = runSmallAllocations()
+        val smallAllocVal = BenchmarkHarness.medianOfThreeLight { runSmallAllocations() }
         list.add(SubScore("Small Block Alloc Speed", smallAllocVal, "k-allocs/s", ScoreNormalizer.normalize(smallAllocVal, 50.0, 250.0, false), false))
         
-        // 12. GC Stress Test
+        // 12. GC Stress Test (measures ART runtime behavior, not pure hardware)
         onProgress(0.55f)
-        val gcStressVal = runGCStress()
-        list.add(SubScore("GC Pause Index", gcStressVal, "ms", ScoreNormalizer.normalize(gcStressVal, 50.0, 2.0, true), false))
+        val gcStressVal = BenchmarkHarness.medianOfThreeLight { runGCStress() }
+        list.add(SubScore("GC Pause Index (Runtime)", gcStressVal, "ms", ScoreNormalizer.normalize(gcStressVal, 50.0, 2.0, true), true))
         
         // 13. Memory Fill Pattern
         onProgress(0.60f)
-        val fillPatternVal = runMemoryFillPattern(size, isLowMem)
+        val fillPatternVal = BenchmarkHarness.medianOfThreeLight { runMemoryFillPattern(size, isLowMem) }
         list.add(SubScore("Memory Integrity Fill", fillPatternVal, "GB/s", ScoreNormalizer.normalize(fillPatternVal, 5.0, 25.0, false), isLowMem))
         
         // 14. Array.copyOf Speed
         onProgress(0.65f)
-        val arrayCopyVal = runArrayCopyOfSpeed(size / 4, isLowMem)
+        val arrayCopyVal = BenchmarkHarness.medianOfThreeLight { runArrayCopyOfSpeed(size / 4, isLowMem) }
         list.add(SubScore("Array copyOf Speed", arrayCopyVal, "GB/s", ScoreNormalizer.normalize(arrayCopyVal, 8.0, 40.0, false), isLowMem))
         
         // 15. Object Array Allocation
         onProgress(0.70f)
-        val objArrayVal = runObjectArrayAllocation()
+        val objArrayVal = BenchmarkHarness.medianOfThreeLight { runObjectArrayAllocation() }
         list.add(SubScore("Object Array Alloc Speed", objArrayVal, "k-allocs/s", ScoreNormalizer.normalize(objArrayVal, 10.0, 50.0, false), false))
         
         // 16. ByteBuffer Throughput
         onProgress(0.75f)
-        val byteBufVal = runByteBufferThroughput(size, isLowMem)
+        val byteBufVal = BenchmarkHarness.medianOfThreeLight { runByteBufferThroughput(size, isLowMem) }
         list.add(SubScore("ByteBuffer Direct Throughput", byteBufVal, "GB/s", ScoreNormalizer.normalize(byteBufVal, 10.0, 50.0, false), isLowMem))
         
         // 17. Memory Fragmentation
         onProgress(0.80f)
-        val fragVal = runFragmentationStress()
+        val fragVal = BenchmarkHarness.medianOfThreeLight { runFragmentationStress() }
         list.add(SubScore("Heap Fragmentation Cost", fragVal, "ms", ScoreNormalizer.normalize(fragVal, 100.0, 10.0, true), false))
         
         // 18. Concurrent Allocation
         onProgress(0.85f)
-        val concurrentAllocVal = runConcurrentAllocations()
+        val concurrentAllocVal = BenchmarkHarness.medianOfThreeLight { runConcurrentAllocations() }
         list.add(SubScore("Concurrent Alloc Speed", concurrentAllocVal, "k-allocs/s", ScoreNormalizer.normalize(concurrentAllocVal, 20.0, 100.0, false), false))
         
-        // 19. Bandwidth Under CPU Load
+        // 19. Bandwidth Under CPU Load (real concurrent stress)
         onProgress(0.90f)
-        val loadBwVal = runSeqWriteBw(size / 2, isLowMem) * 0.85 // simulated load factor
-        list.add(SubScore("Bandwidth Under Load", loadBwVal, "GB/s", ScoreNormalizer.normalize(loadBwVal, 8.0, 40.0, false), isLowMem))
+        val loadBwVal = BenchmarkHarness.medianOfThreeLight { runBandwidthUnderCpuLoad(size / 2, isLowMem) }
+        list.add(SubScore("Bandwidth Under Load", loadBwVal, "GB/s", ScoreNormalizer.normalize(loadBwVal, 5.0, 30.0, false), isLowMem))
         
         // 20. Page Fault Stress
         onProgress(0.95f)
-        val pageFaultVal = runPageFaultStress(isLowMem)
+        val pageFaultVal = BenchmarkHarness.medianOfThreeLight { runPageFaultStress(isLowMem) }
         list.add(SubScore("Page Fault Latency Cost", pageFaultVal, "ms", ScoreNormalizer.normalize(pageFaultVal, 50.0, 5.0, true), isLowMem))
 
         onProgress(1.00f)
@@ -406,6 +406,56 @@ class MemoryBenchmark(private val context: Context) : BenchmarkEngine {
             elapsed
         } catch (e: OutOfMemoryError) {
             100.0
+        }
+    }
+    /**
+     * Measures memory bandwidth while CPU cores are under load.
+     * Spawns background CPU stress threads to create realistic contention,
+     * then measures sequential write bandwidth under that load.
+     */
+    private fun runBandwidthUnderCpuLoad(size: Int, isLowMem: Boolean): Double {
+        return try {
+            val cores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+            val cpuRunning = java.util.concurrent.atomic.AtomicBoolean(true)
+            val cpuThreads = mutableListOf<Thread>()
+            
+            // Spawn CPU stress on all cores
+            for (c in 0 until cores) {
+                val t = Thread {
+                    var x = 0L
+                    while (cpuRunning.get()) {
+                        for (i in 0 until 10000) {
+                            x = x xor (i.toLong() shl 3)
+                            x = x or (x ushr 5)
+                        }
+                        BenchmarkHarness.consume(x)
+                    }
+                }
+                t.priority = Thread.MAX_PRIORITY
+                t.start()
+                cpuThreads.add(t)
+            }
+            
+            // Give CPU stress 50ms to saturate cores
+            Thread.sleep(50)
+            
+            // Now measure memory bandwidth under load
+            val arr = ByteArray(size)
+            val passes = if (isLowMem) 3 else 6
+            val startTime = System.nanoTime()
+            for (p in 0 until passes) {
+                arr.fill(0xFF.toByte())
+            }
+            val elapsed = (System.nanoTime() - startTime) / 1e9
+            
+            // Stop CPU stress
+            cpuRunning.set(false)
+            cpuThreads.forEach { it.join(100) }
+            
+            val totalBytes = size.toDouble() * passes
+            totalBytes / (1024.0 * 1024.0 * 1024.0) / elapsed
+        } catch (e: OutOfMemoryError) {
+            0.0
         }
     }
 }

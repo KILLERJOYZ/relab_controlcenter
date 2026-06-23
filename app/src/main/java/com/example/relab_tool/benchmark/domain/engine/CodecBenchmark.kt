@@ -91,37 +91,37 @@ class CodecBenchmark : BenchmarkEngine {
 
         // 14. JPEG Decode Speed
         onProgress(0.65f)
-        val jpegDecSpeed = runImageCodec("jpeg", true)
+        val jpegDecSpeed = BenchmarkHarness.medianOfThree { runImageCodec("jpeg", true) }
         list.add(SubScore("JPEG Decode Speed", jpegDecSpeed, "imgs/s", ScoreNormalizer.normalize(jpegDecSpeed, 15.0, 60.0, false)))
 
         // 15. JPEG Encode Speed
         onProgress(0.70f)
-        val jpegEncSpeed = runImageCodec("jpeg", false)
+        val jpegEncSpeed = BenchmarkHarness.medianOfThree { runImageCodec("jpeg", false) }
         list.add(SubScore("JPEG Encode Speed", jpegEncSpeed, "imgs/s", ScoreNormalizer.normalize(jpegEncSpeed, 10.0, 40.0, false)))
 
         // 16. PNG Decode Speed
         onProgress(0.75f)
-        val pngDecSpeed = runImageCodec("png", true)
+        val pngDecSpeed = BenchmarkHarness.medianOfThree { runImageCodec("png", true) }
         list.add(SubScore("PNG Decode Speed", pngDecSpeed, "imgs/s", ScoreNormalizer.normalize(pngDecSpeed, 10.0, 40.0, false)))
 
         // 17. PNG Encode Speed
         onProgress(0.80f)
-        val pngEncSpeed = runImageCodec("png", false)
+        val pngEncSpeed = BenchmarkHarness.medianOfThree { runImageCodec("png", false) }
         list.add(SubScore("PNG Encode Speed", pngEncSpeed, "imgs/s", ScoreNormalizer.normalize(pngEncSpeed, 5.0, 20.0, false)))
 
         // 18. WebP Decode Speed
         onProgress(0.85f)
-        val webpDecSpeed = runImageCodec("webp", true)
+        val webpDecSpeed = BenchmarkHarness.medianOfThree { runImageCodec("webp", true) }
         list.add(SubScore("WebP Decode Speed", webpDecSpeed, "imgs/s", ScoreNormalizer.normalize(webpDecSpeed, 12.0, 48.0, false)))
 
         // 19. WebP Encode Speed
         onProgress(0.90f)
-        val webpEncSpeed = runImageCodec("webp", false)
+        val webpEncSpeed = BenchmarkHarness.medianOfThree { runImageCodec("webp", false) }
         list.add(SubScore("WebP Encode Speed", webpEncSpeed, "imgs/s", ScoreNormalizer.normalize(webpEncSpeed, 8.0, 32.0, false)))
 
         // 20. Image Transcode (JPEG->PNG)
         onProgress(0.95f)
-        val transcodeSpeed = runImageTranscode()
+        val transcodeSpeed = BenchmarkHarness.medianOfThree { runImageTranscode() }
         list.add(SubScore("Image Transcode (JPG->PNG)", transcodeSpeed, "imgs/s", ScoreNormalizer.normalize(transcodeSpeed, 5.0, 25.0, false)))
 
         onProgress(1.00f)
@@ -143,19 +143,20 @@ class CodecBenchmark : BenchmarkEngine {
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             encoder.start()
             
-            val inputBuffers = encoder.inputBuffers
             val bufferInfo = MediaCodec.BufferInfo()
             
             val start = System.nanoTime()
             var frames = 0
             val dummyYuv = ByteArray(width * height * 3 / 2)
+            // Fill with pseudo-random data for realistic frame complexity
+            java.util.Random(42).nextBytes(dummyYuv)
             
             for (i in 0 until framesCount) {
                 val inputIndex = encoder.dequeueInputBuffer(5000)
                 if (inputIndex >= 0) {
-                    val buffer = inputBuffers[inputIndex]
-                    buffer.clear()
-                    buffer.put(dummyYuv)
+                    val buffer = encoder.getInputBuffer(inputIndex)
+                    buffer?.clear()
+                    buffer?.put(dummyYuv, 0, dummyYuv.size.coerceAtMost(buffer.remaining()))
                     encoder.queueInputBuffer(inputIndex, 0, dummyYuv.size, i * 33333L, 0)
                 }
                 val outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 5000)
@@ -178,36 +179,116 @@ class CodecBenchmark : BenchmarkEngine {
 
     private fun runVideoDecode(mime: String, width: Int, height: Int, framesCount: Int): CodecResult {
         return try {
-            val format = MediaFormat.createVideoFormat(mime, width, height)
-            val decoder = MediaCodec.createDecoderByType(mime)
-            decoder.configure(format, null, null, 0)
-            decoder.start()
-            
-            val inputBuffers = decoder.inputBuffers
+            // Round-trip: encode dummy frames to get valid compressed bitstream, then decode
+            val encodedChunks = mutableListOf<ByteArray>()
+            val encodedTimestamps = mutableListOf<Long>()
+
+            // Step 1: Encode to produce valid compressed data
+            val encFormat = MediaFormat.createVideoFormat(mime, width, height).apply {
+                setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)
+                setInteger(MediaFormat.KEY_BIT_RATE, if (width >= 3840) 15000000 else if (width >= 1920) 8000000 else 3000000)
+                setInteger(MediaFormat.KEY_FRAME_RATE, 30)
+                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+            }
+            val encoder = MediaCodec.createEncoderByType(mime)
+            encoder.configure(encFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            encoder.start()
+
             val bufferInfo = MediaCodec.BufferInfo()
-            
-            val start = System.nanoTime()
-            var frames = 0
-            
-            val inputIndex = decoder.dequeueInputBuffer(5000)
-            if (inputIndex >= 0) {
-                val buffer = inputBuffers[inputIndex]
-                buffer.clear()
-                buffer.put(byteArrayOf(0, 0, 0, 1, 9, 16))
-                decoder.queueInputBuffer(inputIndex, 0, 6, 0, 0)
+            val dummyYuv = ByteArray(width * height * 3 / 2)
+            // Fill with pseudo-random data for realistic encoded frame sizes
+            java.util.Random(42).nextBytes(dummyYuv)
+            val framesToEncode = framesCount.coerceAtMost(10) // Limit to 10 frames for speed
+
+            for (i in 0 until framesToEncode) {
+                val inputIndex = encoder.dequeueInputBuffer(5000)
+                if (inputIndex >= 0) {
+                    val buffer = encoder.getInputBuffer(inputIndex)
+                    buffer?.clear()
+                    buffer?.put(dummyYuv, 0, dummyYuv.size.coerceAtMost(buffer.remaining()))
+                    encoder.queueInputBuffer(inputIndex, 0, dummyYuv.size, i * 33333L, 0)
+                }
+                var outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 5000)
+                while (outputIndex >= 0) {
+                    val outBuf = encoder.getOutputBuffer(outputIndex)
+                    if (outBuf != null && bufferInfo.size > 0) {
+                        val chunk = ByteArray(bufferInfo.size)
+                        outBuf.get(chunk)
+                        encodedChunks.add(chunk)
+                        encodedTimestamps.add(bufferInfo.presentationTimeUs)
+                    }
+                    encoder.releaseOutputBuffer(outputIndex, false)
+                    outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 0)
+                }
             }
-            
-            val outputIndex = decoder.dequeueOutputBuffer(bufferInfo, 5000)
-            if (outputIndex >= 0) {
-                decoder.releaseOutputBuffer(outputIndex, false)
-                frames++
+            // Signal end of input
+            val eosIdx = encoder.dequeueInputBuffer(5000)
+            if (eosIdx >= 0) {
+                encoder.queueInputBuffer(eosIdx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
             }
-            
+            // Drain remaining output
+            var outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 5000)
+            while (outputIndex >= 0 || (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) == 0) {
+                if (outputIndex >= 0) {
+                    val outBuf = encoder.getOutputBuffer(outputIndex)
+                    if (outBuf != null && bufferInfo.size > 0) {
+                        val chunk = ByteArray(bufferInfo.size)
+                        outBuf.get(chunk)
+                        encodedChunks.add(chunk)
+                        encodedTimestamps.add(bufferInfo.presentationTimeUs)
+                    }
+                    encoder.releaseOutputBuffer(outputIndex, false)
+                    if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) break
+                }
+                outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 2000)
+            }
+            encoder.stop()
+            encoder.release()
+
+            if (encodedChunks.isEmpty()) {
+                return CodecResult(0.0, true) // No frames encoded
+            }
+
+            // Step 2: Decode the encoded data and measure throughput
+            val decFormat = MediaFormat.createVideoFormat(mime, width, height)
+            val decoder = MediaCodec.createDecoderByType(mime)
+            decoder.configure(decFormat, null, null, 0)
+            decoder.start()
+
+            val decInfo = MediaCodec.BufferInfo()
+            val decStart = System.nanoTime()
+            var decodedFrames = 0
+
+            for (i in encodedChunks.indices) {
+                val inIdx = decoder.dequeueInputBuffer(5000)
+                if (inIdx >= 0) {
+                    val buf = decoder.getInputBuffer(inIdx)
+                    buf?.clear()
+                    buf?.put(encodedChunks[i])
+                    val flags = if (i == encodedChunks.size - 1) MediaCodec.BUFFER_FLAG_END_OF_STREAM else 0
+                    decoder.queueInputBuffer(inIdx, 0, encodedChunks[i].size, encodedTimestamps.getOrElse(i) { 0L }, flags)
+                }
+                val outIdx = decoder.dequeueOutputBuffer(decInfo, 5000)
+                if (outIdx >= 0) {
+                    decoder.releaseOutputBuffer(outIdx, false)
+                    decodedFrames++
+                }
+            }
+            // Drain decoder
+            var drainIdx = decoder.dequeueOutputBuffer(decInfo, 5000)
+            while (drainIdx >= 0) {
+                decoder.releaseOutputBuffer(drainIdx, false)
+                decodedFrames++
+                if ((decInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) break
+                drainIdx = decoder.dequeueOutputBuffer(decInfo, 2000)
+            }
+
             decoder.stop()
             decoder.release()
-            val elapsed = (System.nanoTime() - start) / 1e9
-            val fps = 30.0 / (elapsed + 0.05)
-            CodecResult(fps.coerceIn(10.0, 600.0), false)
+
+            val decElapsed = (System.nanoTime() - decStart) / 1e9
+            val fps = if (decElapsed > 0) decodedFrames.toDouble() / decElapsed else 0.0
+            CodecResult(fps.coerceIn(0.0, 2000.0), decodedFrames == 0)
         } catch (e: Throwable) {
             Log.w(TAG, "Codec not supported for $mime ${width}x${height}", e)
             CodecResult(0.0, true)
@@ -223,15 +304,14 @@ class CodecBenchmark : BenchmarkEngine {
             decoder.configure(format, null, null, 0)
             decoder.start()
             
-            val inputBuffers = decoder.inputBuffers
             val bufferInfo = MediaCodec.BufferInfo()
             val start = System.nanoTime()
             
             val inputIndex = decoder.dequeueInputBuffer(5000)
             if (inputIndex >= 0) {
-                val buffer = inputBuffers[inputIndex]
-                buffer.clear()
-                buffer.put(ByteArray(100))
+                val buffer = decoder.getInputBuffer(inputIndex)
+                buffer?.clear()
+                buffer?.put(ByteArray(100))
                 decoder.queueInputBuffer(inputIndex, 0, 100, 0, 0)
             }
             val outputIndex = decoder.dequeueOutputBuffer(bufferInfo, 5000)
@@ -259,15 +339,14 @@ class CodecBenchmark : BenchmarkEngine {
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             encoder.start()
             
-            val inputBuffers = encoder.inputBuffers
             val bufferInfo = MediaCodec.BufferInfo()
             val start = System.nanoTime()
             
             val inputIndex = encoder.dequeueInputBuffer(5000)
             if (inputIndex >= 0) {
-                val buffer = inputBuffers[inputIndex]
-                buffer.clear()
-                buffer.put(ByteArray(4096))
+                val buffer = encoder.getInputBuffer(inputIndex)
+                buffer?.clear()
+                buffer?.put(ByteArray(4096))
                 encoder.queueInputBuffer(inputIndex, 0, 4096, 0, 0)
             }
             val outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 5000)

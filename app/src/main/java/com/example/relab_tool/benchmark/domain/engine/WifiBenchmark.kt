@@ -46,13 +46,13 @@ class WifiBenchmark(private val context: Context) : BenchmarkEngine {
 
         // 2. Download Speed (25MB)
         onProgress(0.05f)
-        val down25 = if (isAvail) runDownloadSpeed(10_000_000) else 0.0 // scaled down for speed
-        list.add(SubScore("Download Speed (25MB)", down25, "Mbps", ScoreNormalizer.normalize(down25, 80.0, 300.0, false), !isAvail))
+        val down25 = if (isAvail) runDownloadSpeed(10_000_000) else 0.0
+        list.add(SubScore("Download Speed (10MB)", down25, "Mbps", ScoreNormalizer.normalize(down25, 80.0, 300.0, false), !isAvail))
 
         // 3. Download Speed (50MB)
         onProgress(0.10f)
-        val down50 = if (isAvail) runDownloadSpeed(15_000_000) else 0.0 // scaled down
-        list.add(SubScore("Download Speed (50MB)", down50, "Mbps", ScoreNormalizer.normalize(down50, 100.0, 400.0, false), !isAvail))
+        val down50 = if (isAvail) runDownloadSpeed(15_000_000) else 0.0
+        list.add(SubScore("Download Speed (15MB)", down50, "Mbps", ScoreNormalizer.normalize(down50, 100.0, 400.0, false), !isAvail))
 
         // 4. Upload Speed (Loopback)
         onProgress(0.15f)
@@ -147,20 +147,20 @@ class WifiBenchmark(private val context: Context) : BenchmarkEngine {
     private fun runDownloadSpeed(bytes: Int): Double {
         val request = Request.Builder().url("https://speed.cloudflare.com/__down?bytes=$bytes").build()
         try {
-            val start = System.currentTimeMillis()
+            val startNs = System.nanoTime()
             client.newCall(request).execute().use { response ->
                 val body = response.body ?: return 5.0
                 val source = body.source()
                 val buffer = ByteArray(16384)
                 var totalBytes = 0L
-                val timeLimit = 4000L
+                val timeLimitNs = 4_000_000_000L // 4 seconds in nanos
                 while (true) {
                     val read = source.read(buffer)
                     if (read == -1) break
                     totalBytes += read
-                    if (System.currentTimeMillis() - start > timeLimit) break
+                    if (System.nanoTime() - startNs > timeLimitNs) break
                 }
-                val durationSec = (System.currentTimeMillis() - start) / 1000.0
+                val durationSec = (System.nanoTime() - startNs) / 1e9
                 return if (durationSec > 0) (totalBytes * 8.0 / 1e6) / durationSec else 5.0
             }
         } catch (e: Exception) {

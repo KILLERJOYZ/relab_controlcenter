@@ -6,11 +6,11 @@ enum class BenchmarkPillar(
     val weight: Float,
     val displayNameRes: Int
 ) {
-    CPU_SINGLE_CORE(0.12f, R.string.pillar_cpu_single),
+    CPU_SINGLE_CORE(0.13f, R.string.pillar_cpu_single),
     CPU_MULTI_CORE(0.14f, R.string.pillar_cpu_multi),
     GPU_RENDERING(0.16f, R.string.pillar_gpu),
     GAMING_SIMULATION(0.10f, R.string.pillar_gaming_simulation),
-    MEMORY(0.08f, R.string.pillar_memory),
+    MEMORY(0.10f, R.string.pillar_memory),
     STORAGE_IO(0.06f, R.string.pillar_storage),
     AI_ML(0.06f, R.string.pillar_ai_ml),
     UX_SMOOTHNESS(0.05f, R.string.pillar_ux),

@@ -33,52 +33,52 @@ class StorageBenchmark(private val context: Context) : BenchmarkEngine {
             // 1. Sequential Write (256MB - scaled to 64MB for safety/speed)
             onProgress(0.00f)
             val seqWriteVal = runSeqWrite(seqFile, 64 * 1024 * 1024, 8 * 1024 * 1024)
-            list.add(SubScore("Sequential Write (64MB)", seqWriteVal, "MB/s", ScoreNormalizer.normalize(seqWriteVal, 300.0, 1500.0, false)))
+            list.add(SubScore("Sequential Write (64MB)", seqWriteVal, "MB/s", ScoreNormalizer.normalize(seqWriteVal, 100.0, 600.0, false)))
             
             // 2. Sequential Read (256MB - scaled to 64MB)
             onProgress(0.05f)
             val seqReadVal = runSeqRead(seqFile, 8 * 1024 * 1024)
-            list.add(SubScore("Sequential Read (64MB)", seqReadVal, "MB/s", ScoreNormalizer.normalize(seqReadVal, 500.0, 2500.0, false)))
+            list.add(SubScore("Sequential Read (64MB)", seqReadVal, "MB/s", ScoreNormalizer.normalize(seqReadVal, 400.0, 2000.0, false)))
             
             // 3. Sequential Write (64MB, small buf)
             onProgress(0.10f)
             val seqWriteSmallBufVal = runSeqWrite(seqFileSmall, 16 * 1024 * 1024, 4 * 1024)
-            list.add(SubScore("Seq Write (4KB Buffer)", seqWriteSmallBufVal, "MB/s", ScoreNormalizer.normalize(seqWriteSmallBufVal, 100.0, 500.0, false)))
+            list.add(SubScore("Seq Write (4KB Buffer)", seqWriteSmallBufVal, "MB/s", ScoreNormalizer.normalize(seqWriteSmallBufVal, 30.0, 150.0, false)))
             
             // 4. Sequential Read (64MB, small buf)
             onProgress(0.15f)
             val seqReadSmallBufVal = runSeqRead(seqFileSmall, 4 * 1024)
-            list.add(SubScore("Seq Read (4KB Buffer)", seqReadSmallBufVal, "MB/s", ScoreNormalizer.normalize(seqReadSmallBufVal, 200.0, 1000.0, false)))
+            list.add(SubScore("Seq Read (4KB Buffer)", seqReadSmallBufVal, "MB/s", ScoreNormalizer.normalize(seqReadSmallBufVal, 150.0, 800.0, false)))
             
             // 5. Random 4K Write
             onProgress(0.20f)
             val rand4kWriteVal = runRandomWrite(randFile, 8 * 1024 * 1024, 4096, 1000)
-            list.add(SubScore("Random 4K Write", rand4kWriteVal, "IOPS", ScoreNormalizer.normalize(rand4kWriteVal, 15000.0, 60000.0, false)))
+            list.add(SubScore("Random 4K Write", rand4kWriteVal, "IOPS", ScoreNormalizer.normalize(rand4kWriteVal, 5000.0, 30000.0, false)))
             
             // 6. Random 4K Read
             onProgress(0.25f)
             val rand4kReadVal = runRandomRead(randFile, 4096, 1000)
-            list.add(SubScore("Random 4K Read", rand4kReadVal, "IOPS", ScoreNormalizer.normalize(rand4kReadVal, 20000.0, 80000.0, false)))
+            list.add(SubScore("Random 4K Read", rand4kReadVal, "IOPS", ScoreNormalizer.normalize(rand4kReadVal, 15000.0, 60000.0, false)))
             
             // 7. Random 16K Write
             onProgress(0.30f)
             val rand16kWriteVal = runRandomWrite(randFile16K, 8 * 1024 * 1024, 16384, 500)
-            list.add(SubScore("Random 16K Write", rand16kWriteVal, "IOPS", ScoreNormalizer.normalize(rand16kWriteVal, 8000.0, 32000.0, false)))
+            list.add(SubScore("Random 16K Write", rand16kWriteVal, "IOPS", ScoreNormalizer.normalize(rand16kWriteVal, 3000.0, 15000.0, false)))
             
             // 8. Random 16K Read
             onProgress(0.35f)
             val rand16kReadVal = runRandomRead(randFile16K, 16384, 500)
-            list.add(SubScore("Random 16K Read", rand16kReadVal, "IOPS", ScoreNormalizer.normalize(rand16kReadVal, 10000.0, 40000.0, false)))
+            list.add(SubScore("Random 16K Read", rand16kReadVal, "IOPS", ScoreNormalizer.normalize(rand16kReadVal, 8000.0, 35000.0, false)))
             
             // 9. Mixed Random R/W (70/30)
             onProgress(0.40f)
             val mixed7030Val = runMixedRandomRW(mixFile, 8 * 1024 * 1024, 4096, 1000, 0.7)
-            list.add(SubScore("Mixed Random RW (70/30)", mixed7030Val, "IOPS", ScoreNormalizer.normalize(mixed7030Val, 12000.0, 48000.0, false)))
+            list.add(SubScore("Mixed Random RW (70/30)", mixed7030Val, "IOPS", ScoreNormalizer.normalize(mixed7030Val, 8000.0, 35000.0, false)))
             
             // 10. Mixed Random R/W (50/50)
             onProgress(0.45f)
             val mixed5050Val = runMixedRandomRW(mixFile, 8 * 1024 * 1024, 4096, 1000, 0.5)
-            list.add(SubScore("Mixed Random RW (50/50)", mixed5050Val, "IOPS", ScoreNormalizer.normalize(mixed5050Val, 10000.0, 40000.0, false)))
+            list.add(SubScore("Mixed Random RW (50/50)", mixed5050Val, "IOPS", ScoreNormalizer.normalize(mixed5050Val, 6000.0, 30000.0, false)))
             
             // 11. SQLite WAL Commit (single)
             onProgress(0.50f)
@@ -113,17 +113,17 @@ class StorageBenchmark(private val context: Context) : BenchmarkEngine {
             // 17. Append-Only Write
             onProgress(0.80f)
             val appendVal = runAppendOnlyWrite(appendFile)
-            list.add(SubScore("Append-Only Write Speed", appendVal, "MB/s", ScoreNormalizer.normalize(appendVal, 5.0, 25.0, false)))
+            list.add(SubScore("Append-Only Write Speed", appendVal, "MB/s", ScoreNormalizer.normalize(appendVal, 2.0, 12.0, false)))
             
             // 18. File Copy Speed
             onProgress(0.85f)
             val copyVal = runFileCopy(copySrcFile, copyDstFile)
-            list.add(SubScore("File Copy Throughput", copyVal, "MB/s", ScoreNormalizer.normalize(copyVal, 100.0, 500.0, false)))
+            list.add(SubScore("File Copy Throughput", copyVal, "MB/s", ScoreNormalizer.normalize(copyVal, 60.0, 300.0, false)))
             
             // 19. Multi-File Parallel Write
             onProgress(0.90f)
             val parallelWriteVal = runParallelWriteStress(filesDir)
-            list.add(SubScore("Parallel File Writes", parallelWriteVal, "MB/s", ScoreNormalizer.normalize(parallelWriteVal, 150.0, 600.0, false)))
+            list.add(SubScore("Parallel File Writes", parallelWriteVal, "MB/s", ScoreNormalizer.normalize(parallelWriteVal, 80.0, 400.0, false)))
             
             // 20. Temp File Throughput
             onProgress(0.95f)
@@ -150,13 +150,15 @@ class StorageBenchmark(private val context: Context) : BenchmarkEngine {
         return try {
             val buffer = ByteArray(bufferSize) { 0xAA.toByte() }
             val startTime = System.nanoTime()
-            val out = BufferedOutputStream(FileOutputStream(file), bufferSize)
+            val fos = FileOutputStream(file)
+            val out = BufferedOutputStream(fos, bufferSize)
             var written = 0
             while (written < size) {
                 out.write(buffer)
                 written += bufferSize
             }
             out.flush()
+            fos.fd.sync() // fsync: ensure data is flushed to storage, not just page cache
             out.close()
             val elapsed = (System.nanoTime() - startTime) / 1e9
             (size.toDouble() / (1024.0 * 1024.0)) / elapsed

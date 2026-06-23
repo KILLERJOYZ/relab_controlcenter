@@ -148,20 +148,20 @@ class CellularBenchmark(private val context: Context) : BenchmarkEngine {
     private fun runDownloadSpeed(bytes: Int): Double {
         val request = Request.Builder().url("https://speed.cloudflare.com/__down?bytes=$bytes").build()
         try {
-            val start = System.currentTimeMillis()
+            val startNs = System.nanoTime()
             client.newCall(request).execute().use { response ->
                 val body = response.body ?: return 2.0
                 val source = body.source()
                 val buffer = ByteArray(16384)
                 var totalBytes = 0L
-                val timeLimit = 4000L
+                val timeLimitNs = 4_000_000_000L // 4 seconds in nanos
                 while (true) {
                     val read = source.read(buffer)
                     if (read == -1) break
                     totalBytes += read
-                    if (System.currentTimeMillis() - start > timeLimit) break
+                    if (System.nanoTime() - startNs > timeLimitNs) break
                 }
-                val durationSec = (System.currentTimeMillis() - start) / 1000.0
+                val durationSec = (System.nanoTime() - startNs) / 1e9
                 return if (durationSec > 0) (totalBytes * 8.0 / 1e6) / durationSec else 2.0
             }
         } catch (e: Exception) {

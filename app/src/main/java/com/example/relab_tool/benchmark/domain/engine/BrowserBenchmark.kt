@@ -40,103 +40,103 @@ class BrowserBenchmark(private val context: Context) : BenchmarkEngine {
 
         // 1. HTML Parse Speed
         onProgress(0.00f)
-        val parseSpeed = runHtmlParseTest()
+        val parseSpeed = BenchmarkHarness.medianOfThree { runHtmlParseTest() }
         list.add(SubScore("HTML Parse Speed", parseSpeed, "KB/s", ScoreNormalizer.normalize(parseSpeed, 8000.0, 32000.0, false)))
         
         // 2. Asset Parallel Fetch
         onProgress(0.05f)
-        val fetchDurationMs = if (isOnline) runAssetParallelFetch() else 500.0
+        val fetchDurationMs = if (isOnline) BenchmarkHarness.medianOfThreeLight { runAssetParallelFetch() } else 500.0
         val normalizedFetch = if (fetchDurationMs > 0) 1000.0 / fetchDurationMs * 100.0 else 50.0
         list.add(SubScore("Asset Parallel Fetch", fetchDurationMs, "ms", ScoreNormalizer.normalize(fetchDurationMs, 1000.0, 100.0, true), !isOnline))
         
         // 3. Page Load Simulation
         onProgress(0.10f)
-        val loadTimeMs = if (isOnline) runPageLoadSimulation() else 400.0
+        val loadTimeMs = if (isOnline) BenchmarkHarness.medianOfThreeLight { runPageLoadSimulation() } else 400.0
         list.add(SubScore("Page Load Duration", loadTimeMs, "ms", ScoreNormalizer.normalize(loadTimeMs, 600.0, 60.0, true), !isOnline))
         
         // 4. SSL/TLS Handshake
         onProgress(0.15f)
-        val tlsHandshakeMs = if (isOnline) runTlsHandshakeTest() else 120.0
+        val tlsHandshakeMs = if (isOnline) BenchmarkHarness.medianOfThreeLight { runTlsHandshakeTest() } else 120.0
         list.add(SubScore("SSL/TLS Handshake Latency", tlsHandshakeMs, "ms", ScoreNormalizer.normalize(tlsHandshakeMs, 100.0, 15.0, true), !isOnline))
         
         // 5. JS Engine Simulation
         onProgress(0.20f)
-        val jsProxyScore = runJsProxyTest()
+        val jsProxyScore = BenchmarkHarness.medianOfThree { runJsProxyTest() }
         list.add(SubScore("JS Engine Simulation", jsProxyScore, "ops/ms", ScoreNormalizer.normalize(jsProxyScore, 80.0, 400.0, false)))
         
         // 6. DOM Tree Build
         onProgress(0.25f)
-        val domTreeVal = runDomTreeBuild()
+        val domTreeVal = BenchmarkHarness.medianOfThree { runDomTreeBuild() }
         list.add(SubScore("DOM Tree Construction", domTreeVal, "nodes/s", ScoreNormalizer.normalize(domTreeVal, 100000.0, 500000.0, false)))
 
         // 7. CSS Selector Match
         onProgress(0.30f)
-        val cssVal = runCssSelectorMatch()
+        val cssVal = BenchmarkHarness.medianOfThree { runCssSelectorMatch() }
         list.add(SubScore("CSS Selector Matching", cssVal, "matches/s", ScoreNormalizer.normalize(cssVal, 5000.0, 25000.0, false)))
 
         // 8. JSON Parse Speed
         onProgress(0.35f)
-        val jsonParseVal = runJsonParseSpeed()
+        val jsonParseVal = BenchmarkHarness.medianOfThree { runJsonParseSpeed() }
         list.add(SubScore("JSON Deserialization", jsonParseVal, "MB/s", ScoreNormalizer.normalize(jsonParseVal, 10.0, 50.0, false)))
 
         // 9. JSON Stringify Speed
         onProgress(0.40f)
-        val jsonStringifyVal = runJsonStringifySpeed()
+        val jsonStringifyVal = BenchmarkHarness.medianOfThree { runJsonStringifySpeed() }
         list.add(SubScore("JSON Serialization", jsonStringifyVal, "MB/s", ScoreNormalizer.normalize(jsonStringifyVal, 8.0, 40.0, false)))
 
         // 10. XML Parse Speed
         onProgress(0.45f)
-        val xmlParseVal = runXmlParseSpeed()
+        val xmlParseVal = BenchmarkHarness.medianOfThree { runXmlParseSpeed() }
         list.add(SubScore("XML Parsing Speed", xmlParseVal, "KB/s", ScoreNormalizer.normalize(xmlParseVal, 1000.0, 5000.0, false)))
 
         // 11. URL Encode/Decode
         onProgress(0.50f)
-        val urlProcessVal = runUrlEncodeDecode()
+        val urlProcessVal = BenchmarkHarness.medianOfThree { runUrlEncodeDecode() }
         list.add(SubScore("URL Parsing & Encoding", urlProcessVal, "k-ops/s", ScoreNormalizer.normalize(urlProcessVal, 2.0, 10.0, false)))
 
         // 12. Cookie Processing
         onProgress(0.55f)
-        val cookieVal = runCookieProcessing()
+        val cookieVal = BenchmarkHarness.medianOfThree { runCookieProcessing() }
         list.add(SubScore("Cookie Parser Throughput", cookieVal, "k-cookies/s", ScoreNormalizer.normalize(cookieVal, 10.0, 50.0, false)))
 
         // 13. HTTP Header Parse
         onProgress(0.60f)
-        val headerVal = runHttpHeaderParse()
+        val headerVal = BenchmarkHarness.medianOfThree { runHttpHeaderParse() }
         list.add(SubScore("HTTP Header Processing", headerVal, "k-headers/s", ScoreNormalizer.normalize(headerVal, 20.0, 100.0, false)))
 
         // 14. Base64 Processing
         onProgress(0.65f)
-        val base64Val = runBase64Processing()
+        val base64Val = BenchmarkHarness.medianOfThree { runBase64Processing() }
         list.add(SubScore("Base64 Transcoding", base64Val, "MB/s", ScoreNormalizer.normalize(base64Val, 50.0, 250.0, false)))
 
         // 15. UTF-8 Encode/Decode
         onProgress(0.70f)
-        val utf8Val = runUtf8Processing()
+        val utf8Val = BenchmarkHarness.medianOfThree { runUtf8Processing() }
         list.add(SubScore("UTF-8 Encoding Speed", utf8Val, "MB/s", ScoreNormalizer.normalize(utf8Val, 80.0, 400.0, false)))
 
         // 16. Regex URL Extraction
         onProgress(0.75f)
-        val regexUrlVal = runRegexUrlExtraction()
+        val regexUrlVal = BenchmarkHarness.medianOfThree { runRegexUrlExtraction() }
         list.add(SubScore("Regex URL Parsing", regexUrlVal, "urls/s", ScoreNormalizer.normalize(regexUrlVal, 500.0, 2500.0, false)))
 
         // 17. HTML Entity Decode
         onProgress(0.80f)
-        val entityVal = runHtmlEntityDecode()
+        val entityVal = BenchmarkHarness.medianOfThree { runHtmlEntityDecode() }
         list.add(SubScore("HTML Entity Decoding", entityVal, "k-chars/s", ScoreNormalizer.normalize(entityVal, 100.0, 500.0, false)))
 
         // 18. Markdown Parse
         onProgress(0.85f)
-        val markdownVal = runMarkdownParse()
+        val markdownVal = BenchmarkHarness.medianOfThree { runMarkdownParse() }
         list.add(SubScore("Markdown Renderer Speed", markdownVal, "k-chars/s", ScoreNormalizer.normalize(markdownVal, 50.0, 250.0, false)))
 
         // 19. Form Data Encoding
         onProgress(0.90f)
-        val formVal = runFormDataEncoding()
+        val formVal = BenchmarkHarness.medianOfThree { runFormDataEncoding() }
         list.add(SubScore("Form Data Encoding", formVal, "k-fields/s", ScoreNormalizer.normalize(formVal, 10.0, 50.0, false)))
 
         // 20. Response Streaming
         onProgress(0.95f)
-        val streamVal = runResponseStreaming()
+        val streamVal = BenchmarkHarness.medianOfThree { runResponseStreaming() }
         list.add(SubScore("Stream Parser Speed", streamVal, "MB/s", ScoreNormalizer.normalize(streamVal, 20.0, 100.0, false)))
 
         onProgress(1.00f)

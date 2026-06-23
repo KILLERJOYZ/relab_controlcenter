@@ -17,102 +17,102 @@ class GamingBenchmark(private val context: Context) : BenchmarkEngine {
 
         // 1. Rigid Body Physics
         onProgress(0.00f)
-        val physicsVal = runRigidBodyPhysics()
+        val physicsVal = BenchmarkHarness.medianOfThree { runRigidBodyPhysics() }
         list.add(SubScore("Rigid Body Physics", physicsVal, "k-steps/s", ScoreNormalizer.normalize(physicsVal, 100.0, 1000.0, false), false))
 
         // 2. Particle System
         onProgress(0.05f)
-        val particlesVal = runParticleSystem()
+        val particlesVal = BenchmarkHarness.medianOfThree { runParticleSystem() }
         list.add(SubScore("Particle System", particlesVal, "M-updates/s", ScoreNormalizer.normalize(particlesVal, 50.0, 500.0, false), false))
 
         // 3. Ray-Sphere Intersection
         onProgress(0.10f)
-        val raySphereVal = runRaySphereIntersection()
+        val raySphereVal = BenchmarkHarness.medianOfThree { runRaySphereIntersection() }
         list.add(SubScore("Ray-Sphere Intersection", raySphereVal, "M-rays/s", ScoreNormalizer.normalize(raySphereVal, 10.0, 100.0, false), false))
 
         // 4. A* Pathfinding
         onProgress(0.15f)
-        val astarVal = runAStarPathfinding()
+        val astarVal = BenchmarkHarness.medianOfThree { runAStarPathfinding() }
         list.add(SubScore("A* Pathfinding", astarVal, "paths/s", ScoreNormalizer.normalize(astarVal, 200.0, 2000.0, false), false))
 
         // 5. AABB Collision Detection
         onProgress(0.20f)
-        val collisionVal = runAABBCollision()
+        val collisionVal = BenchmarkHarness.medianOfThree { runAABBCollision() }
         list.add(SubScore("AABB Collision", collisionVal, "M-checks/s", ScoreNormalizer.normalize(collisionVal, 5.0, 50.0, false), false))
 
         // 6. Scene Graph Traversal
         onProgress(0.25f)
-        val sceneGraphVal = runSceneGraphTraversal()
+        val sceneGraphVal = BenchmarkHarness.medianOfThree { runSceneGraphTraversal() }
         list.add(SubScore("Scene Graph Traversal", sceneGraphVal, "k-traversals/s", ScoreNormalizer.normalize(sceneGraphVal, 20.0, 200.0, false), false))
 
         // 7. Spatial Hash Grid
         onProgress(0.30f)
-        val spatialHashVal = runSpatialHashGrid()
+        val spatialHashVal = BenchmarkHarness.medianOfThree { runSpatialHashGrid() }
         list.add(SubScore("Spatial Hash Grid", spatialHashVal, "M-ops/s", ScoreNormalizer.normalize(spatialHashVal, 1.0, 10.0, false), false))
 
         // 8. Skeletal Animation
         onProgress(0.35f)
-        val skeletonVal = runSkeletalAnimation()
+        val skeletonVal = BenchmarkHarness.medianOfThree { runSkeletalAnimation() }
         list.add(SubScore("Skeletal Animation", skeletonVal, "k-bones/s", ScoreNormalizer.normalize(skeletonVal, 50.0, 500.0, false), false))
 
         // 9. Terrain LOD Mesh
         onProgress(0.40f)
-        val terrainVal = runTerrainLodMesh()
+        val terrainVal = BenchmarkHarness.medianOfThree { runTerrainLodMesh() }
         list.add(SubScore("Terrain LOD Mesh", terrainVal, "vertices/s", ScoreNormalizer.normalize(terrainVal, 10000.0, 100000.0, false), false))
 
         // 10. Audio Mixing
         onProgress(0.45f)
-        val audioMixingVal = runAudioMixing()
+        val audioMixingVal = BenchmarkHarness.medianOfThree { runAudioMixing() }
         list.add(SubScore("Audio Mixing", audioMixingVal, "M-samples/s", ScoreNormalizer.normalize(audioMixingVal, 5.0, 50.0, false), false))
 
         // 11. Game Loop Jitter
         onProgress(0.50f)
-        val jitterVal = runGameLoopJitter()
+        val jitterVal = BenchmarkHarness.medianOfThree { runGameLoopJitter() }
         list.add(SubScore("Game Loop Jitter", jitterVal, "ms", ScoreNormalizer.normalize(jitterVal, 5.0, 0.1, true), false))
 
         // 12. Entity Component System
         onProgress(0.55f)
-        val ecsVal = runECSQuery()
+        val ecsVal = BenchmarkHarness.medianOfThree { runECSQuery() }
         list.add(SubScore("ECS Query", ecsVal, "M-updates/s", ScoreNormalizer.normalize(ecsVal, 10.0, 100.0, false), false))
 
         // 13. Frustum Culling
         onProgress(0.60f)
-        val frustumCullingVal = runFrustumCulling()
+        val frustumCullingVal = BenchmarkHarness.medianOfThree { runFrustumCulling() }
         list.add(SubScore("Frustum Culling", frustumCullingVal, "M-checks/s", ScoreNormalizer.normalize(frustumCullingVal, 2.0, 20.0, false), false))
 
         // 14. Octree Build & Query
         onProgress(0.65f)
-        val octreeVal = runOctreeBuildAndQuery()
+        val octreeVal = BenchmarkHarness.medianOfThree { runOctreeBuildAndQuery() }
         list.add(SubScore("Octree Ops", octreeVal, "ops/s", ScoreNormalizer.normalize(octreeVal, 100.0, 1000.0, false), false))
 
         // 15. Procedural Noise
         onProgress(0.70f)
-        val noiseVal = runProceduralNoise()
+        val noiseVal = BenchmarkHarness.medianOfThree { runProceduralNoise() }
         list.add(SubScore("Procedural Noise", noiseVal, "M-pixels/s", ScoreNormalizer.normalize(noiseVal, 5.0, 50.0, false), false))
 
         // 16. State Machine AI
         onProgress(0.75f)
-        val stateMachineVal = runStateMachineAI()
+        val stateMachineVal = BenchmarkHarness.medianOfThree { runStateMachineAI() }
         list.add(SubScore("State Machine AI", stateMachineVal, "M-transitions/s", ScoreNormalizer.normalize(stateMachineVal, 1.0, 10.0, false), false))
 
         // 17. Navmesh Raycast
         onProgress(0.80f)
-        val navmeshVal = runNavmeshRaycast()
+        val navmeshVal = BenchmarkHarness.medianOfThree { runNavmeshRaycast() }
         list.add(SubScore("Navmesh Raycast", navmeshVal, "k-casts/s", ScoreNormalizer.normalize(navmeshVal, 10.0, 100.0, false), false))
 
         // 18. Input Buffer
         onProgress(0.85f)
-        val inputBufferVal = runInputBuffer()
+        val inputBufferVal = BenchmarkHarness.medianOfThree { runInputBuffer() }
         list.add(SubScore("Input Event Throughput", inputBufferVal, "M-events/s", ScoreNormalizer.normalize(inputBufferVal, 5.0, 50.0, false), false))
 
         // 19. Behavior Tree AI
         onProgress(0.90f)
-        val behaviorTreeVal = runBehaviorTreeAI()
+        val behaviorTreeVal = BenchmarkHarness.medianOfThree { runBehaviorTreeAI() }
         list.add(SubScore("Behavior Tree AI", behaviorTreeVal, "k-ticks/s", ScoreNormalizer.normalize(behaviorTreeVal, 10.0, 100.0, false), false))
 
         // 20. Memory Pool Allocator
         onProgress(0.95f)
-        val memPoolVal = runMemoryPoolAllocator()
+        val memPoolVal = BenchmarkHarness.medianOfThree { runMemoryPoolAllocator() }
         list.add(SubScore("Memory Pool Allocator", memPoolVal, "M-allocs/s", ScoreNormalizer.normalize(memPoolVal, 2.0, 20.0, false), false))
 
         onProgress(1.00f)

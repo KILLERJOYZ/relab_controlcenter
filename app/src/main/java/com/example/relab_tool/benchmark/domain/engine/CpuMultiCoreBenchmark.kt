@@ -28,105 +28,105 @@ class CpuMultiCoreBenchmark : BenchmarkEngine {
 
         // 1. Parallel Fibonacci
         onProgress(0.00f)
-        val fibVal = runParallelFibonacci(cores)
+        val fibVal = BenchmarkHarness.medianOfThree { runParallelFibonacci(cores) }
         list.add(SubScore("Parallel Fibonacci", fibVal, "M-ops/s", ScoreNormalizer.normalize(fibVal, 1000.0, 5000.0, false)))
 
         // 2. Parallel Merge Sort
         onProgress(0.05f)
-        val mergeSortVal = runParallelMergeSort(cores)
+        val mergeSortVal = BenchmarkHarness.medianOfThree { runParallelMergeSort(cores) }
         list.add(SubScore("Parallel Merge Sort", mergeSortVal, "M-elems/s", ScoreNormalizer.normalize(mergeSortVal, 50.0, 250.0, false)))
 
         // 3. Parallel AES Crypto
         onProgress(0.10f)
-        val aesVal = runParallelAes(cores)
+        val aesVal = BenchmarkHarness.medianOfThree { runParallelAes(cores) }
         list.add(SubScore("Parallel AES Crypto", aesVal, "MB/s", ScoreNormalizer.normalize(aesVal, 1000.0, 5000.0, false)))
 
         // 4. Parallel Mandelbrot
         onProgress(0.15f)
-        val mandelVal = runParallelMandelbrot(cores)
+        val mandelVal = BenchmarkHarness.medianOfThree { runParallelMandelbrot(cores) }
         list.add(SubScore("Parallel Mandelbrot", mandelVal, "M-px/s", ScoreNormalizer.normalize(mandelVal, 50.0, 250.0, false)))
 
         // 5. Parallel JSON Serialize
         onProgress(0.20f)
-        val jsonVal = runParallelJson(cores)
+        val jsonVal = BenchmarkHarness.medianOfThree { runParallelJson(cores) }
         list.add(SubScore("Parallel JSON Serialization", jsonVal, "cycles/s", ScoreNormalizer.normalize(jsonVal, 15.0, 75.0, false)))
 
         // 6. Parallel Quick Sort
         onProgress(0.25f)
-        val quickSortVal = runParallelQuickSort(cores)
+        val quickSortVal = BenchmarkHarness.medianOfThree { runParallelQuickSort(cores) }
         list.add(SubScore("Parallel Quick Sort", quickSortVal, "M-elems/s", ScoreNormalizer.normalize(quickSortVal, 60.0, 300.0, false)))
 
         // 7. Parallel Matrix Multiply
         onProgress(0.30f)
-        val dgemmVal = runParallelMatrixMultiply(cores)
+        val dgemmVal = BenchmarkHarness.medianOfThree { runParallelMatrixMultiply(cores) }
         list.add(SubScore("Parallel Matrix Multiply", dgemmVal, "M-flops", ScoreNormalizer.normalize(dgemmVal, 3000.0, 15000.0, false)))
 
         // 8. Parallel SHA Hash
         onProgress(0.35f)
-        val shaVal = runParallelSha(cores)
+        val shaVal = BenchmarkHarness.medianOfThree { runParallelSha(cores) }
         list.add(SubScore("Parallel SHA Hash", shaVal, "MB/s", ScoreNormalizer.normalize(shaVal, 500.0, 2500.0, false)))
 
         // 9. Parallel Compression
         onProgress(0.40f)
-        val compressionVal = runParallelCompression(cores)
+        val compressionVal = BenchmarkHarness.medianOfThree { runParallelCompression(cores) }
         list.add(SubScore("Parallel Compression", compressionVal, "MB/s", ScoreNormalizer.normalize(compressionVal, 100.0, 500.0, false)))
 
         // 10. Producer-Consumer Queue
         onProgress(0.45f)
-        val prodConsVal = runProducerConsumerQueue(cores)
+        val prodConsVal = BenchmarkHarness.medianOfThree { runProducerConsumerQueue(cores) }
         list.add(SubScore("Producer-Consumer Queue", prodConsVal, "k-ops/s", ScoreNormalizer.normalize(prodConsVal, 100.0, 500.0, false)))
 
         // 11. Lock Contention
         onProgress(0.50f)
-        val lockContVal = runLockContention(cores)
+        val lockContVal = BenchmarkHarness.medianOfThree { runLockContention(cores) }
         list.add(SubScore("Lock Contention", lockContVal, "k-locks/s", ScoreNormalizer.normalize(lockContVal, 500.0, 2500.0, false)))
 
         // 12. Read-Write Lock
         onProgress(0.55f)
-        val rwLockVal = runReadWriteLock(cores)
+        val rwLockVal = BenchmarkHarness.medianOfThree { runReadWriteLock(cores) }
         list.add(SubScore("Read-Write Lock", rwLockVal, "k-ops/s", ScoreNormalizer.normalize(rwLockVal, 200.0, 1000.0, false)))
 
         // 13. Atomic Counter Stress
         onProgress(0.60f)
-        val atomicVal = runAtomicCounter(cores)
+        val atomicVal = BenchmarkHarness.medianOfThree { runAtomicCounter(cores) }
         list.add(SubScore("Atomic Counter CAS", atomicVal, "M-ops/s", ScoreNormalizer.normalize(atomicVal, 5.0, 25.0, false)))
 
         // 14. Barrier Synchronization
         onProgress(0.65f)
-        val barrierVal = runBarrierSync(cores)
+        val barrierVal = BenchmarkHarness.medianOfThree { runBarrierSync(cores) }
         list.add(SubScore("Barrier Synchronization", barrierVal, "k-syncs/s", ScoreNormalizer.normalize(barrierVal, 10.0, 50.0, false)))
 
         // 15. Fork-Join Recursive
         onProgress(0.70f)
-        val forkJoinVal = runForkJoinRecursive(cores)
+        val forkJoinVal = BenchmarkHarness.medianOfThree { runForkJoinRecursive(cores) }
         list.add(SubScore("Fork-Join Tasking", forkJoinVal, "tasks/s", ScoreNormalizer.normalize(forkJoinVal, 100.0, 500.0, false)))
 
         // 16. Thread Pool Throughput
         onProgress(0.75f)
-        val poolVal = runThreadPoolThroughput(cores)
+        val poolVal = BenchmarkHarness.medianOfThree { runThreadPoolThroughput(cores) }
         list.add(SubScore("Thread Pool Throughput", poolVal, "k-runnables/s", ScoreNormalizer.normalize(poolVal, 50.0, 250.0, false)))
 
         // 17. Parallel Stream Processing
         onProgress(0.80f)
-        val streamVal = runParallelStream(cores)
+        val streamVal = BenchmarkHarness.medianOfThree { runParallelStream(cores) }
         list.add(SubScore("Parallel Stream Processing", streamVal, "M-items/s", ScoreNormalizer.normalize(streamVal, 10.0, 50.0, false)))
 
         // 18. Work-Stealing Efficiency
         onProgress(0.85f)
-        val stealingVal = runWorkStealing(cores)
+        val stealingVal = BenchmarkHarness.medianOfThree { runWorkStealing(cores) }
         list.add(SubScore("Work-Stealing Efficiency", stealingVal, "tasks/s", ScoreNormalizer.normalize(stealingVal, 50.0, 250.0, false)))
 
         // 19. Parallel Regex
         onProgress(0.90f)
-        val regexVal = runParallelRegex(cores)
+        val regexVal = BenchmarkHarness.medianOfThree { runParallelRegex(cores) }
         list.add(SubScore("Parallel Regex Matching", regexVal, "k-matches/s", ScoreNormalizer.normalize(regexVal, 10.0, 50.0, false)))
 
-        // 20. Core Scaling Ratio
+        // 20. Core Scaling Ratio (fixed baseline/cap for fair comparison across core counts)
         onProgress(0.95f)
         val singleFib = runSingleFibonacciInline()
         val scalingRatio = if (singleFib > 0) fibVal / singleFib else 1.0
         val finalRatio = scalingRatio.coerceIn(1.0, cores.toDouble() * 1.2)
-        list.add(SubScore("Core Scaling Ratio", finalRatio, "x", ScoreNormalizer.normalize(finalRatio, 4.0, cores.toDouble().coerceAtLeast(2.0), false)))
+        list.add(SubScore("Core Scaling Ratio", finalRatio, "x", ScoreNormalizer.normalize(finalRatio, 3.0, 6.0, false)))
 
         onProgress(1.00f)
         list

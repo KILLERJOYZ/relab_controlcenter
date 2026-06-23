@@ -25,102 +25,102 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
 
         // 1. Fibonacci (Integer ALU)
         onProgress(0.00f)
-        val fibScore = runFibonacci()
+        val fibScore = BenchmarkHarness.medianOfThree { runFibonacci() }
         list.add(SubScore("Integer ALU (Fibonacci)", fibScore, "M-ops/s", ScoreNormalizer.normalize(fibScore, 200.0, 1000.0, false)))
 
         // 2. Sieve of Eratosthenes
         onProgress(0.05f)
-        val sieveScore = runSieve()
+        val sieveScore = BenchmarkHarness.medianOfThree { runSieve() }
         list.add(SubScore("Sieve of Eratosthenes", sieveScore, "M-elements/s", ScoreNormalizer.normalize(sieveScore, 100.0, 500.0, false)))
 
         // 3. Merge Sort
         onProgress(0.10f)
-        val mergeSortScore = runMergeSort()
+        val mergeSortScore = BenchmarkHarness.medianOfThree { runMergeSort() }
         list.add(SubScore("Merge Sort", mergeSortScore, "M-elems/s", ScoreNormalizer.normalize(mergeSortScore, 10.0, 50.0, false)))
 
         // 4. Quick Sort
         onProgress(0.15f)
-        val quickSortScore = runQuickSort()
+        val quickSortScore = BenchmarkHarness.medianOfThree { runQuickSort() }
         list.add(SubScore("Quick Sort", quickSortScore, "M-elems/s", ScoreNormalizer.normalize(quickSortScore, 12.0, 60.0, false)))
 
         // 5. AES-256 Encryption
         onProgress(0.20f)
-        val aesScore = runAes()
-        list.add(SubScore("AES-256 Encryption", aesScore, "MB/s", ScoreNormalizer.normalize(aesScore, 200.0, 1000.0, false)))
+        val aesScore = BenchmarkHarness.medianOfThree { runAes() }
+        list.add(SubScore("AES-256 Encryption", aesScore, "MB/s", ScoreNormalizer.normalize(aesScore, 600.0, 3000.0, false)))
 
         // 6. SHA-256 Hashing
         onProgress(0.25f)
-        val shaScore = runSha()
-        list.add(SubScore("SHA-256 Hashing", shaScore, "MB/s", ScoreNormalizer.normalize(shaScore, 150.0, 750.0, false)))
+        val shaScore = BenchmarkHarness.medianOfThree { runSha() }
+        list.add(SubScore("SHA-256 Hashing", shaScore, "MB/s", ScoreNormalizer.normalize(shaScore, 500.0, 2500.0, false)))
 
         // 7. Mandelbrot (FP64)
         onProgress(0.30f)
-        val mandelScore = runMandelbrot()
-        list.add(SubScore("FP64 Mandelbrot", mandelScore, "M-px/s", ScoreNormalizer.normalize(mandelScore, 10.0, 50.0, false)))
+        val mandelScore = BenchmarkHarness.medianOfThree { runMandelbrot() }
+        list.add(SubScore("FP64 Mandelbrot", mandelScore, "M-px/s", ScoreNormalizer.normalize(mandelScore, 5.0, 25.0, false)))
 
         // 8. Matrix Multiply (DGEMM)
         onProgress(0.35f)
-        val matrixScore = runMatrixMultiply()
+        val matrixScore = BenchmarkHarness.medianOfThree { runMatrixMultiply() }
         list.add(SubScore("Matrix Multiply (DGEMM)", matrixScore, "M-flops", ScoreNormalizer.normalize(matrixScore, 1000.0, 5000.0, false)))
 
         // 9. String Processing
         onProgress(0.40f)
-        val stringScore = runStringProcessing()
+        val stringScore = BenchmarkHarness.medianOfThree { runStringProcessing() }
         list.add(SubScore("String Processing", stringScore, "ops/s", ScoreNormalizer.normalize(stringScore, 20.0, 100.0, false)))
 
         // 10. Deflate Compression
         onProgress(0.45f)
-        val deflateScore = runDeflate()
+        val deflateScore = BenchmarkHarness.medianOfThree { runDeflate() }
         list.add(SubScore("Deflate Compression", deflateScore, "MB/s", ScoreNormalizer.normalize(deflateScore, 25.0, 125.0, false)))
 
         // 11. Regex Engine Stress
         onProgress(0.50f)
-        val regexScore = runRegex()
+        val regexScore = BenchmarkHarness.medianOfThree { runRegex() }
         list.add(SubScore("Regex Engine Stress", regexScore, "matches/s", ScoreNormalizer.normalize(regexScore, 500.0, 2500.0, false)))
 
         // 12. Binary Search
         onProgress(0.55f)
-        val binSearchScore = runBinarySearch()
+        val binSearchScore = BenchmarkHarness.medianOfThree { runBinarySearch() }
         list.add(SubScore("Binary Search", binSearchScore, "M-searches/s", ScoreNormalizer.normalize(binSearchScore, 5.0, 25.0, false)))
 
         // 13. Linked List Traversal
         onProgress(0.60f)
-        val linkedListScore = runLinkedListTraversal()
+        val linkedListScore = BenchmarkHarness.medianOfThree { runLinkedListTraversal() }
         list.add(SubScore("Linked List Traversal", linkedListScore, "M-chases/s", ScoreNormalizer.normalize(linkedListScore, 10.0, 50.0, false)))
 
         // 14. Bitwise Operations
         onProgress(0.65f)
-        val bitwiseScore = runBitwiseOps()
+        val bitwiseScore = BenchmarkHarness.medianOfThree { runBitwiseOps() }
         list.add(SubScore("Bitwise Operations", bitwiseScore, "M-ops/s", ScoreNormalizer.normalize(bitwiseScore, 100.0, 500.0, false)))
 
         // 15. Prime Factorization
         onProgress(0.70f)
-        val factorScore = runPrimeFactorization()
-        list.add(SubScore("Prime Factorization", factorScore, "k-primes/s", ScoreNormalizer.normalize(factorScore, 10.0, 50.0, false)))
+        val factorScore = BenchmarkHarness.medianOfThree { runPrimeFactorization() }
+        list.add(SubScore("Prime Factorization", factorScore, "k-primes/s", ScoreNormalizer.normalize(factorScore, 5.0, 25.0, false)))
 
         // 16. CRC32 Checksum
         onProgress(0.75f)
-        val crcScore = runCrc32()
-        list.add(SubScore("CRC32 Checksum", crcScore, "MB/s", ScoreNormalizer.normalize(crcScore, 300.0, 1500.0, false)))
+        val crcScore = BenchmarkHarness.medianOfThree { runCrc32() }
+        list.add(SubScore("CRC32 Checksum", crcScore, "MB/s", ScoreNormalizer.normalize(crcScore, 600.0, 3000.0, false)))
 
         // 17. Base64 Encode/Decode
         onProgress(0.80f)
-        val base64Score = runBase64()
-        list.add(SubScore("Base64 Encode/Decode", base64Score, "MB/s", ScoreNormalizer.normalize(base64Score, 100.0, 500.0, false)))
+        val base64Score = BenchmarkHarness.medianOfThree { runBase64() }
+        list.add(SubScore("Base64 Encode/Decode", base64Score, "MB/s", ScoreNormalizer.normalize(base64Score, 150.0, 750.0, false)))
 
         // 18. Huffman Coding
         onProgress(0.85f)
-        val huffmanScore = runHuffman()
+        val huffmanScore = BenchmarkHarness.medianOfThree { runHuffman() }
         list.add(SubScore("Huffman Coding", huffmanScore, "k-ops/s", ScoreNormalizer.normalize(huffmanScore, 50.0, 250.0, false)))
 
         // 19. N-Queens Solver
         onProgress(0.90f)
-        val nqueensScore = runNQueens()
+        val nqueensScore = BenchmarkHarness.medianOfThree { runNQueens() }
         list.add(SubScore("N-Queens Solver (N=12)", nqueensScore, "solves/s", ScoreNormalizer.normalize(nqueensScore, 5.0, 25.0, false)))
 
         // 20. Ray-Plane Intersection
         onProgress(0.95f)
-        val rayPlaneScore = runRayPlaneIntersection()
+        val rayPlaneScore = BenchmarkHarness.medianOfThree { runRayPlaneIntersection() }
         list.add(SubScore("Ray-Plane Intersection", rayPlaneScore, "M-rays/s", ScoreNormalizer.normalize(rayPlaneScore, 5.0, 25.0, false)))
 
         onProgress(1.00f)
@@ -143,6 +143,7 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
         val operations = 4.5e6
+        BenchmarkHarness.consume(sum)
         return (operations / elapsed) / 1e6
     }
 
@@ -164,6 +165,7 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             }
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(count.toLong())
         return (limit / elapsed) / 1e6
     }
 
@@ -172,12 +174,15 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
         val size = 20000
         val array = LongArray(size) { (it * 31 + 17).toLong() xor (it * 97).toLong() }
         val temp = LongArray(size)
+        var lastSorted = 0L
         val startTime = System.nanoTime()
         for (pass in 0 until 5) {
             val copy = array.clone()
             mergeSort(copy, temp, 0, size - 1)
+            lastSorted = copy[0]
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(lastSorted)
         return (size.toDouble() * 5) / elapsed / 1e6
     }
 
@@ -202,12 +207,15 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
     private fun runQuickSort(): Double {
         val size = 20000
         val array = LongArray(size) { (it * 31 + 17).toLong() xor (it * 97).toLong() }
+        var lastSorted = 0L
         val startTime = System.nanoTime()
         for (pass in 0 until 5) {
             val copy = array.clone()
             quickSort(copy, 0, size - 1)
+            lastSorted = copy[0]
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(lastSorted)
         return (size.toDouble() * 5) / elapsed / 1e6
     }
 
@@ -253,6 +261,7 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             outputLength += encrypted.size
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(outputLength)
         return (64.0 * 1024.0 * 20.0 / (1024.0 * 1024.0)) / elapsed
     }
 
@@ -269,14 +278,15 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             hashSum += hash[0]
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(hashSum)
         return 20.0 / elapsed
     }
 
-    // 7. Mandelbrot
+    // 7. Mandelbrot (increased to 512×512 with maxIter=200 for better timer resolution)
     private fun runMandelbrot(): Double {
-        val width = 256
-        val height = 256
-        val maxIter = 100
+        val width = 512
+        val height = 512
+        val maxIter = 200
         val startTime = System.nanoTime()
         var insideCount = 0
         for (y in 0 until height) {
@@ -294,7 +304,8 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             }
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
-        return (width * height / 1e6) / elapsed
+        BenchmarkHarness.consume(insideCount.toLong())
+        return (width.toDouble() * height.toDouble() / 1e6) / elapsed
     }
 
     // 8. Matrix Multiply
@@ -316,6 +327,7 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
         val flops = 2.0 * size * size * size
+        BenchmarkHarness.consume(c[0][0])
         return (flops / elapsed) / 1e6
     }
 
@@ -333,6 +345,7 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             matchCount += split.size
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(matchCount.toLong())
         return 500.0 / elapsed
     }
 
@@ -354,6 +367,7 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             deflater.reset()
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(bytesCompressed)
         return (256.0 * 1024.0 * 5.0 / (1024.0 * 1024.0)) / elapsed
     }
 
@@ -371,6 +385,7 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             }
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(matches.toLong())
         return matches.toDouble() / elapsed
     }
 
@@ -389,6 +404,7 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             }
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(hitCount.toLong())
         return (size.toDouble() * 20) / elapsed / 1e6
     }
 
@@ -410,6 +426,7 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             p = nextIndices[p]
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(p.toLong())
         return 2.0e6 / elapsed / 1e6
     }
 
@@ -423,15 +440,16 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             result = result or (result ushr 5)
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(result)
         return 50.0e6 / elapsed / 1e6
     }
 
-    // 15. Prime Factorization
+    // 15. Prime Factorization (10,000 numbers for stable timing)
     private fun runPrimeFactorization(): Double {
         val startTime = System.nanoTime()
         var factorCount = 0
-        // Factorize a set of numbers up to 1,000,000
-        for (num in 900_000 until 901_000) {
+        // Factorize 10,000 numbers for reliable timing on fast devices
+        for (num in 900_000 until 910_000) {
             var n = num
             var i = 2
             while (i * i <= n) {
@@ -444,7 +462,8 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             if (n > 1) factorCount++
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
-        return 1000.0 / elapsed / 1000.0
+        BenchmarkHarness.consume(factorCount.toLong())
+        return 10000.0 / elapsed / 1000.0
     }
 
     // 16. CRC32 Checksum
@@ -458,19 +477,22 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             val v = crc.value
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(crc.value)
         return (1.0 * 50) / elapsed
     }
 
     // 17. Base64 Encode/Decode
     private fun runBase64(): Double {
         val data = ByteArray(256 * 1024) { (it % 256).toByte() }
+        var lastByte = 0.toByte()
         val startTime = System.nanoTime()
         for (pass in 0 until 20) {
             val encoded = Base64.encode(data, Base64.DEFAULT)
             val decoded = Base64.decode(encoded, Base64.DEFAULT)
-            val first = decoded[0]
+            lastByte = decoded[0]
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(lastByte.toLong())
         return (256.0 * 1024.0 * 20.0 / (1024.0 * 1024.0)) / elapsed
     }
 
@@ -495,6 +517,7 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             if (root != null) runCount++
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(runCount.toLong())
         return runCount.toDouble() / elapsed / 1000.0
     }
 
@@ -524,6 +547,7 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             solve(0)
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(solutionsCount.toLong())
         return 2.0 / elapsed
     }
 
@@ -553,6 +577,7 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
             }
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(intersectCount.toLong())
         return (count.toDouble() * 5) / elapsed / 1e6
     }
 }

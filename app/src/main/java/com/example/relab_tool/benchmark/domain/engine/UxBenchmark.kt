@@ -33,7 +33,7 @@ class UxBenchmark(private val context: Context) : BenchmarkEngine {
         
         // 2. Text Layout Latency
         onProgress(0.05f)
-        val scrollLayoutUs = runTextLayoutSimulation()
+        val scrollLayoutUs = BenchmarkHarness.medianOfThree { runTextLayoutSimulation() }
         list.add(SubScore("Text Layout Latency", scrollLayoutUs, "µs", ScoreNormalizer.normalize(scrollLayoutUs, 380.0, 90.0, true)))
         
         // 3. Animation Jitter
@@ -43,22 +43,22 @@ class UxBenchmark(private val context: Context) : BenchmarkEngine {
         
         // 4. Bitmap Decode (JPEG)
         onProgress(0.15f)
-        val jpegDecodeSpeed = runBitmapDecodeSpeed(Bitmap.CompressFormat.JPEG)
+        val jpegDecodeSpeed = BenchmarkHarness.medianOfThree { runBitmapDecodeSpeed(Bitmap.CompressFormat.JPEG) }
         list.add(SubScore("Bitmap Decode (JPEG)", jpegDecodeSpeed, "imgs/s", ScoreNormalizer.normalize(jpegDecodeSpeed, 15.0, 60.0, false)))
         
         // 5. Bitmap Decode (PNG)
         onProgress(0.20f)
-        val pngDecodeSpeed = runBitmapDecodeSpeed(Bitmap.CompressFormat.PNG)
+        val pngDecodeSpeed = BenchmarkHarness.medianOfThree { runBitmapDecodeSpeed(Bitmap.CompressFormat.PNG) }
         list.add(SubScore("Bitmap Decode (PNG)", pngDecodeSpeed, "imgs/s", ScoreNormalizer.normalize(pngDecodeSpeed, 10.0, 40.0, false)))
         
         // 6. Bitmap Scale
         onProgress(0.25f)
-        val scaleVal = runBitmapScale()
+        val scaleVal = BenchmarkHarness.medianOfThree { runBitmapScale() }
         list.add(SubScore("Bitmap Scaling Throughput", scaleVal, "imgs/s", ScoreNormalizer.normalize(scaleVal, 20.0, 100.0, false)))
         
         // 7. View Inflation Sim
         onProgress(0.30f)
-        val inflationVal = runViewInflationSimulation()
+        val inflationVal = BenchmarkHarness.medianOfThree { runViewInflationSimulation() }
         list.add(SubScore("View Layout Simulation", inflationVal, "ms", ScoreNormalizer.normalize(inflationVal, 50.0, 5.0, true)))
         
         // 8. Touch Response Latency
@@ -68,62 +68,62 @@ class UxBenchmark(private val context: Context) : BenchmarkEngine {
         
         // 9. Complex Path Drawing
         onProgress(0.40f)
-        val pathDrawVal = runComplexPathDrawing()
+        val pathDrawVal = BenchmarkHarness.medianOfThree { runComplexPathDrawing() }
         list.add(SubScore("Complex Path Drawing", pathDrawVal, "ms", ScoreNormalizer.normalize(pathDrawVal, 50.0, 5.0, true)))
         
         // 10. Shadow/Elevation
         onProgress(0.45f)
-        val shadowVal = runShadowElevation()
+        val shadowVal = BenchmarkHarness.medianOfThree { runShadowElevation() }
         list.add(SubScore("Shadow Rendering Cost", shadowVal, "ms", ScoreNormalizer.normalize(shadowVal, 40.0, 4.0, true)))
         
         // 11. Gradient Fill
         onProgress(0.50f)
-        val gradientVal = runGradientFill()
+        val gradientVal = BenchmarkHarness.medianOfThree { runGradientFill() }
         list.add(SubScore("Gradient Fill Throughput", gradientVal, "ms", ScoreNormalizer.normalize(gradientVal, 30.0, 3.0, true)))
         
         // 12. Text Rendering (varied fonts)
         onProgress(0.55f)
-        val fontVal = runTextRenderingVaried()
+        val fontVal = BenchmarkHarness.medianOfThree { runTextRenderingVaried() }
         list.add(SubScore("Varied Text Rendering", fontVal, "ms", ScoreNormalizer.normalize(fontVal, 50.0, 5.0, true)))
         
         // 13. Canvas Clip Operations
         onProgress(0.60f)
-        val clipVal = runCanvasClipOps()
+        val clipVal = BenchmarkHarness.medianOfThree { runCanvasClipOps() }
         list.add(SubScore("Canvas Clip Operations", clipVal, "ms", ScoreNormalizer.normalize(clipVal, 40.0, 4.0, true)))
         
         // 14. Color Matrix Filter
         onProgress(0.65f)
-        val filterVal = runColorMatrixFilter()
+        val filterVal = BenchmarkHarness.medianOfThree { runColorMatrixFilter() }
         list.add(SubScore("Color Matrix Filtering", filterVal, "ms", ScoreNormalizer.normalize(filterVal, 80.0, 8.0, true)))
         
         // 15. Bitmap Alpha Blend
         onProgress(0.70f)
-        val blendVal = runBitmapAlphaBlend()
+        val blendVal = BenchmarkHarness.medianOfThree { runBitmapAlphaBlend() }
         list.add(SubScore("Alpha Compositing Speed", blendVal, "ms", ScoreNormalizer.normalize(blendVal, 60.0, 6.0, true)))
         
         // 16. Anti-aliased Circle Fill
         onProgress(0.75f)
-        val aaCircleVal = runAntiAliasedCircles()
+        val aaCircleVal = BenchmarkHarness.medianOfThree { runAntiAliasedCircles() }
         list.add(SubScore("AA Circle Rasterization", aaCircleVal, "ms", ScoreNormalizer.normalize(aaCircleVal, 50.0, 5.0, true)))
         
         // 17. Canvas Save/Restore
         onProgress(0.80f)
-        val saveRestoreVal = runCanvasSaveRestore()
+        val saveRestoreVal = BenchmarkHarness.medianOfThree { runCanvasSaveRestore() }
         list.add(SubScore("Canvas State Transforms", saveRestoreVal, "ms", ScoreNormalizer.normalize(saveRestoreVal, 30.0, 3.0, true)))
         
         // 18. Arc Drawing
         onProgress(0.85f)
-        val arcVal = runArcDrawing()
+        val arcVal = BenchmarkHarness.medianOfThree { runArcDrawing() }
         list.add(SubScore("Canvas Arc Drawing", arcVal, "ms", ScoreNormalizer.normalize(arcVal, 40.0, 4.0, true)))
         
         // 19. Multi-line Text Measure
         onProgress(0.90f)
-        val multiLineVal = runMultiLineTextMeasure()
+        val multiLineVal = BenchmarkHarness.medianOfThree { runMultiLineTextMeasure() }
         list.add(SubScore("Multi-line Text Measure", multiLineVal, "ms", ScoreNormalizer.normalize(multiLineVal, 60.0, 6.0, true)))
         
         // 20. Paint Style Switching
         onProgress(0.95f)
-        val styleVal = runPaintStyleSwitching()
+        val styleVal = BenchmarkHarness.medianOfThree { runPaintStyleSwitching() }
         list.add(SubScore("Paint State Switching", styleVal, "ms", ScoreNormalizer.normalize(styleVal, 30.0, 3.0, true)))
 
         onProgress(1.00f)

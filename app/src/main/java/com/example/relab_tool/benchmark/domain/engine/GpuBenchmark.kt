@@ -127,12 +127,12 @@ class GpuBenchmark(private val context: Context) : BenchmarkEngine {
         
         // 19. Canvas Compositing
         onProgress(0.90f)
-        val canvasFps = runCanvasCompositing()
+        val canvasFps = BenchmarkHarness.medianOfThree { runCanvasCompositing() }
         list.add(SubScore("Canvas Compositing", canvasFps, "fps", ScoreNormalizer.normalize(canvasFps, 40.0, 90.0, false)))
         
         // 20. Gradient Fill Shader
         onProgress(0.95f)
-        val gradientShaderVal = runGradientFillShader()
+        val gradientShaderVal = BenchmarkHarness.medianOfThree { runGradientFillShader() }
         list.add(SubScore("Gradient Fill Shader", gradientShaderVal, "fps", ScoreNormalizer.normalize(gradientShaderVal, 30.0, 90.0, false)))
         
         onProgress(1.00f)

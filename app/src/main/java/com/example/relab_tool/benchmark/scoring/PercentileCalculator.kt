@@ -53,13 +53,13 @@ class PercentileCalculator(private val context: Context) {
 
     private fun getFallbackDevices(): List<DeviceReferenceEntry> {
         return listOf(
-            DeviceReferenceEntry(1, "Samsung Galaxy S25 Ultra", "Snapdragon 8 Elite", 94000),
-            DeviceReferenceEntry(10, "OnePlus 13", "Snapdragon 8 Elite", 93000),
+            DeviceReferenceEntry(1, "Samsung Galaxy S25 Ultra", "Snapdragon 8 Elite", 95200),
+            DeviceReferenceEntry(10, "OnePlus 13", "Snapdragon 8 Elite", 94500),
             DeviceReferenceEntry(25, "Samsung Galaxy S24 Ultra", "Snapdragon 8 Gen 3", 82000),
-            DeviceReferenceEntry(50, "Google Pixel 9 Pro XL", "Tensor G4", 85000),
-            DeviceReferenceEntry(75, "Samsung Galaxy A55", "Exynos 1480", 52000),
-            DeviceReferenceEntry(120, "Samsung Galaxy A15", "Helio G99", 31000),
-            DeviceReferenceEntry(180, "Redmi 13C", "Helio G85", 18000)
+            DeviceReferenceEntry(50, "Google Pixel 9 Pro XL", "Tensor G4", 78500),
+            DeviceReferenceEntry(75, "Samsung Galaxy A55", "Exynos 1480", 44500),
+            DeviceReferenceEntry(120, "Samsung Galaxy A15", "Dimensity 6100+", 25800),
+            DeviceReferenceEntry(180, "Redmi 13C", "Helio G85", 14800)
         )
     }
 }

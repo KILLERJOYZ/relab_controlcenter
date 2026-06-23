@@ -44,89 +44,89 @@ class AiBenchmark(private val context: Context) : BenchmarkEngine {
         val cpuSingleInf = if (isAvail) runInterpreterTest(modelBuffer!!, input, output, 1, 100) else 0.0
         list.add(SubScore("CPU Single-thread Inference", cpuSingleInf, "inf/s", ScoreNormalizer.normalize(cpuSingleInf, 8.0, 40.0, false), !isAvail))
         
-        // 4. Quantized Inference
+        // 4. Quantized Inference (Simulated — estimated 3x speedup over single-thread)
         onProgress(0.15f)
         val quantInf = if (isAvail) cpuSingleInf * 3.0 else 0.0
-        list.add(SubScore("Quantized Inference (Simulated)", quantInf, "inf/s", ScoreNormalizer.normalize(quantInf, 24.0, 120.0, false), !isAvail))
+        list.add(SubScore("Quantized Inference (Estimated)", quantInf, "inf/s", ScoreNormalizer.normalize(quantInf, 24.0, 120.0, false), true))
         
-        // 5. Batch Sequential
+        // 5. Batch Sequential (Estimated — derived from multi-thread inference)
         onProgress(0.20f)
         val batchInf = if (isAvail) cpuMultiInf * 1.2 else 0.0
-        list.add(SubScore("Batch Inference", batchInf, "inf/s", ScoreNormalizer.normalize(batchInf, 30.0, 150.0, false), !isAvail))
+        list.add(SubScore("Batch Inference (Estimated)", batchInf, "inf/s", ScoreNormalizer.normalize(batchInf, 30.0, 150.0, false), true))
         
         // 6. Matrix Multiply 256x256 (float)
         onProgress(0.25f)
-        val mat256Val = runMatrixMultiply(256)
+        val mat256Val = BenchmarkHarness.medianOfThree { runMatrixMultiply(256) }
         list.add(SubScore("Matrix Multiply 256x256", mat256Val, "G-flops", ScoreNormalizer.normalize(mat256Val, 0.5, 2.5, false)))
         
         // 7. Matrix Multiply 512x512 (float)
         onProgress(0.30f)
-        val mat512Val = runMatrixMultiply(512)
+        val mat512Val = BenchmarkHarness.medianOfThree { runMatrixMultiply(512) }
         list.add(SubScore("Matrix Multiply 512x512", mat512Val, "G-flops", ScoreNormalizer.normalize(mat512Val, 1.0, 5.0, false)))
         
         // 8. Matrix Multiply 1024x1024 (float)
         onProgress(0.35f)
-        val mat1024Val = runMatrixMultiply(1024)
+        val mat1024Val = BenchmarkHarness.medianOfThree { runMatrixMultiply(1024) }
         list.add(SubScore("Matrix Multiply 1024x1024", mat1024Val, "G-flops", ScoreNormalizer.normalize(mat1024Val, 2.0, 10.0, false)))
         
         // 9. Convolution 2D (3x3)
         onProgress(0.40f)
-        val conv3x3Val = runConvolution2D(3)
+        val conv3x3Val = BenchmarkHarness.medianOfThree { runConvolution2D(3) }
         list.add(SubScore("Convolution 2D (3x3)", conv3x3Val, "M-ops/s", ScoreNormalizer.normalize(conv3x3Val, 100.0, 500.0, false)))
         
         // 10. Convolution 2D (5x5)
         onProgress(0.45f)
-        val conv5x5Val = runConvolution2D(5)
+        val conv5x5Val = BenchmarkHarness.medianOfThree { runConvolution2D(5) }
         list.add(SubScore("Convolution 2D (5x5)", conv5x5Val, "M-ops/s", ScoreNormalizer.normalize(conv5x5Val, 50.0, 250.0, false)))
         
         // 11. Softmax Computation
         onProgress(0.50f)
-        val softmaxVal = runSoftmax()
+        val softmaxVal = BenchmarkHarness.medianOfThree { runSoftmax() }
         list.add(SubScore("Softmax Computation", softmaxVal, "k-ops/s", ScoreNormalizer.normalize(softmaxVal, 50.0, 250.0, false)))
         
         // 12. ReLU Activation
         onProgress(0.55f)
-        val reluVal = runReLU()
+        val reluVal = BenchmarkHarness.medianOfThree { runReLU() }
         list.add(SubScore("ReLU Activation", reluVal, "M-ops/s", ScoreNormalizer.normalize(reluVal, 500.0, 2500.0, false)))
         
         // 13. Max Pooling (2x2)
         onProgress(0.60f)
-        val maxPoolVal = runMaxPooling()
+        val maxPoolVal = BenchmarkHarness.medianOfThree { runMaxPooling() }
         list.add(SubScore("Max Pooling (2x2)", maxPoolVal, "M-ops/s", ScoreNormalizer.normalize(maxPoolVal, 200.0, 1000.0, false)))
         
         // 14. Element-wise Multiply
         onProgress(0.65f)
-        val elemWiseVal = runElementWiseMultiply()
+        val elemWiseVal = BenchmarkHarness.medianOfThree { runElementWiseMultiply() }
         list.add(SubScore("Element-wise Multiply", elemWiseVal, "M-ops/s", ScoreNormalizer.normalize(elemWiseVal, 300.0, 1500.0, false)))
         
         // 15. Tensor Transpose
         onProgress(0.70f)
-        val transposeVal = runTensorTranspose()
+        val transposeVal = BenchmarkHarness.medianOfThree { runTensorTranspose() }
         list.add(SubScore("Tensor Transpose", transposeVal, "M-ops/s", ScoreNormalizer.normalize(transposeVal, 100.0, 500.0, false)))
         
         // 16. Reduction Sum
         onProgress(0.75f)
-        val reductionVal = runReductionSum()
+        val reductionVal = BenchmarkHarness.medianOfThree { runReductionSum() }
         list.add(SubScore("Reduction Sum", reductionVal, "M-ops/s", ScoreNormalizer.normalize(reductionVal, 400.0, 2000.0, false)))
         
         // 17. Dot Product (Large)
         onProgress(0.80f)
-        val dotProductVal = runDotProduct()
+        val dotProductVal = BenchmarkHarness.medianOfThree { runDotProduct() }
         list.add(SubScore("Dot Product (Large)", dotProductVal, "M-ops/s", ScoreNormalizer.normalize(dotProductVal, 300.0, 1500.0, false)))
         
         // 18. FFT Computation
         onProgress(0.85f)
-        val fftVal = runFFT()
+        val fftVal = BenchmarkHarness.medianOfThree { runFFT() }
         list.add(SubScore("FFT Computation", fftVal, "k-ops/s", ScoreNormalizer.normalize(fftVal, 10.0, 50.0, false)))
         
         // 19. K-Means Clustering
         onProgress(0.90f)
-        val kmeansVal = runKMeans()
+        val kmeansVal = BenchmarkHarness.medianOfThree { runKMeans() }
         list.add(SubScore("K-Means Clustering", kmeansVal, "k-points/s", ScoreNormalizer.normalize(kmeansVal, 10.0, 50.0, false)))
         
         // 20. Vector Normalization
         onProgress(0.95f)
-        val normVal = runVectorNormalization()
+        val normVal = BenchmarkHarness.medianOfThree { runVectorNormalization() }
         list.add(SubScore("Vector Normalization", normVal, "M-vectors/s", ScoreNormalizer.normalize(normVal, 5.0, 25.0, false)))
 
         onProgress(1.00f)
@@ -342,26 +342,67 @@ class AiBenchmark(private val context: Context) : BenchmarkEngine {
     }
 
     private fun runFFT(): Double {
-        // Fast Fourier Transform simulation
+        // Real Cooley-Tukey radix-2 DIT FFT implementation
         val size = 1024
-        val real = FloatArray(size) { 1.0f }
-        val imag = FloatArray(size) { 0.0f }
-        
-        fun fft(re: FloatArray, im: FloatArray) {
-            val n = re.size
-            if (n <= 1) return
-            // Bit-reversal permutation dummy
-            var limit = 1
-            while (limit < n) {
-                limit = limit shl 1
+        val real = FloatArray(size)
+        val imag = FloatArray(size)
+
+        fun fft(re: FloatArray, im: FloatArray, n: Int) {
+            // Bit-reversal permutation
+            var j = 0
+            for (i in 1 until n) {
+                var bit = n shr 1
+                while (j and bit != 0) {
+                    j = j xor bit
+                    bit = bit shr 1
+                }
+                j = j xor bit
+                if (i < j) {
+                    var tmp = re[i]; re[i] = re[j]; re[j] = tmp
+                    tmp = im[i]; im[i] = im[j]; im[j] = tmp
+                }
+            }
+            // Cooley-Tukey butterfly stages
+            var len = 2
+            while (len <= n) {
+                val halfLen = len / 2
+                val angle = -2.0 * Math.PI / len
+                val wRe = Math.cos(angle).toFloat()
+                val wIm = Math.sin(angle).toFloat()
+                var i = 0
+                while (i < n) {
+                    var curRe = 1.0f
+                    var curIm = 0.0f
+                    for (k in 0 until halfLen) {
+                        val evenIdx = i + k
+                        val oddIdx = i + k + halfLen
+                        val tRe = curRe * re[oddIdx] - curIm * im[oddIdx]
+                        val tIm = curRe * im[oddIdx] + curIm * re[oddIdx]
+                        re[oddIdx] = re[evenIdx] - tRe
+                        im[oddIdx] = im[evenIdx] - tIm
+                        re[evenIdx] = re[evenIdx] + tRe
+                        im[evenIdx] = im[evenIdx] + tIm
+                        val newCurRe = curRe * wRe - curIm * wIm
+                        curIm = curRe * wIm + curIm * wRe
+                        curRe = newCurRe
+                    }
+                    i += len
+                }
+                len = len shl 1
             }
         }
-        
+
         val startTime = System.nanoTime()
         for (pass in 0 until 200) {
-            fft(real, imag)
+            // Reset input each pass for reproducibility
+            for (i in 0 until size) {
+                real[i] = Math.sin(i * 0.1).toFloat()
+                imag[i] = 0.0f
+            }
+            fft(real, imag, size)
         }
         val elapsed = (System.nanoTime() - startTime) / 1e9
+        BenchmarkHarness.consume(real[0])
         return 200.0 / elapsed / 1000.0
     }
 

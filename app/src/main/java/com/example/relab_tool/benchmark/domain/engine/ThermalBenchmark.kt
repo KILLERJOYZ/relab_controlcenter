@@ -33,7 +33,11 @@ class ThermalBenchmark(private val context: Context) : BenchmarkEngine {
         val thermalStatuses = mutableListOf<Int>()
         
         val cpuWorkload = CpuMultiCoreWorkload()
-        val random = Random(42)
+        // Use timing-based seed so different devices produce different curves
+        val random = Random(System.nanoTime())
+        
+        // Detect if real thermal headroom API is available
+        val hasRealHeadroom = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
         
         for (i in 0 until totalSamples) {
             onProgress(i.toFloat() / totalSamples.toFloat())
@@ -45,7 +49,7 @@ class ThermalBenchmark(private val context: Context) : BenchmarkEngine {
             val throughput = ops / elapsed
             cpuThroughputs.add(throughput)
             
-            // GPU canvas burst simulation
+            // GPU canvas burst simulation (no real GPU stress — simulated decay)
             val gpuFps = 60.0 * (1.0 - (i.toDouble() / totalSamples.toDouble()) * 0.15 * random.nextDouble())
             gpuThroughputs.add(gpuFps)
             
@@ -90,16 +94,16 @@ class ThermalBenchmark(private val context: Context) : BenchmarkEngine {
         
         // 5. GPU Sustained (first 60s)
         val first60sGpu = gpuThroughputs.take(120).average()
-        list.add(SubScore("GPU Initial FPS", first60sGpu, "fps", ScoreNormalizer.normalize(first60sGpu, 40.0, 60.0, false)))
+        list.add(SubScore("GPU Initial FPS (Simulated)", first60sGpu, "fps", ScoreNormalizer.normalize(first60sGpu, 40.0, 60.0, false), true))
         
         // 6. GPU Sustained (last 60s)
         val last60sGpu = gpuThroughputs.takeLast(120).average()
-        list.add(SubScore("GPU End-of-run FPS", last60sGpu, "fps", ScoreNormalizer.normalize(last60sGpu, 30.0, 60.0, false)))
+        list.add(SubScore("GPU End-of-run FPS (Simulated)", last60sGpu, "fps", ScoreNormalizer.normalize(last60sGpu, 30.0, 60.0, false), true))
         
         // 7. GPU Sustained Ratio
         val gpuSustainedRatio = if (first60sGpu > 0) (last60sGpu / first60sGpu) * 100.0 else 85.0
         val finalGpuSustainedRatio = gpuSustainedRatio.coerceIn(20.0, 100.0)
-        list.add(SubScore("GPU Sustained Ratio", finalGpuSustainedRatio, "%", ScoreNormalizer.normalize(finalGpuSustainedRatio, 60.0, 95.0, false)))
+        list.add(SubScore("GPU Sustained Ratio (Simulated)", finalGpuSustainedRatio, "%", ScoreNormalizer.normalize(finalGpuSustainedRatio, 60.0, 95.0, false), true))
         
         // 8. Mixed CPU+GPU Sustained
         val mixedSustained = (finalCpuSustainedRatio + finalGpuSustainedRatio) / 2.0
@@ -153,11 +157,11 @@ class ThermalBenchmark(private val context: Context) : BenchmarkEngine {
         
         // 16. Average Thermal Headroom
         val avgHeadroom = headroomSamples.average()
-        list.add(SubScore("Average Thermal Headroom", avgHeadroom, "headroom", ScoreNormalizer.normalize(avgHeadroom, 0.4, 0.9, false)))
+        list.add(SubScore("Average Thermal Headroom", avgHeadroom, "headroom", ScoreNormalizer.normalize(avgHeadroom, 0.4, 0.9, false), !hasRealHeadroom))
         
         // 17. Min Thermal Headroom
         val minHeadroom = headroomSamples.minOrNull()?.toDouble() ?: 0.3
-        list.add(SubScore("Minimum Thermal Headroom", minHeadroom, "headroom", ScoreNormalizer.normalize(minHeadroom, 0.3, 0.8, false)))
+        list.add(SubScore("Minimum Thermal Headroom", minHeadroom, "headroom", ScoreNormalizer.normalize(minHeadroom, 0.3, 0.8, false), !hasRealHeadroom))
         
         // 18. Thermal Recovery
         val recoveryAvg = recoverySamples.average()
