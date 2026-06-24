@@ -35,6 +35,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.relab_tool.R
 import com.example.relab_tool.benchmark.domain.model.*
+import com.example.relab_tool.utils.BenchmarkReportPdfGenerator
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
@@ -123,6 +124,7 @@ fun BenchmarkScreen(
                         CompleteScreen(
                             state = completeState,
                             onShare = { shareScoreCard(context, completeState.result) },
+                            onExportPdf = { BenchmarkReportPdfGenerator.generateAndShareReport(context, completeState.result) },
                             onReset = { viewModel.resetToIdle() },
                             bottomPadding = bottomContentPadding
                         )
@@ -482,6 +484,7 @@ fun RunningScreen(
 fun CompleteScreen(
     state: BenchmarkUiState.Complete,
     onShare: () -> Unit,
+    onExportPdf: () -> Unit,
     onReset: () -> Unit,
     bottomPadding: androidx.compose.ui.unit.Dp
 ) {
@@ -739,18 +742,9 @@ fun CompleteScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedButton(
-                onClick = onReset,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text("Back to Dashboard", fontWeight = FontWeight.Bold)
-            }
-            Button(
                 onClick = onShare,
                 modifier = Modifier
-                    .weight(1.2f)
+                    .weight(1f)
                     .height(56.dp),
                 shape = RoundedCornerShape(16.dp)
             ) {
@@ -758,6 +752,27 @@ fun CompleteScreen(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(stringResource(R.string.bench_share), fontWeight = FontWeight.Bold)
             }
+            Button(
+                onClick = onExportPdf,
+                modifier = Modifier
+                    .weight(1.2f)
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(imageVector = Icons.Default.PictureAsPdf, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Export PDF", fontWeight = FontWeight.Bold)
+            }
+        }
+
+        OutlinedButton(
+            onClick = onReset,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text("Back to Dashboard", fontWeight = FontWeight.Bold)
         }
         
         Spacer(modifier = Modifier.height(bottomPadding))

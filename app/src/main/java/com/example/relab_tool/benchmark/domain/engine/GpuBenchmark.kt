@@ -37,8 +37,8 @@ class GpuOpenGLBenchmark(private val context: Context) : BenchmarkEngine {
 
     companion object {
         private const val TAG = "GpuOpenGLBenchmark"
-        private const val RENDER_W = 1920
-        private const val RENDER_H = 1080
+        private const val RENDER_W = 1024
+        private const val RENDER_H = 1024
         private const val FRAMES = 120
     }
 
