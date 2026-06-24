@@ -8,7 +8,7 @@ import com.example.relab_tool.benchmark.domain.BenchmarkOrchestratorState
 import com.example.relab_tool.benchmark.domain.BenchmarkRepository
 import com.example.relab_tool.benchmark.domain.model.BenchmarkResult
 import com.example.relab_tool.benchmark.domain.model.BenchmarkPillar
-import com.example.relab_tool.benchmark.scoring.PercentileCalculator
+
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -34,7 +34,6 @@ class BenchmarkViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
 
     private var activeJob: Job? = null
-    private val percentileCalculator = PercentileCalculator(context)
 
     fun requestConsent() {
         _uiState.value = BenchmarkUiState.AwaitingConsent
@@ -65,13 +64,8 @@ class BenchmarkViewModel @Inject constructor(
                     }
                     is BenchmarkOrchestratorState.Complete -> {
                         repository.saveResult(state.result)
-                        val percentile = percentileCalculator.calculatePercentile(state.result.totalScore)
-                        val nearest = percentileCalculator.getNearestReferenceDevice(state.result.totalScore)
-                        
                         _uiState.value = BenchmarkUiState.Complete(
-                            result = state.result,
-                            globalPercentile = percentile,
-                            nearestReferenceDevice = nearest
+                            result = state.result
                         )
                     }
                 }
@@ -100,13 +94,8 @@ class BenchmarkViewModel @Inject constructor(
                     }
                     is BenchmarkOrchestratorState.Complete -> {
                         repository.saveResult(state.result)
-                        val percentile = percentileCalculator.calculatePercentile(state.result.totalScore)
-                        val nearest = percentileCalculator.getNearestReferenceDevice(state.result.totalScore)
-                        
                         _uiState.value = BenchmarkUiState.Complete(
-                            result = state.result,
-                            globalPercentile = percentile,
-                            nearestReferenceDevice = nearest
+                            result = state.result
                         )
                     }
                 }
@@ -135,13 +124,8 @@ class BenchmarkViewModel @Inject constructor(
                     }
                     is BenchmarkOrchestratorState.Complete -> {
                         repository.saveResult(state.result)
-                        val percentile = percentileCalculator.calculatePercentile(state.result.totalScore)
-                        val nearest = percentileCalculator.getNearestReferenceDevice(state.result.totalScore)
-                        
                         _uiState.value = BenchmarkUiState.Complete(
-                            result = state.result,
-                            globalPercentile = percentile,
-                            nearestReferenceDevice = nearest
+                            result = state.result
                         )
                     }
                 }
@@ -162,12 +146,8 @@ class BenchmarkViewModel @Inject constructor(
     }
 
     fun selectHistoricalResult(result: BenchmarkResult) {
-        val percentile = percentileCalculator.calculatePercentile(result.totalScore)
-        val nearest = percentileCalculator.getNearestReferenceDevice(result.totalScore)
         _uiState.value = BenchmarkUiState.Complete(
-            result = result,
-            globalPercentile = percentile,
-            nearestReferenceDevice = nearest
+            result = result
         )
     }
 

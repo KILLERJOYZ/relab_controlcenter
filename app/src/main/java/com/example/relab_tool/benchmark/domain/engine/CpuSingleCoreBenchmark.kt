@@ -241,24 +241,20 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
         return (System.nanoTime() - start) / 1_000_000.0 // ms
     }
 
-    /**
-     * Cache latency via pointer-chasing.
-     * Creates a shuffled index array of [arraySizeBytes / 8] longs,
-     * then traverses the chain. Each step is a dependent load — cannot be prefetched.
-     */
     private fun runCacheLatency(arraySizeBytes: Int): Double {
-        val n = arraySizeBytes / 8
+        val n = arraySizeBytes / 4 // Int is 4 bytes
         val indices = IntArray(n) { it }
-        // Fisher-Yates shuffle
+        // Sattolo's cycle guarantees a single cycle spanning all elements
         val rng = java.util.Random(42)
-        for (k in n - 1 downTo 1) {
-            val j = rng.nextInt(k + 1)
-            val tmp = indices[k]; indices[k] = indices[j]; indices[j] = tmp
+        for (i in n - 1 downTo 1) {
+            val j = rng.nextInt(i) // nextInt(i) ensures j < i
+            val tmp = indices[i]; indices[i] = indices[j]; indices[j] = tmp
         }
         val accesses = 2_000_000
         var idx = 0
         val start = System.nanoTime()
-        repeat(accesses) { idx = indices[idx % n] }
+        // Pointer chasing without ALU operations inside the loop
+        repeat(accesses) { idx = indices[idx] }
         BenchmarkHarness.consume(idx.toLong())
         val elapsed = System.nanoTime() - start
         return elapsed.toDouble() / accesses // ns per access
@@ -335,7 +331,7 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
 
     /** Burrows-Wheeler Transform simulation for throughput (not real BZip2 — approximation) */
     private fun runBzip2Simulation(): Double {
-        val dataMb = 16
+        val dataMb = 2 // Reduced to 2MB since we sort the full block now
         val data = ByteArray(dataMb * 1024 * 1024) { (it % 256).toByte() }
 
         val start = System.nanoTime()
@@ -345,8 +341,9 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
         val block = ByteArray(blockSize)
         for (offset in 0 until data.size step blockSize) {
             System.arraycopy(data, offset, block, 0, minOf(blockSize, data.size - offset))
-            // Sort suffixes (simplified — just run insertion sort on 16-byte samples)
-            for (i in 1 until 16) {
+            // Sort suffixes (simplified — run insertion sort on full 512-byte block)
+            val limit = minOf(blockSize, data.size - offset)
+            for (i in 1 until limit) {
                 val key = block[i]
                 var j = i - 1
                 while (j >= 0 && block[j] > key) { block[j + 1] = block[j]; j-- }
@@ -381,7 +378,7 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
     }
 
     private fun runRegexTransform(): Double {
-        val size = 2 * 1024 * 1024 // 2MB string
+        val size = 128 * 1024 // 128KB string
         val input = buildString(size) {
             repeat(size / 20) { append("item_${it}_value_${it * 7} ") }
         }

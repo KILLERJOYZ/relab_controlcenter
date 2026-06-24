@@ -178,12 +178,14 @@ class NetworkIpcBenchmark : BenchmarkEngine {
         serverSocket.reuseAddress = true
         serverSocket.bind(java.net.InetSocketAddress(LOOPBACK, port), 1)
         val serverThread = Thread {
-            serverSocket.accept().use { client ->
-                val ins = client.getInputStream()
-                val buf = ByteArray(65536)
-                var n = ins.read(buf)
-                while (n > 0) { received += n; n = ins.read(buf) }
-            }
+            try {
+                serverSocket.accept().use { client ->
+                    val ins = client.getInputStream()
+                    val buf = ByteArray(65536)
+                    var n = ins.read(buf)
+                    while (n > 0) { received += n; n = ins.read(buf) }
+                }
+            } catch (e: Exception) {}
         }
         serverThread.start()
         Thread.sleep(10) // let server start
@@ -211,14 +213,16 @@ class NetworkIpcBenchmark : BenchmarkEngine {
         serverSocket.reuseAddress = true
         serverSocket.bind(java.net.InetSocketAddress(LOOPBACK, port), 1)
         val serverThread = Thread {
-            serverSocket.accept().use { client ->
-                val ins = client.getInputStream()
-                val os = client.getOutputStream()
-                val buf = ByteArray(1)
-                repeat(pingCount) {
-                    if (ins.read(buf) > 0) os.write(buf)
+            try {
+                serverSocket.accept().use { client ->
+                    val ins = client.getInputStream()
+                    val os = client.getOutputStream()
+                    val buf = ByteArray(1)
+                    repeat(pingCount) {
+                        if (ins.read(buf) > 0) os.write(buf)
+                    }
                 }
-            }
+            } catch (e: Exception) {}
         }
         serverThread.start()
         Thread.sleep(10)
@@ -251,11 +255,13 @@ class NetworkIpcBenchmark : BenchmarkEngine {
         serverChannel.socket().reuseAddress = true
         serverChannel.socket().bind(java.net.InetSocketAddress(LOOPBACK, port))
         val serverThread = Thread {
-            val client = serverChannel.accept()
-            val buf = ByteBuffer.allocateDirect(65536)
-            var n = client.read(buf)
-            while (n > 0) { received += n; buf.clear(); n = client.read(buf) }
-            client.close()
+            try {
+                val client = serverChannel.accept()
+                val buf = ByteBuffer.allocateDirect(65536)
+                var n = client.read(buf)
+                while (n > 0) { received += n; buf.clear(); n = client.read(buf) }
+                client.close()
+            } catch (e: Exception) {}
         }
         serverThread.start()
         Thread.sleep(20)
@@ -330,12 +336,14 @@ class NetworkIpcBenchmark : BenchmarkEngine {
         val totalBytes = totalMb.toLong() * 1024 * 1024
         var written = 0L
         val writerThread = Thread {
-            while (written < totalBytes) {
-                val toWrite = minOf(data.size.toLong(), totalBytes - written).toInt()
-                pipeOut.write(data, 0, toWrite)
-                written += toWrite
-            }
-            pipeOut.close()
+            try {
+                while (written < totalBytes) {
+                    val toWrite = minOf(data.size.toLong(), totalBytes - written).toInt()
+                    pipeOut.write(data, 0, toWrite)
+                    written += toWrite
+                }
+                pipeOut.close()
+            } catch (e: Exception) {}
         }
         writerThread.start()
         val buf = ByteArray(65536)
@@ -504,16 +512,18 @@ class NetworkIpcBenchmark : BenchmarkEngine {
         serverSocket.reuseAddress = true
         serverSocket.bind(java.net.InetSocketAddress(LOOPBACK, port), 1)
         val serverThread = Thread {
-            serverSocket.accept().use { client ->
-                val reader = BufferedReader(InputStreamReader(client.getInputStream()))
-                val writer = client.getOutputStream().bufferedWriter()
-                repeat(requestCount) {
-                    val line = reader.readLine() ?: return@repeat
-                    val response = """{"result":"ok","echo":"${line.take(20)}","id":${it}}""" + "\n"
-                    writer.write(response)
-                    writer.flush()
+            try {
+                serverSocket.accept().use { client ->
+                    val reader = BufferedReader(InputStreamReader(client.getInputStream()))
+                    val writer = client.getOutputStream().bufferedWriter()
+                    repeat(requestCount) {
+                        val line = reader.readLine() ?: return@repeat
+                        val response = """{"result":"ok","echo":"${line.take(20)}","id":${it}}""" + "\n"
+                        writer.write(response)
+                        writer.flush()
+                    }
                 }
-            }
+            } catch (e: Exception) {}
         }
         serverThread.start()
         Thread.sleep(10)
@@ -583,11 +593,13 @@ class NetworkIpcBenchmark : BenchmarkEngine {
         serverChannel.socket().reuseAddress = true
         serverChannel.socket().bind(java.net.InetSocketAddress(LOOPBACK, port))
         val serverThread = Thread {
-            val client = serverChannel.accept()
-            val buf = ByteBuffer.allocateDirect(65536)
-            var n = client.read(buf)
-            while (n > 0) { received += n; buf.clear(); n = client.read(buf) }
-            client.close()
+            try {
+                val client = serverChannel.accept()
+                val buf = ByteBuffer.allocateDirect(65536)
+                var n = client.read(buf)
+                while (n > 0) { received += n; buf.clear(); n = client.read(buf) }
+                client.close()
+            } catch (e: Exception) {}
         }
         serverThread.start()
         Thread.sleep(10)
@@ -635,11 +647,13 @@ class NetworkIpcBenchmark : BenchmarkEngine {
         serverChannel.socket().bind(java.net.InetSocketAddress(LOOPBACK, port))
         var received = 0L
         val serverThread = Thread {
-            val client = serverChannel.accept()
-            val buf = ByteBuffer.allocateDirect(65536)
-            var n = client.read(buf)
-            while (n > 0) { received += n; buf.clear(); n = client.read(buf) }
-            client.close()
+            try {
+                val client = serverChannel.accept()
+                val buf = ByteBuffer.allocateDirect(65536)
+                var n = client.read(buf)
+                while (n > 0) { received += n; buf.clear(); n = client.read(buf) }
+                client.close()
+            } catch (e: Exception) {}
         }
         serverThread.start()
         Thread.sleep(10)

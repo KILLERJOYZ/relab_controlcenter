@@ -2,7 +2,6 @@ package com.example.relab_tool.benchmark.ui
 
 import com.example.relab_tool.benchmark.domain.model.BenchmarkPillar
 import com.example.relab_tool.benchmark.domain.model.BenchmarkResult
-import com.example.relab_tool.benchmark.domain.model.DeviceReferenceEntry
 import com.example.relab_tool.benchmark.domain.model.PillarScore
 
 sealed interface BenchmarkUiState {
@@ -21,9 +20,7 @@ sealed interface BenchmarkUiState {
         val runningHardwareScore: Int
     ) : BenchmarkUiState
     data class Complete(
-        val result: BenchmarkResult,
-        val globalPercentile: Float,
-        val nearestReferenceDevice: DeviceReferenceEntry
+        val result: BenchmarkResult
     ) : BenchmarkUiState
     data class Error(val message: String, val isRecoverable: Boolean = true) : BenchmarkUiState
 }

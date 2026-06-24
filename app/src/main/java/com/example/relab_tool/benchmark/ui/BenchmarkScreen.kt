@@ -560,7 +560,7 @@ fun CompleteScreen(
             }
         }
         
-        PercentileBar(percentile = state.globalPercentile)
+
         
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -619,14 +619,6 @@ fun CompleteScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 12.dp)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                Text(
-                    text = stringResource(R.string.bench_nearest_device, state.nearestReferenceDevice.deviceName, state.nearestReferenceDevice.soc),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
                 )
             }
         }

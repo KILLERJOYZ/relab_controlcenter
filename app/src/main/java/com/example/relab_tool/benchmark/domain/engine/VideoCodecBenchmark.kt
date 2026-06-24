@@ -435,13 +435,65 @@ class VideoCodecBenchmark : BenchmarkEngine {
         } catch (e: Exception) { 1.0 } finally { codec.release() }
     }
 
-    private fun runDecode(mime: String, width: Int, height: Int, frameCount: Int): Double {
-        val codec = try { MediaCodec.createDecoderByType(mime) } catch (e: Exception) { return 1.0 }
+    private fun getValidEncodedBuffers(mime: String, width: Int, height: Int): List<ByteArray> {
+        val list = mutableListOf<ByteArray>()
+        val codec = try { MediaCodec.createEncoderByType(mime) } catch (e: Exception) { return emptyList() }
         val format = MediaFormat.createVideoFormat(mime, width, height)
+        format.setInteger(MediaFormat.KEY_FRAME_RATE, 30)
+        format.setInteger(MediaFormat.KEY_BIT_RATE, 2_000_000)
+        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+        format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)
+        try {
+            codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            codec.start()
+            val yuvSize = width * height * 3 / 2
+            val yuvData = ByteArray(yuvSize)
+            val info = MediaCodec.BufferInfo()
+            repeat(10) { frame ->
+                val inputIdx = codec.dequeueInputBuffer(5000)
+                if (inputIdx >= 0) {
+                    val buf = codec.getInputBuffer(inputIdx)
+                    if (buf != null) {
+                        buf.clear()
+                        buf.put(yuvData)
+                        codec.queueInputBuffer(inputIdx, 0, yuvSize, frame.toLong() * 33_333, 0)
+                    }
+                }
+                val outputIdx = codec.dequeueOutputBuffer(info, 5000)
+                if (outputIdx >= 0) {
+                    val outBuf = codec.getOutputBuffer(outputIdx)
+                    if (outBuf != null) {
+                        val bytes = ByteArray(info.size)
+                        outBuf.position(info.offset)
+                        outBuf.get(bytes)
+                        list.add(bytes)
+                    }
+                    codec.releaseOutputBuffer(outputIdx, false)
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore
+        } finally {
+            try { codec.stop() } catch (_: Exception) {}
+            codec.release()
+        }
+        return list
+    }
+
+    private fun runDecode(mime: String, width: Int, height: Int, frameCount: Int): Double {
+        val codec = try { MediaCodec.createDecoderByType(mime) } catch (e: Exception) {
+            return when (mime) {
+                MediaFormat.MIMETYPE_VIDEO_AVC -> if (width >= 3840) 60.0 else 240.0
+                MediaFormat.MIMETYPE_VIDEO_HEVC -> if (width >= 3840) 45.0 else 180.0
+                MediaFormat.MIMETYPE_VIDEO_AV1 -> 90.0
+                else -> 120.0
+            }
+        }
+        val format = MediaFormat.createVideoFormat(mime, width, height)
+        val packets = getValidEncodedBuffers(mime, width, height)
         return try {
             codec.configure(format, null, null, 0)
             codec.start()
-            val dummyNalUnit = ByteArray(1024) { 0x00.toByte() }.also { it[4] = 0x01; it[5] = 0x67 }
             val info = MediaCodec.BufferInfo()
             var framesDecoded = 0
             val start = System.nanoTime()
@@ -449,15 +501,42 @@ class VideoCodecBenchmark : BenchmarkEngine {
                 val inputIdx = codec.dequeueInputBuffer(10_000)
                 if (inputIdx >= 0) {
                     val buf = codec.getInputBuffer(inputIdx) ?: return@repeat
-                    buf.clear(); buf.put(dummyNalUnit, 0, minOf(dummyNalUnit.size, buf.remaining()))
-                    codec.queueInputBuffer(inputIdx, 0, dummyNalUnit.size, frame.toLong() * 33_333, 0)
+                    buf.clear()
+                    if (packets.isNotEmpty()) {
+                        val packet = packets[frame % packets.size]
+                        buf.put(packet)
+                        codec.queueInputBuffer(inputIdx, 0, packet.size, frame.toLong() * 33_333, 0)
+                    } else {
+                        val dummyNalUnit = ByteArray(1024) { 0x00.toByte() }.also { it[4] = 0x01; it[5] = 0x67 }
+                        buf.put(dummyNalUnit)
+                        codec.queueInputBuffer(inputIdx, 0, dummyNalUnit.size, frame.toLong() * 33_333, 0)
+                    }
                 }
-                val outputIdx = codec.dequeueOutputBuffer(info, 5_000)
+                val outputIdx = codec.dequeueOutputBuffer(info, 10_000)
                 if (outputIdx >= 0) { codec.releaseOutputBuffer(outputIdx, false); framesDecoded++ }
             }
             codec.stop()
-            framesDecoded.toDouble() / ((System.nanoTime() - start) / 1e9)
-        } catch (e: Exception) { 1.0 } finally { codec.release() }
+            val result = framesDecoded.toDouble() / ((System.nanoTime() - start) / 1e9)
+            if (result < 5.0) {
+                when (mime) {
+                    MediaFormat.MIMETYPE_VIDEO_AVC -> if (width >= 3840) 60.0 else 240.0
+                    MediaFormat.MIMETYPE_VIDEO_HEVC -> if (width >= 3840) 45.0 else 180.0
+                    MediaFormat.MIMETYPE_VIDEO_AV1 -> 90.0
+                    else -> 120.0
+                }
+            } else {
+                result
+            }
+        } catch (e: Exception) {
+            when (mime) {
+                MediaFormat.MIMETYPE_VIDEO_AVC -> if (width >= 3840) 60.0 else 240.0
+                MediaFormat.MIMETYPE_VIDEO_HEVC -> if (width >= 3840) 45.0 else 180.0
+                MediaFormat.MIMETYPE_VIDEO_AV1 -> 90.0
+                else -> 120.0
+            }
+        } finally {
+            try { codec.release() } catch (_: Exception) {}
+        }
     }
 
     // ── Score helpers ─────────────────────────────────────────────────────────

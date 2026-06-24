@@ -296,8 +296,8 @@ class StorageBenchmark(private val context: Context) : BenchmarkEngine {
         val dbFile = File(cacheDir, "bench_wal.db")
         dbFile.delete()
         val db = SQLiteDatabase.openOrCreateDatabase(dbFile, null)
-        db.execSQL("PRAGMA journal_mode=WAL")
-        db.execSQL("PRAGMA synchronous=NORMAL")
+        db.enableWriteAheadLogging()
+        db.rawQuery("PRAGMA synchronous=NORMAL", null).use { it.moveToFirst() }
         db.execSQL("CREATE TABLE bench (id INTEGER PRIMARY KEY, data TEXT, num REAL, flag INTEGER)")
         val start = System.nanoTime()
         db.beginTransaction()
@@ -308,7 +308,10 @@ class StorageBenchmark(private val context: Context) : BenchmarkEngine {
             db.setTransactionSuccessful()
         } finally { db.endTransaction() }
         val elapsed = (System.nanoTime() - start) / 1_000_000.0
-        db.close(); dbFile.delete()
+        db.close()
+        dbFile.delete()
+        File(dbFile.path + "-wal").delete()
+        File(dbFile.path + "-shm").delete()
         return elapsed
     }
 
@@ -316,7 +319,7 @@ class StorageBenchmark(private val context: Context) : BenchmarkEngine {
         val dbFile = File(cacheDir, "bench_query.db")
         dbFile.delete()
         val db = SQLiteDatabase.openOrCreateDatabase(dbFile, null)
-        db.execSQL("PRAGMA journal_mode=WAL")
+        db.enableWriteAheadLogging()
         db.execSQL("CREATE TABLE bench (id INTEGER PRIMARY KEY, data TEXT, num REAL)")
         db.beginTransaction()
         try { for (i in 0 until rowCount) db.execSQL("INSERT INTO bench VALUES ($i,'data_$i',${i.toFloat()})")
@@ -327,7 +330,10 @@ class StorageBenchmark(private val context: Context) : BenchmarkEngine {
             while (c.moveToNext()) { count += c.getInt(0); BenchmarkHarness.consume(count) }
         }
         val elapsed = (System.nanoTime() - start) / 1_000_000.0
-        db.close(); dbFile.delete()
+        db.close()
+        dbFile.delete()
+        File(dbFile.path + "-wal").delete()
+        File(dbFile.path + "-shm").delete()
         return elapsed
     }
 
@@ -364,7 +370,11 @@ class StorageBenchmark(private val context: Context) : BenchmarkEngine {
     private fun runODirectRead(sizeMb: Int): Double {
         val file = File(cacheDir, "bench_odirect_read.tmp")
         // Write the file first
-        runSequentialWrite(sizeMb)
+        val data = ByteArray(1024 * 1024) { (it % 256).toByte() }
+        file.outputStream().buffered(4 * 1024 * 1024).use { os ->
+            repeat(sizeMb) { os.write(data) }
+        }
+        
         val result = BenchmarkNativeBridge.safeODirectRead(file.absolutePath, sizeMb.toLong() * 1024 * 1024)
         file.delete()
         if (result > 0) return result

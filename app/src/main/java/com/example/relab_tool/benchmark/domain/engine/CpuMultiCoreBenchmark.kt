@@ -368,7 +368,7 @@ class CpuMultiCoreBenchmark : BenchmarkEngine {
     }
 
     private suspend fun runStreamCopy(): Double = coroutineScope {
-        val n = 16 * 1024 * 1024 // 16M longs = 128MB
+        val n = 4 * 1024 * 1024 // 4M longs = 32MB
         val src = LongArray(n) { it.toLong() }
         val dst = LongArray(n)
         val chunkSize = n / coreCount
@@ -387,7 +387,7 @@ class CpuMultiCoreBenchmark : BenchmarkEngine {
     }
 
     private suspend fun runStreamScale(): Double = coroutineScope {
-        val n = 16 * 1024 * 1024
+        val n = 4 * 1024 * 1024 // 32MB
         val src = DoubleArray(n) { it.toDouble() }
         val dst = DoubleArray(n)
         val scalar = 3.14
@@ -406,7 +406,7 @@ class CpuMultiCoreBenchmark : BenchmarkEngine {
     }
 
     private suspend fun runStreamAdd(): Double = coroutineScope {
-        val n = 16 * 1024 * 1024
+        val n = 4 * 1024 * 1024 // 32MB
         val a = DoubleArray(n) { it.toDouble() }
         val b = DoubleArray(n) { (n - it).toDouble() }
         val c = DoubleArray(n)
@@ -425,7 +425,7 @@ class CpuMultiCoreBenchmark : BenchmarkEngine {
     }
 
     private suspend fun runStreamTriad(): Double = coroutineScope {
-        val n = 16 * 1024 * 1024
+        val n = 4 * 1024 * 1024 // 32MB
         val a = DoubleArray(n) { it.toDouble() }
         val b = DoubleArray(n) { (n - it).toDouble() }
         val c = DoubleArray(n)
@@ -572,10 +572,16 @@ class CpuMultiCoreBenchmark : BenchmarkEngine {
 
         while (queue.isNotEmpty() && level < 20) {
             val nextQueue = ConcurrentLinkedQueue<Int>()
-            val chunkList = queue.toList()
-            chunkList.chunked(maxOf(1, chunkList.size / coreCount)).map { chunk ->
+            val currentLevelNodes = queue.toList()
+            val index = AtomicInteger(0)
+            val size = currentLevelNodes.size
+            
+            (0 until coreCount).map {
                 async {
-                    chunk.forEach { node ->
+                    while (true) {
+                        val i = index.getAndIncrement()
+                        if (i >= size) break
+                        val node = currentLevelNodes[i]
                         adj[node].forEach { neighbor ->
                             if (visited.putIfAbsent(neighbor, true) == null) {
                                 nextQueue.add(neighbor)
