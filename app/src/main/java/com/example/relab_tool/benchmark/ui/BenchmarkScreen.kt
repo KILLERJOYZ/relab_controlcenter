@@ -123,8 +123,7 @@ fun BenchmarkScreen(
                     if (completeState != null) {
                         CompleteScreen(
                             state = completeState,
-                            onShare = { shareScoreCard(context, completeState.result) },
-                            onExportPdf = { BenchmarkReportPdfGenerator.generateAndShareReport(context, completeState.result) },
+                            onShare = { BenchmarkReportPdfGenerator.generateAndShareReport(context, completeState.result) },
                             onReset = { viewModel.resetToIdle() },
                             bottomPadding = bottomContentPadding
                         )
@@ -484,7 +483,6 @@ fun RunningScreen(
 fun CompleteScreen(
     state: BenchmarkUiState.Complete,
     onShare: () -> Unit,
-    onExportPdf: () -> Unit,
     onReset: () -> Unit,
     bottomPadding: androidx.compose.ui.unit.Dp
 ) {
@@ -742,18 +740,16 @@ fun CompleteScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedButton(
-                onClick = onShare,
+                onClick = onReset,
                 modifier = Modifier
                     .weight(1f)
                     .height(56.dp),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Icon(imageVector = Icons.Default.Share, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.bench_share), fontWeight = FontWeight.Bold)
+                Text("Back to Dashboard", fontWeight = FontWeight.Bold)
             }
             Button(
-                onClick = onExportPdf,
+                onClick = onShare,
                 modifier = Modifier
                     .weight(1.2f)
                     .height(56.dp),
@@ -761,18 +757,8 @@ fun CompleteScreen(
             ) {
                 Icon(imageVector = Icons.Default.PictureAsPdf, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Export PDF", fontWeight = FontWeight.Bold)
+                Text("Share PDF", fontWeight = FontWeight.Bold)
             }
-        }
-
-        OutlinedButton(
-            onClick = onReset,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Text("Back to Dashboard", fontWeight = FontWeight.Bold)
         }
         
         Spacer(modifier = Modifier.height(bottomPadding))
@@ -838,64 +824,5 @@ private fun tierDescriptionRes(tier: ScoreTier): Int {
         ScoreTier.HIGH      -> R.string.tier_high_desc
         ScoreTier.FLAGSHIP  -> R.string.tier_flagship_desc
         ScoreTier.ELITE     -> R.string.tier_elite_desc
-    }
-}
-
-fun shareScoreCard(context: Context, result: BenchmarkResult) {
-    try {
-        val cacheDir = context.cacheDir
-        val file = File(cacheDir, "bench_score_card.png")
-        val outputStream = FileOutputStream(file)
-        
-        val width = 600
-        val height = 800
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        
-        val paint = Paint().apply {
-            isAntiAlias = true
-            color = 0xFF1E1E1E.toInt()
-        }
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
-        
-        val textPaint = Paint().apply {
-            color = Color.WHITE
-            textSize = 28f
-            textAlign = Paint.Align.CENTER
-            isAntiAlias = true
-        }
-        canvas.drawText("ControlCenter Hardware Score Card", width / 2f, 80f, textPaint)
-        
-        textPaint.textSize = 85f
-        textPaint.color = 0xFF2196F3.toInt() // light blue score color
-        canvas.drawText(result.totalScore.toString(), width / 2f, 240f, textPaint)
-        
-        textPaint.textSize = 24f
-        textPaint.color = Color.LTGRAY
-        canvas.drawText("Hardware: ${result.hardwareScore} | Network: ${result.connectivityScore}", width / 2f, 320f, textPaint)
-        canvas.drawText("Device: ${result.deviceModel} (${result.deviceSoc})", width / 2f, 380f, textPaint)
-        
-        val date = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(result.timestamp))
-        canvas.drawText("Run at $date", width / 2f, 440f, textPaint)
-        
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-        outputStream.flush()
-        outputStream.close()
-        bitmap.recycle()
-        
-        val uri = FileProvider.getUriForFile(
-            context,
-            "com.relab.controlcenter.fileprovider",
-            file
-        )
-        
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "image/png"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        context.startActivity(Intent.createChooser(intent, "Share Score Card"))
-    } catch (e: Exception) {
-        Log.e("BenchmarkScreen", "Failed to share score card", e)
     }
 }
