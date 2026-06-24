@@ -22,7 +22,7 @@ android {
 
         externalNativeBuild {
             cmake {
-                cFlags("-Os", "-fvisibility=hidden")
+                cFlags("-O3", "-fvisibility=hidden")
                 arguments("-DANDROID_STL=none")
             }
         }
