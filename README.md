@@ -1,4 +1,4 @@
-# Relab Control Center (rlcc) - v0.4.3.3-devbeta
+# Relab Control Center (rlcc) - v0.4.3.4-devbeta
 
 **Relab Control Center** is a professional-grade utility and diagnostic suite built for Android enthusiasts, developers, and power users. It combines deep hardware intelligence with real-time performance telemetry and a specialized installer hub to provide total transparency into the Android ecosystem.
 
@@ -62,6 +62,16 @@ A professional-grade **Common Interaction Toolkit** for verifying hardware funct
 
 ---
 
+## 🏁 v0.4.3.4 Release Highlights
+
+This release implements comprehensive stability, precision, and crash-avoidance optimizations to the mobile hardware benchmark engine across all 7 active performance subsystems:
+*   **Prevented JVM Heap OutOfMemoryErrors**: Reduced STREAM array allocation sizes from 128MB to 32MB, maintaining heavy workload intensity to bypass system cache while staying safely within JVM heap growth limits.
+*   **Robust SQLite WAL Support**: Replaced query-level WAL configurations with Android's native `enableWriteAheadLogging()` API to bypass restrictions on strict OEM platforms.
+*   **Dynamic Decoder Stream Feeding**: Fixed video decoder hanging and returning 0.0 FPS by dynamically capturing valid NAL bitstreams from active encoder runs, adding driver-safe estimated fallback rates.
+*   **GC-Friendly Regex Backtracking**: Scaled down pattern-matching backtracking search string size from 2MB to 128KB to prevent heavy ART garbage collection loops.
+
+---
+
 ## 🏁 v0.4.3.3 Release Highlights
 
 This release implements a comprehensive calibration audit of the hardware benchmark engine to deliver precise performance scoring and tier classification across Entry, Mid-Range, High-End, Flagship, and Elite Android devices:
@@ -88,6 +98,18 @@ This release focuses on detailed hardware spec explanations and deep internation
 *   **Spec-Specific Explanations**: Added 171 custom explanation entries for all 57 specs cards (Explanation, How it works, Why it matters) to replace generic templated text.
 *   **Global Localization (17 Languages)**: Full localization in English, Vietnamese, Simplified Chinese, Spanish, French, German, Russian, Portuguese, Italian, Japanese, Korean, Arabic, Hindi, Indonesian, Thai, Turkish, and Dutch.
 *   **Interactive Specs & Settings Navigation**: Top-right ⓘ buttons opening localized bottom sheets, and long-press shortcuts to relevant Android Settings categories with haptic feedback.
+
+---
+
+## 📊 Changelog: v0.4.3.4 vs v0.4.3.3
+
+| Feature | Version 0.4.3.3 | Version 0.4.3.4 (New) |
+| :--- | :--- | :--- |
+| **CPU Multi-Core** | Allocated 128MB STREAM arrays per thread, causing JVM heap OOMs. | **Memory-Optimized STREAM**: Reduced array size to 32MB per thread, ensuring heap safety while retaining CPU cache-bypass capability. |
+| **SQLite WAL Queries** | Used `execSQL` for database WAL setup, triggering SQL exceptions on some ROMs. | **Safe Native APIs**: Migrated database WAL configuration to use native `enableWriteAheadLogging()` and `rawQuery`. |
+| **Video Codec Decoder** | Synthetic dummy NAL bitstreams rejected by modern drivers, returning 0.0 FPS. | **Dynamic Encoder Sourcing**: Feeds decoders dynamically captured valid packets from encoder runs, with safe driver-level fallbacks. |
+| **CPU Single-Core** | 2MB regex backtracking string triggered heavy ART GC allocation overhead. | **Tuned Pattern Matching**: Reduced regex string size to 128KB to eliminate GC pauses. |
+| **Build Configuration** | Version Name: `0.4.3.3`, Code: `9`. | Version Name: `0.4.3.4`, Code: `10`. Release tag `v0.4.3.4` with `rlcc_devbeta_v0.4.3.4.apk`. |
 
 ---
 
@@ -129,7 +151,7 @@ This release focuses on detailed hardware spec explanations and deep internation
 
 ## 📥 Getting Started
 
-1.  **Download**: Obtain the latest `rlcc_devbeta_v0.4.3.3.apk` from the [Releases](https://github.com/KILLERJOYZ/relab_controlcenter/releases) page.
+1.  **Download**: Obtain the latest `rlcc_devbeta_v0.4.3.4.apk` from the [Releases](https://github.com/KILLERJOYZ/relab_controlcenter/releases) page.
 2.  **Permissions**: Grant Camera, Location, and Phone permissions to enable physical sensor detection and network identification.
 3.  **Installation**: Enable "Install from Unknown Sources" for the App Hub to function as an alternative installer.
 
