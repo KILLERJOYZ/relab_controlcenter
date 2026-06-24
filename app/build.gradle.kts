@@ -50,11 +50,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    java {
-        toolchain {
-            languageVersion.set(JavaLanguageVersion.of(21))
-        }
-    }
 
     buildFeatures {
         compose = true
@@ -102,7 +97,9 @@ android {
 }
 
 kotlin {
-    jvmToolchain(21)
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
 }
 
 dependencies {
