@@ -4,6 +4,23 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!--
+      READ_PHONE_STATE / READ_PHONE_NUMBERS Justification:
+      Category: Device information tool — Cellular network diagnostics
+
+      Core feature: "Cellular" tab displays SIM card information including
+      carrier name, network type (5G/4G/3G), MCC/MNC, roaming status,
+      and phone number for each SIM slot.
+
+      READ_PHONE_STATE: Required for TelephonyManager.dataNetworkType,
+      SubscriptionManager.activeSubscriptionInfoList (carrier, MCC, MNC).
+      READ_PHONE_NUMBERS: Required for SubscriptionManager.getPhoneNumber()
+      on Android 13+ (API 33+), replacing deprecated sub.number.
+
+      Phone numbers are displayed on-device only and never transmitted
+      to any server. See Privacy Policy:
+      https://github.com/killerjoyz/relab_controlcenter/blob/main/PRIVACY_POLICY.md
+    -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
@@ -25,6 +42,25 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- Gaming mode keeps CPU active via partial WakeLock -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!--
+      QUERY_ALL_PACKAGES Justification (Play Console Declaration Form):
+      Category: Device management / Device search tool
+
+      This app is a comprehensive hardware diagnostics and device info tool.
+      It requires QUERY_ALL_PACKAGES for the following core features:
+      1. "Installed Apps" tab — enumerates ALL installed packages to display
+         app name, version, install date, APK size, and permissions.
+         (DeviceInfoViewModel.loadInstalledAppsInfoInternal -> pm.getInstalledPackages)
+      2. "Security Audit" — scans all apps' declared permissions to identify
+         potentially dangerous permission usage across the device.
+         (DeviceInfoViewModel.updateSecurityInfo -> pm.getInstalledPackages(GET_PERMISSIONS))
+      3. "AssistiveTouch app launcher" — lets users pin any installed app
+         to a floating quick-launch menu.
+         (AssistiveTouchSettingsScreen -> pm.getInstalledApplications)
+
+      Without QUERY_ALL_PACKAGES, only the ~40 packages declared in <queries>
+      would be visible, making these features non-functional.
+    -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
     <!-- CIT Tests Required Permissions -->

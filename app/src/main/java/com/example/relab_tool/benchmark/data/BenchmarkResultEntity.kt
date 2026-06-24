@@ -17,7 +17,9 @@ data class BenchmarkResultEntity(
     val totalScore: Int,
     val tier: ScoreTier,
     val pillarScores: List<PillarScore>,
-    val isQuickTest: Boolean
+    val isQuickTest: Boolean,
+    val isWarmRun: Boolean = false,   // RC-6: JIT warm-run flag
+    val runScope: String = "Full"     // RC-11: "CPU Only", "Full (No Network)", "Full"
 ) {
     fun toDomain(): BenchmarkResult = BenchmarkResult(
         id = id,
@@ -29,7 +31,9 @@ data class BenchmarkResultEntity(
         totalScore = totalScore,
         tier = tier,
         pillarScores = pillarScores,
-        isQuickTest = isQuickTest
+        isQuickTest = isQuickTest,
+        isWarmRun = isWarmRun,
+        runScope = runScope
     )
 
     companion object {
@@ -43,7 +47,9 @@ data class BenchmarkResultEntity(
             totalScore = domain.totalScore,
             tier = domain.tier,
             pillarScores = domain.pillarScores,
-            isQuickTest = domain.isQuickTest
+            isQuickTest = domain.isQuickTest,
+            isWarmRun = domain.isWarmRun,
+            runScope = domain.runScope
         )
     }
 }

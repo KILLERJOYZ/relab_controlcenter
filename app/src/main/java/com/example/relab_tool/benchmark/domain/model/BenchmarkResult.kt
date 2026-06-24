@@ -10,5 +10,7 @@ data class BenchmarkResult(
     val totalScore: Int,
     val tier: ScoreTier,
     val pillarScores: List<PillarScore>,
-    val isQuickTest: Boolean = false
+    val isQuickTest: Boolean = false,
+    val isWarmRun: Boolean = false,    // RC-6: true if ART JIT was pre-warmed by a prior run this session
+    val runScope: String = "Full"      // RC-11: "CPU Only", "Full (No Network)", or "Full"
 )

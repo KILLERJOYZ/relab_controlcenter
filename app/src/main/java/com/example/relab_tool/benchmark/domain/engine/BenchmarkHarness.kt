@@ -106,4 +106,17 @@ object BenchmarkHarness {
     inline fun medianOfThreeLight(block: () -> Double): Double {
         return medianOfThree(warmups = 1, timedRuns = 3, block = block)
     }
+
+    /**
+     * Five-run variant for high-variance tests (RC-4).
+     * Use for tests with high scheduling noise: context switches, atomic contention.
+     * Performs [warmups] warm-up runs then 5 timed runs, returning the median.
+     *
+     * @param warmups Number of untimed warm-up iterations (default: 3).
+     * @param block The benchmark function to execute.
+     */
+    @JvmStatic
+    inline fun medianOfFive(warmups: Int = 3, block: () -> Double): Double {
+        return medianOfThree(warmups = warmups, timedRuns = 5, block = block)
+    }
 }

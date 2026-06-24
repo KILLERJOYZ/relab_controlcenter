@@ -35,22 +35,24 @@ class ApkCrawler(private val context: Context) {
             .build()
         try {
             val response = executeRequestWithRetry(playRequest)
-            if (response.isSuccessful) {
-                val html = response.body?.string() ?: ""
-                val ogImageRegex = """<meta[^>]*property="og:image"[^>]*content="([^"]+)"""".toRegex()
-                var match = ogImageRegex.find(html)
-                if (match != null) {
-                    return match.groupValues[1]
-                }
-                val ogImageRegex2 = """<meta[^>]*content="([^"]+)"[^>]*property="og:image"""".toRegex()
-                match = ogImageRegex2.find(html)
-                if (match != null) {
-                    return match.groupValues[1]
-                }
-                val playLhRegex = """https://play-lh\.googleusercontent\.com/[a-zA-Z0-9-_=]+""".toRegex()
-                match = playLhRegex.find(html)
-                if (match != null) {
-                    return match.value
+            response.use { resp ->
+                if (resp.isSuccessful) {
+                    val html = resp.body?.string() ?: ""
+                    val ogImageRegex = """<meta[^>]*property="og:image"[^>]*content="([^"]+)"""".toRegex()
+                    var match = ogImageRegex.find(html)
+                    if (match != null) {
+                        return match.groupValues[1]
+                    }
+                    val ogImageRegex2 = """<meta[^>]*content="([^"]+)"[^>]*property="og:image"""".toRegex()
+                    match = ogImageRegex2.find(html)
+                    if (match != null) {
+                        return match.groupValues[1]
+                    }
+                    val playLhRegex = """https://play-lh\.googleusercontent\.com/[a-zA-Z0-9-_=]+""".toRegex()
+                    match = playLhRegex.find(html)
+                    if (match != null) {
+                        return match.value
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -65,15 +67,17 @@ class ApkCrawler(private val context: Context) {
             .build()
         try {
             val response = executeRequestWithRetry(aptoideRequest)
-            if (response.isSuccessful) {
-                val jsonStr = response.body?.string() ?: ""
-                val json = JSONObject(jsonStr)
-                if (json.has("data")) {
-                    val data = json.getJSONObject("data")
-                    if (data.has("icon")) {
-                        val iconUrl = data.getString("icon")
-                        if (!iconUrl.isNullOrEmpty()) {
-                            return iconUrl
+            response.use { resp ->
+                if (resp.isSuccessful) {
+                    val jsonStr = resp.body?.string() ?: ""
+                    val json = JSONObject(jsonStr)
+                    if (json.has("data")) {
+                        val data = json.getJSONObject("data")
+                        if (data.has("icon")) {
+                            val iconUrl = data.getString("icon")
+                            if (!iconUrl.isNullOrEmpty()) {
+                                return iconUrl
+                            }
                         }
                     }
                 }

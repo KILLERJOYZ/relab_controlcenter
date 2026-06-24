@@ -113,6 +113,9 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
     private val _deviceSummary = MutableStateFlow<DeviceSummary?>(null)
     val deviceSummary = _deviceSummary.asStateFlow()
 
+    private val _isInitialized = MutableStateFlow(false)
+    val isInitialized = _isInitialized.asStateFlow()
+
     private val _systemInfo = MutableStateFlow<SystemInfo?>(null)
     val systemInfo = _systemInfo.asStateFlow()
 
@@ -673,7 +676,10 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
             _lastStoppedChargingTs.value = stoppedChargingTs
         }
         // Parallelise: each loader is independent — no data dependency between them
-        viewModelScope.launch(Dispatchers.IO) { loadStaticInfo() }
+        viewModelScope.launch(Dispatchers.IO) {
+            loadStaticInfo()
+            _isInitialized.value = true
+        }
         
         // Register battery receiver for state changes
         ContextCompat.registerReceiver(

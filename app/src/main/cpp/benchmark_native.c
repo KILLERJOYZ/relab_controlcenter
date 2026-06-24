@@ -237,7 +237,7 @@ Java_com_example_relab_1tool_benchmark_domain_engine_BenchmarkNativeBridge_nativ
 
     if (elapsed <= 0) return 0.0;
     /* Each iteration performs ~5 operations */
-    double gops = (double)iterations * 5.0 / (elapsed / 1.0);
+    double gops = (double)iterations * 5.0 / (elapsed / 1e9);
     return gops;
 }
 
@@ -267,6 +267,6 @@ Java_com_example_relab_1tool_benchmark_domain_engine_BenchmarkNativeBridge_nativ
 
     if (elapsed <= 0) return 0.0;
     /* Each iteration: ~3 transcendental ops */
-    double mops = (double)iterations * 3.0 / (elapsed / 1e3);
+    double mops = ((double)iterations * 3.0 / (elapsed / 1e9)) / 1e6;
     return mops;
 }

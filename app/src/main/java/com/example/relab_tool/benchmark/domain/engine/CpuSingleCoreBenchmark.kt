@@ -18,12 +18,12 @@ import kotlin.math.*
  *  - All heavy loops run on Dispatchers.Default (single thread pinned).
  *  - JNI native C is used for SC_01, SC_02 (if available) to bypass ART JIT DCE.
  *  - BenchmarkHarness.consume() prevents dead-code elimination in Kotlin paths.
- *  - medianOfThree() wraps each test: 2 warm-up + 3 timed runs → median.
+ *  - medianOfThree() wraps each test: 3 warm-up + 3 timed runs → median. (RC-3)
  *
- * Scoring calibration:
- *  - baseline = Pixel 6 (Tensor G1) / Snapdragon 778G class (50th percentile)
- *  - cap      = Snapdragon 8 Gen 3 / Dimensity 9200+ class (95th percentile)
- *  - Entry SoCs (Helio G85, SD 460) should score 10–30% of cap on compute tests.
+ * Scoring calibration (RC-1):
+ *  - baseline = Snapdragon 778G class (50th-percentile mid-range)
+ *  - cap      = 2× Snapdragon 8 Elite Gen 5 / Adreno 840 class (headroom through 2027)
+ *  - No current production chip can saturate the cap.
  */
 class CpuSingleCoreBenchmark : BenchmarkEngine {
 
@@ -37,124 +37,124 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
 
             // SC_01 — Integer ALU (64-bit)
             onProgress(0.02f)
-            val aluVal = BenchmarkHarness.medianOfThree(warmups = 2) { runIntAlu() }
+            val aluVal = BenchmarkHarness.medianOfThree(warmups = 3) { runIntAlu() }
             results += subScore("SC_01: Integer ALU (64-bit)", aluVal, "GOps/s",
-                baseline = 1.2, cap = 4.5, inverted = false)
+                baseline = 2.0, cap = 9.0, inverted = false)
 
             // SC_02 — FPU (double-precision sin/cos/log)
             onProgress(0.07f)
-            val fpuVal = BenchmarkHarness.medianOfThree(warmups = 2) { runFpu() }
+            val fpuVal = BenchmarkHarness.medianOfThree(warmups = 3) { runFpu() }
             results += subScore("SC_02: FPU Transcendental", fpuVal, "MOps/s",
-                baseline = 80.0, cap = 280.0, inverted = false)
+                baseline = 120.0, cap = 550.0, inverted = false)
 
             // SC_03 — Fibonacci Iterative
             onProgress(0.12f)
-            val fibIterVal = BenchmarkHarness.medianOfThree(warmups = 1) { runFibonacciIterative() }
+            val fibIterVal = BenchmarkHarness.medianOfThree(warmups = 3) { runFibonacciIterative() }
             results += subScore("SC_03: Fibonacci Iterative", fibIterVal, "MOps/s",
-                baseline = 500.0, cap = 2000.0, inverted = false)
+                baseline = 900.0, cap = 4500.0, inverted = false)
 
             // SC_04 — Fibonacci Recursive (depth 35 = 29M calls)
             onProgress(0.17f)
-            val fibRecVal = BenchmarkHarness.medianOfThree(warmups = 1) { runFibonacciRecursive() }
+            val fibRecVal = BenchmarkHarness.medianOfThree(warmups = 3) { runFibonacciRecursive() }
             results += subScore("SC_04: Fibonacci Recursive", fibRecVal, "ms",
-                baseline = 600.0, cap = 180.0, inverted = true)
+                baseline = 480.0, cap = 80.0, inverted = true)
 
             // SC_05 — Sieve of Eratosthenes (to 10M)
             onProgress(0.22f)
-            val sieveVal = BenchmarkHarness.medianOfThree(warmups = 1) { runSieve() }
+            val sieveVal = BenchmarkHarness.medianOfThree(warmups = 3) { runSieve() }
             results += subScore("SC_05: Prime Sieve (to 10M)", sieveVal, "ms",
-                baseline = 180.0, cap = 55.0, inverted = true)
+                baseline = 150.0, cap = 25.0, inverted = true)
 
             // SC_06 — L1 Cache Latency (32KB pointer chase)
             onProgress(0.27f)
-            val l1Val = BenchmarkHarness.medianOfThree(warmups = 2) { runCacheLatency(32 * 1024) }
+            val l1Val = BenchmarkHarness.medianOfThree(warmups = 3) { runCacheLatency(32 * 1024) }
             results += subScore("SC_06: L1 Cache Latency", l1Val, "ns",
-                baseline = 2.5, cap = 1.2, inverted = true)
+                baseline = 2.2, cap = 0.8, inverted = true)
 
             // SC_07 — L2 Cache Latency (1MB pointer chase)
             onProgress(0.32f)
-            val l2Val = BenchmarkHarness.medianOfThree(warmups = 2) { runCacheLatency(1 * 1024 * 1024) }
+            val l2Val = BenchmarkHarness.medianOfThree(warmups = 3) { runCacheLatency(1 * 1024 * 1024) }
             results += subScore("SC_07: L2 Cache Latency", l2Val, "ns",
-                baseline = 8.0, cap = 3.5, inverted = true)
+                baseline = 7.0, cap = 2.0, inverted = true)
 
             // SC_08 — Sequential RAM Bandwidth (512MB copy)
             onProgress(0.37f)
-            val seqRamVal = BenchmarkHarness.medianOfThreeLight { runSequentialRam() }
+            val seqRamVal = BenchmarkHarness.medianOfThree(warmups = 3) { runSequentialRam() }
             results += subScore("SC_08: Sequential RAM Bandwidth", seqRamVal, "GB/s",
-                baseline = 10.0, cap = 35.0, inverted = false)
+                baseline = 18.0, cap = 80.0, inverted = false)
 
             // SC_09 — Random RAM Access (256MB, 16M accesses)
             onProgress(0.42f)
-            val randRamVal = BenchmarkHarness.medianOfThreeLight { runRandomRam() }
+            val randRamVal = BenchmarkHarness.medianOfThree(warmups = 3) { runRandomRam() }
             results += subScore("SC_09: Random RAM Access", randRamVal, "MOps/s",
-                baseline = 80.0, cap = 280.0, inverted = false)
+                baseline = 120.0, cap = 600.0, inverted = false)
 
             // SC_10 — AES-256 Software (no HW assist, manual bit-ops)
             onProgress(0.47f)
-            val aesVal = BenchmarkHarness.medianOfThree(warmups = 1) { runAesSoftware() }
+            val aesVal = BenchmarkHarness.medianOfThree(warmups = 3) { runAesSoftware() }
             results += subScore("SC_10: AES-256 Software", aesVal, "MB/s",
-                baseline = 50.0, cap = 180.0, inverted = false)
+                baseline = 80.0, cap = 400.0, inverted = false)
 
             // SC_11 — SHA-256 Hashing (1GB synthetic data)
             onProgress(0.52f)
-            val shaVal = BenchmarkHarness.medianOfThree(warmups = 1) { runSha256() }
+            val shaVal = BenchmarkHarness.medianOfThree(warmups = 3) { runSha256() }
             results += subScore("SC_11: SHA-256 Hash", shaVal, "MB/s",
-                baseline = 600.0, cap = 2200.0, inverted = false)
+                baseline = 1000.0, cap = 5000.0, inverted = false)
 
             // SC_12 — BZip2 Compression (64MB text)
             onProgress(0.57f)
-            val bzipVal = BenchmarkHarness.medianOfThree(warmups = 1) { runBzip2Simulation() }
+            val bzipVal = BenchmarkHarness.medianOfThree(warmups = 3) { runBzip2Simulation() }
             results += subScore("SC_12: Compression (BWT)", bzipVal, "MB/s",
-                baseline = 20.0, cap = 80.0, inverted = false)
+                baseline = 35.0, cap = 180.0, inverted = false)
 
             // SC_13 — JSON Parse (20MB procedural payload)
             onProgress(0.62f)
-            val jsonVal = BenchmarkHarness.medianOfThree(warmups = 1) { runJsonParse() }
+            val jsonVal = BenchmarkHarness.medianOfThree(warmups = 3) { runJsonParse() }
             results += subScore("SC_13: JSON Parse (20MB)", jsonVal, "ms",
-                baseline = 800.0, cap = 220.0, inverted = true)
+                baseline = 600.0, cap = 80.0, inverted = true)
 
             // SC_14 — Regex Backtracking (10MB string)
             onProgress(0.65f)
-            val regexVal = BenchmarkHarness.medianOfThree(warmups = 1) { runRegexTransform() }
+            val regexVal = BenchmarkHarness.medianOfThree(warmups = 3) { runRegexTransform() }
             results += subScore("SC_14: Regex Backtracking", regexVal, "ms",
-                baseline = 500.0, cap = 150.0, inverted = true)
+                baseline = 400.0, cap = 60.0, inverted = true)
 
             // SC_15 — SQLite In-Memory (50,000 inserts)
             onProgress(0.70f)
-            val sqliteVal = BenchmarkHarness.medianOfThreeLight { runSqliteInMemory() }
+            val sqliteVal = BenchmarkHarness.medianOfThree(warmups = 3) { runSqliteInMemory() }
             results += subScore("SC_15: SQLite In-Memory Insert", sqliteVal, "ms",
-                baseline = 1800.0, cap = 500.0, inverted = true)
+                baseline = 1500.0, cap = 200.0, inverted = true)
 
             // SC_16 — A* Pathfinding (3000×3000 grid)
             onProgress(0.75f)
-            val astarVal = BenchmarkHarness.medianOfThree(warmups = 1) { runAStar() }
+            val astarVal = BenchmarkHarness.medianOfThree(warmups = 3) { runAStar() }
             results += subScore("SC_16: A* Pathfinding (3kx3k)", astarVal, "ms",
-                baseline = 2500.0, cap = 700.0, inverted = true)
+                baseline = 2000.0, cap = 300.0, inverted = true)
 
             // SC_17 — FFT 65536-point
             onProgress(0.80f)
-            val fftVal = BenchmarkHarness.medianOfThree(warmups = 2) { runFft65536() }
+            val fftVal = BenchmarkHarness.medianOfThree(warmups = 3) { runFft65536() }
             results += subScore("SC_17: FFT 65536-point", fftVal, "MOps/s",
-                baseline = 40.0, cap = 160.0, inverted = false)
+                baseline = 70.0, cap = 380.0, inverted = false)
 
             // SC_18 — Linked List (1M nodes, pointer-chase traversal)
             onProgress(0.85f)
-            val llVal = BenchmarkHarness.medianOfThree(warmups = 1) { runLinkedListTraversal() }
+            val llVal = BenchmarkHarness.medianOfThree(warmups = 3) { runLinkedListTraversal() }
             results += subScore("SC_18: Linked List Traverse (1M)", llVal, "ms",
-                baseline = 250.0, cap = 70.0, inverted = true)
+                baseline = 200.0, cap = 30.0, inverted = true)
 
             // SC_19 — Matrix Transpose (4096×4096)
             onProgress(0.92f)
-            val transposeVal = BenchmarkHarness.medianOfThree(warmups = 1) { runMatrixTranspose() }
+            val transposeVal = BenchmarkHarness.medianOfThree(warmups = 3) { runMatrixTranspose() }
             results += subScore("SC_19: Matrix Transpose (4k×4k)", transposeVal, "ms",
-                baseline = 2000.0, cap = 600.0, inverted = true)
+                baseline = 1500.0, cap = 250.0, inverted = true)
 
             // SC_20 — JNI Overhead (5M roundtrips if native available)
             onProgress(0.97f)
-            val jniVal = BenchmarkHarness.medianOfThree(warmups = 1) { runJniOverhead() }
+            val jniVal = BenchmarkHarness.medianOfThree(warmups = 3) { runJniOverhead() }
             val jniScore = if (jniVal > 0) {
                 subScore("SC_20: JNI Overhead (5M calls)", jniVal, "ns/call",
-                    baseline = 200.0, cap = 80.0, inverted = true)
+                    baseline = 180.0, cap = 40.0, inverted = true)
             } else {
                 SubScore("SC_20: JNI Overhead", jniVal, "ns/call", 5000, isPartial = true)
             }
@@ -527,7 +527,8 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
         name: String, rawValue: Double, unit: String,
         baseline: Double, cap: Double, inverted: Boolean
     ): SubScore {
-        val score = ScoreNormalizer.normalize(rawValue, baseline, cap, inverted)
-        return SubScore(name, rawValue, unit, score)
+        val safe = if (rawValue.isNaN() || rawValue < 0.0) 0.0 else rawValue
+        val score = ScoreNormalizer.normalize(safe, baseline, cap, inverted)
+        return SubScore(name, safe, unit, score, isPartial = safe == 0.0)
     }
 }
