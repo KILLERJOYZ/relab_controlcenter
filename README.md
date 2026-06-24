@@ -1,4 +1,4 @@
-# Relab Control Center (rlcc) - v0.4.3.4-devbeta
+# Relab Control Center (rlcc) - v0.4.3.5-devbeta
 
 **Relab Control Center** is a professional-grade utility and diagnostic suite built for Android enthusiasts, developers, and power users. It combines deep hardware intelligence with real-time performance telemetry and a specialized installer hub to provide total transparency into the Android ecosystem.
 
@@ -62,6 +62,16 @@ A professional-grade **Common Interaction Toolkit** for verifying hardware funct
 
 ---
 
+## 🏁 v0.4.3.5 Release Highlights
+
+This release implements Google Play Store compliance, loading screen integration, and critical bug/resource leak fixes identified during our comprehensive v2 app audit:
+*   **Google Play Store Compliance**: Removed dangerous root shell execution (`su` commands) and the "Root Tools" settings card (charge limiter, governor switcher, etc.) to comply with Google Play security policies. Added detailed in-manifest justifications for the `QUERY_ALL_PACKAGES` and `READ_PHONE_STATE`/`READ_PHONE_NUMBERS` declarations.
+*   **Compose Branded Loading Screen**: Added a polished Compose-based loading screen with spring scale-in + pulsing icon animations and staggered subtitle fade-ins, ensuring a smooth transition during initialization.
+*   **EGL Context Resource Leaks**: Resolved critical graphics context leaks in both OpenGL and Vulkan GPU benchmark engines by wrapping test runs in strict `try/finally` blocks.
+*   **System & Memory Stability**: Fixed in-flight benchmark running score calculation inconsistencies, resolved memory leaks in the `AssistiveTouchService` `ViewModelStore` and `ApkCrawler` HTTP responses, and added connect/read/write timeouts to the telemetry OkHttpClient.
+
+---
+
 ## 🏁 v0.4.3.4 Release Highlights
 
 This release implements comprehensive stability, precision, and crash-avoidance optimizations to the mobile hardware benchmark engine across all 7 active performance subsystems:
@@ -98,6 +108,18 @@ This release focuses on detailed hardware spec explanations and deep internation
 *   **Spec-Specific Explanations**: Added 171 custom explanation entries for all 57 specs cards (Explanation, How it works, Why it matters) to replace generic templated text.
 *   **Global Localization (17 Languages)**: Full localization in English, Vietnamese, Simplified Chinese, Spanish, French, German, Russian, Portuguese, Italian, Japanese, Korean, Arabic, Hindi, Indonesian, Thai, Turkish, and Dutch.
 *   **Interactive Specs & Settings Navigation**: Top-right ⓘ buttons opening localized bottom sheets, and long-press shortcuts to relevant Android Settings categories with haptic feedback.
+
+---
+
+## 📊 Changelog: v0.4.3.5 vs v0.4.3.4
+
+| Feature | Version 0.4.3.4 | Version 0.4.3.5 (New) |
+| :--- | :--- | :--- |
+| **Play Compliance (su)** | Included `RootUtils.kt` with `Runtime.exec("su")` and Root Tools card. | **Play Policy Approved**: Completely removed root-level features and `su` execution. Added manifest justifications for package queries and phone access. |
+| **App Splash/Startup** | Immediate system splash dismiss, presenting empty screens during load. | **Animated Loading Screen**: Introduced Compose loading view with spring-pulsing icon and staggered fade-ins. |
+| **GPU Benchmark Contexts** | GL/Vulkan EGL contexts could leak on test failures. | **Robust Exception Handling**: Wrapped EGL context/surface initialization in strict `try/finally` blocks. |
+| **Telemetry & Services** | Leak potentials in `AssistiveTouchService` and unclosed `ApkCrawler` responses. | **Clean Resource Management**: Explicitly cleared ViewModelStore on service destruction, closed HTTP bodies, and added OkHttp timeouts. |
+| **Build Configuration** | Version Name: `0.4.3.4`, Code: `10`. | Version Name: `0.4.3.5`, Code: `11`. Release tag `v0.4.3.5` with `rlcc_devbeta_v0.4.3.5.apk`. |
 
 ---
 
@@ -151,7 +173,7 @@ This release focuses on detailed hardware spec explanations and deep internation
 
 ## 📥 Getting Started
 
-1.  **Download**: Obtain the latest `rlcc_devbeta_v0.4.3.4.apk` from the [Releases](https://github.com/KILLERJOYZ/relab_controlcenter/releases) page.
+1.  **Download**: Obtain the latest `rlcc_devbeta_v0.4.3.5.apk` from the [Releases](https://github.com/KILLERJOYZ/relab_controlcenter/releases) page.
 2.  **Permissions**: Grant Camera, Location, and Phone permissions to enable physical sensor detection and network identification.
 3.  **Installation**: Enable "Install from Unknown Sources" for the App Hub to function as an alternative installer.
 
