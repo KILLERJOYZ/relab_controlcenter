@@ -26,10 +26,10 @@ import kotlin.math.*
  *   VP9             — Google open codec
  *   MPEG-4          — legacy baseline
  *
- * Score calibration (FPS at 1080p encode):
- *   Entry (Helio G85, no HW AV1): H.264 30fps, H.265 20fps, AV1 SW only
- *   Mid (SD 778G): H.264 120fps, H.265 90fps, AV1 HW 60fps
- *   Flagship (SD 8 Gen 3): H.264 480fps, H.265 360fps, AV1 HW 240fps
+ * Score calibration (RC-1, caps = 2× SD 8 Elite Gen 5 / ISP 2027):
+ *   Entry (Helio G85, no HW AV1): H.264 60fps, H.265 30fps, AV1 SW only
+ *   Mid (SD 778G): H.264 240fps, H.265 120fps, AV1 HW 60fps
+ *   Flagship (SD 8 Elite Gen 5): H.264 ~1400fps, H.265 ~1100fps, AV1 HW ~550fps
  */
 class VideoCodecBenchmark : BenchmarkEngine {
 
@@ -54,106 +54,106 @@ class VideoCodecBenchmark : BenchmarkEngine {
 
             // VID_01 — H.264 1080p Encode (hardware preferred)
             onProgress(0.02f)
-            val h264EncVal = BenchmarkHarness.medianOfThreeLight { runH264Encode1080p() }
-            results += fpsScore("VID_01: H.264 1080p Encode", h264EncVal, 60.0, 600.0)
+            val h264EncVal = BenchmarkHarness.medianOfThree(warmups = 3) { runH264Encode1080p() }
+            results += fpsScore("VID_01: H.264 1080p Encode", h264EncVal, 120.0, 1800.0)
 
             // VID_02 — H.264 1080p Decode
             onProgress(0.07f)
-            val h264DecVal = BenchmarkHarness.medianOfThreeLight { runH264Decode1080p() }
-            results += fpsScore("VID_02: H.264 1080p Decode", h264DecVal, 120.0, 1200.0)
+            val h264DecVal = BenchmarkHarness.medianOfThree(warmups = 3) { runH264Decode1080p() }
+            results += fpsScore("VID_02: H.264 1080p Decode", h264DecVal, 240.0, 3600.0)
 
             // VID_03 — H.265 HEVC 1080p Encode
             onProgress(0.12f)
-            val hevcEncVal = BenchmarkHarness.medianOfThreeLight { runHevcEncode1080p() }
-            results += fpsScore("VID_03: H.265 HEVC 1080p Encode", hevcEncVal, 30.0, 400.0)
+            val hevcEncVal = BenchmarkHarness.medianOfThree(warmups = 3) { runHevcEncode1080p() }
+            results += fpsScore("VID_03: H.265 HEVC 1080p Encode", hevcEncVal, 60.0, 1200.0)
 
             // VID_04 — H.265 HEVC 1080p Decode
             onProgress(0.17f)
-            val hevcDecVal = BenchmarkHarness.medianOfThreeLight { runHevcDecode1080p() }
-            results += fpsScore("VID_04: H.265 HEVC 1080p Decode", hevcDecVal, 60.0, 800.0)
+            val hevcDecVal = BenchmarkHarness.medianOfThree(warmups = 3) { runHevcDecode1080p() }
+            results += fpsScore("VID_04: H.265 HEVC 1080p Decode", hevcDecVal, 120.0, 2400.0)
 
             // VID_05 — H.264 4K Encode
             onProgress(0.22f)
-            val h264_4kVal = BenchmarkHarness.medianOfThreeLight { runH264Encode4K() }
-            results += fpsScore("VID_05: H.264 4K Encode", h264_4kVal, 15.0, 120.0)
+            val h264_4kVal = BenchmarkHarness.medianOfThree(warmups = 3) { runH264Encode4K() }
+            results += fpsScore("VID_05: H.264 4K Encode", h264_4kVal, 30.0, 360.0)
 
             // VID_06 — H.265 HEVC 4K Decode
             onProgress(0.27f)
-            val hevc4kDecVal = BenchmarkHarness.medianOfThreeLight { runHevcDecode4K() }
-            results += fpsScore("VID_06: H.265 HEVC 4K Decode", hevc4kDecVal, 30.0, 300.0)
+            val hevc4kDecVal = BenchmarkHarness.medianOfThree(warmups = 3) { runHevcDecode4K() }
+            results += fpsScore("VID_06: H.265 HEVC 4K Decode", hevc4kDecVal, 60.0, 900.0)
 
             // VID_07 — AV1 1080p Encode (API 29+, HW if available)
             onProgress(0.32f)
-            val av1EncVal = BenchmarkHarness.medianOfThreeLight { runAv1Encode1080p() }
-            results += fpsScore("VID_07: AV1 1080p Encode", av1EncVal, 15.0, 200.0)
+            val av1EncVal = BenchmarkHarness.medianOfThree(warmups = 3) { runAv1Encode1080p() }
+            results += fpsScore("VID_07: AV1 1080p Encode", av1EncVal, 30.0, 600.0)
 
             // VID_08 — AV1 1080p Decode
             onProgress(0.37f)
-            val av1DecVal = BenchmarkHarness.medianOfThreeLight { runAv1Decode1080p() }
-            results += fpsScore("VID_08: AV1 1080p Decode", av1DecVal, 30.0, 400.0)
+            val av1DecVal = BenchmarkHarness.medianOfThree(warmups = 3) { runAv1Decode1080p() }
+            results += fpsScore("VID_08: AV1 1080p Decode", av1DecVal, 60.0, 1200.0)
 
             // VID_09 — VP9 1080p Decode
             onProgress(0.42f)
-            val vp9DecVal = BenchmarkHarness.medianOfThreeLight { runVp9Decode1080p() }
-            results += fpsScore("VID_09: VP9 1080p Decode", vp9DecVal, 60.0, 600.0)
+            val vp9DecVal = BenchmarkHarness.medianOfThree(warmups = 3) { runVp9Decode1080p() }
+            results += fpsScore("VID_09: VP9 1080p Decode", vp9DecVal, 120.0, 1800.0)
 
             // VID_10 — Multi-stream concurrent H.264 decode (4 streams)
             onProgress(0.47f)
-            val multiStreamVal = BenchmarkHarness.medianOfThreeLight { runMultiStreamDecode() }
-            results += fpsScore("VID_10: Multi-Stream H.264 (4×480p)", multiStreamVal, 120.0, 1200.0)
+            val multiStreamVal = BenchmarkHarness.medianOfThree(warmups = 3) { runMultiStreamDecode() }
+            results += fpsScore("VID_10: Multi-Stream H.264 (4×480p)", multiStreamVal, 240.0, 3600.0)
 
             // VID_11 — Transcoding H.264 → H.265 (1080p, software pipeline)
             onProgress(0.52f)
-            val transcodeVal = BenchmarkHarness.medianOfThreeLight { runTranscode1080p() }
-            results += fpsScore("VID_11: Transcode H.264→HEVC 1080p", transcodeVal, 15.0, 120.0)
+            val transcodeVal = BenchmarkHarness.medianOfThree(warmups = 3) { runTranscode1080p() }
+            results += fpsScore("VID_11: Transcode H.264→HEVC 1080p", transcodeVal, 30.0, 360.0)
 
             // VID_12 — JPEG encode throughput (12MP images)
             onProgress(0.57f)
-            val jpegEncVal = BenchmarkHarness.medianOfThreeLight { runJpegEncode12MP() }
-            results += fpsScore("VID_12: JPEG Encode (12MP)", jpegEncVal, 30.0, 300.0)
+            val jpegEncVal = BenchmarkHarness.medianOfThree(warmups = 3) { runJpegEncode12MP() }
+            results += fpsScore("VID_12: JPEG Encode (12MP)", jpegEncVal, 60.0, 900.0)
 
             // VID_13 — JPEG decode throughput (12MP images)
             onProgress(0.62f)
-            val jpegDecVal = BenchmarkHarness.medianOfThreeLight { runJpegDecode12MP() }
-            results += fpsScore("VID_13: JPEG Decode (12MP)", jpegDecVal, 60.0, 600.0)
+            val jpegDecVal = BenchmarkHarness.medianOfThree(warmups = 3) { runJpegDecode12MP() }
+            results += fpsScore("VID_13: JPEG Decode (12MP)", jpegDecVal, 120.0, 1800.0)
 
             // VID_14 — PNG encode (8MP, lossless)
             onProgress(0.65f)
-            val pngEncVal = BenchmarkHarness.medianOfThree(warmups = 1) { runPngEncode8MP() }
-            results += fpsScore("VID_14: PNG Encode (8MP lossless)", pngEncVal, 5.0, 50.0)
+            val pngEncVal = BenchmarkHarness.medianOfThree(warmups = 3) { runPngEncode8MP() }
+            results += fpsScore("VID_14: PNG Encode (8MP lossless)", pngEncVal, 10.0, 150.0)
 
             // VID_15 — Audio AAC encode (stereo 44.1kHz, 128kbps)
             onProgress(0.70f)
-            val aacEncVal = BenchmarkHarness.medianOfThreeLight { runAacEncode() }
-            results += SubScore("VID_15: AAC Encode (128kbps)", aacEncVal, "×realtime",
-                ScoreNormalizer.normalize(aacEncVal, 20.0, 200.0, false))
+            val aacEncVal = BenchmarkHarness.medianOfThree(warmups = 3) { runAacEncode() }
+            results += subScore("VID_15: AAC Encode (128kbps)", aacEncVal, "×realtime",
+                40.0, 600.0, false)
 
             // VID_16 — Audio AAC decode
             onProgress(0.75f)
-            val aacDecVal = BenchmarkHarness.medianOfThreeLight { runAacDecode() }
-            results += SubScore("VID_16: AAC Decode (128kbps)", aacDecVal, "×realtime",
-                ScoreNormalizer.normalize(aacDecVal, 50.0, 500.0, false))
+            val aacDecVal = BenchmarkHarness.medianOfThree(warmups = 3) { runAacDecode() }
+            results += subScore("VID_16: AAC Decode (128kbps)", aacDecVal, "×realtime",
+                100.0, 1500.0, false)
 
             // VID_17 — Encoder startup latency (H.264, cold start)
             onProgress(0.80f)
-            val encStartVal = BenchmarkHarness.medianOfThree(warmups = 1) { runEncoderStartupLatency() }
-            results += subScore("VID_17: Encoder Startup Latency", encStartVal, "ms", 100.0, 15.0, true)
+            val encStartVal = BenchmarkHarness.medianOfThree(warmups = 3) { runEncoderStartupLatency() }
+            results += subScore("VID_17: Encoder Startup Latency", encStartVal, "ms", 80.0, 5.0, true)
 
             // VID_18 — HDR10 YUV420 → P010 conversion
             onProgress(0.85f)
-            val hdrConvVal = BenchmarkHarness.medianOfThreeLight { runHdrConversion() }
-            results += SubScore("VID_18: HDR10 P010 Conversion", hdrConvVal, "MPix/s",
-                ScoreNormalizer.normalize(hdrConvVal, 200.0, 2000.0, false))
+            val hdrConvVal = BenchmarkHarness.medianOfThree(warmups = 3) { runHdrConversion() }
+            results += subScore("VID_18: HDR10 P010 Conversion", hdrConvVal, "MPix/s",
+                400.0, 6000.0, false)
 
             // VID_19 — Video frame rate analysis (decode + measure timing jitter)
             onProgress(0.92f)
-            val jitterVal = BenchmarkHarness.medianOfThree(warmups = 1) { runDecodeJitterAnalysis() }
-            results += subScore("VID_19: Decode Jitter Analysis", jitterVal, "ms σ", 5.0, 0.5, true)
+            val jitterVal = BenchmarkHarness.medianOfThree(warmups = 3) { runDecodeJitterAnalysis() }
+            results += subScore("VID_19: Decode Jitter Analysis", jitterVal, "ms σ", 4.0, 0.1, true)
 
             // VID_20 — Simultaneous encode + decode (multi-instance)
             onProgress(0.97f)
-            val simVal = BenchmarkHarness.medianOfThreeLight { runSimultaneousEncDec() }
-            results += fpsScore("VID_20: Simultaneous Enc+Dec 1080p", simVal, 20.0, 200.0)
+            val simVal = BenchmarkHarness.medianOfThree(warmups = 3) { runSimultaneousEncDec() }
+            results += fpsScore("VID_20: Simultaneous Enc+Dec 1080p", simVal, 40.0, 600.0)
 
             onProgress(1.0f)
             results
@@ -542,14 +542,16 @@ class VideoCodecBenchmark : BenchmarkEngine {
     // ── Score helpers ─────────────────────────────────────────────────────────
 
     private fun fpsScore(name: String, raw: Double, baseline: Double, cap: Double): SubScore {
-        return SubScore(name, raw, "fps", ScoreNormalizer.normalize(raw, baseline, cap, false))
+        val safe = if (raw.isNaN() || raw < 0.0) 0.0 else raw
+        return SubScore(name, safe, "fps", ScoreNormalizer.normalize(safe, baseline, cap, false), isPartial = safe == 0.0)
     }
 
     private fun subScore(
         name: String, rawValue: Double, unit: String,
         baseline: Double, cap: Double, inverted: Boolean
     ): SubScore {
-        val score = ScoreNormalizer.normalize(rawValue, baseline, cap, inverted)
-        return SubScore(name, rawValue, unit, score)
+        val safe = if (rawValue.isNaN() || rawValue < 0.0) 0.0 else rawValue
+        val score = ScoreNormalizer.normalize(safe, baseline, cap, inverted)
+        return SubScore(name, safe, unit, score, isPartial = safe == 0.0)
     }
 }

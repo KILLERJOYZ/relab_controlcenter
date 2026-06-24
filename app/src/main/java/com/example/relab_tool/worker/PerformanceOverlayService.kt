@@ -69,6 +69,10 @@ class PerformanceOverlayService : Service(), LifecycleOwner, SavedStateRegistryO
     private var crosshairColor by mutableStateOf(Color(0xFF00E676)) // Neon green for visibility
     private var crosshairStyle by mutableStateOf(CrosshairStyle.PLUS)
     private var isMinimized by mutableStateOf(false)
+
+    // ViewModelStore instances for Compose views — must be cleared in onDestroy
+    private val overlayViewModelStore = ViewModelStore()
+    private val crosshairViewModelStore = ViewModelStore()
     
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
@@ -180,9 +184,8 @@ class PerformanceOverlayService : Service(), LifecycleOwner, SavedStateRegistryO
         // Essential for Compose in Service
         composeView.setViewTreeLifecycleOwner(this)
         composeView.setViewTreeSavedStateRegistryOwner(this)
-        val viewModelStore = ViewModelStore()
         composeView.setViewTreeViewModelStoreOwner(object : ViewModelStoreOwner {
-            override val viewModelStore: ViewModelStore = viewModelStore
+            override val viewModelStore: ViewModelStore = overlayViewModelStore
         })
 
         windowManager.addView(composeView, params)
@@ -211,9 +214,8 @@ class PerformanceOverlayService : Service(), LifecycleOwner, SavedStateRegistryO
                 }
                 view.setViewTreeLifecycleOwner(this@PerformanceOverlayService)
                 view.setViewTreeSavedStateRegistryOwner(this@PerformanceOverlayService)
-                val store = ViewModelStore()
                 view.setViewTreeViewModelStoreOwner(object : ViewModelStoreOwner {
-                    override val viewModelStore: ViewModelStore = store
+                    override val viewModelStore: ViewModelStore = crosshairViewModelStore
                 })
                 try {
                     windowManager.addView(view, params)
@@ -591,7 +593,7 @@ class PerformanceOverlayService : Service(), LifecycleOwner, SavedStateRegistryO
                             }
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Text(text = "Profile: $selectedProfile", color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
-                                Text(text = "v1.2.0 · $profileUpdateRate", color = Color.White.copy(alpha = 0.4f), fontSize = 9.sp)
+                                Text(text = "v${com.example.relab_tool.BuildConfig.VERSION_NAME} · $profileUpdateRate", color = Color.White.copy(alpha = 0.4f), fontSize = 9.sp)
                             }
 
                             // Profile Selector — each profile has a distinct accent color
@@ -912,6 +914,8 @@ class PerformanceOverlayService : Service(), LifecycleOwner, SavedStateRegistryO
             crosshairView = null
         } catch (_: Throwable) {}
         try { lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY) } catch (_: Throwable) {}
+        try { overlayViewModelStore.clear() } catch (_: Throwable) {}
+        try { crosshairViewModelStore.clear() } catch (_: Throwable) {}
     }
 
     companion object {

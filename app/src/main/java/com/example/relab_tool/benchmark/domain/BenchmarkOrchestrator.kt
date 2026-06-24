@@ -29,9 +29,15 @@ class BenchmarkOrchestrator(
         includeNetwork: Boolean
     ): Flow<BenchmarkOrchestratorState> = channelFlow {
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-        
+
+        // RC-7: 3s stabilization delay — allows governor to reach base clock
+        // and ART JIT to quiesce before any measurements begin
+        delay(3000L)
+
         val pillarsToRun = if (isQuickTest) {
             listOf(BenchmarkPillar.CPU_SINGLE_CORE, BenchmarkPillar.CPU_MULTI_CORE)
+        } else if (!includeNetwork) {
+            BenchmarkPillar.entries.filter { it.weight > 0f && it != BenchmarkPillar.NETWORK_IPC }
         } else {
             BenchmarkPillar.entries.filter { it.weight > 0f }
         }
@@ -116,10 +122,14 @@ class BenchmarkOrchestrator(
             }
             
             val isSkipped = subScores.isEmpty()
-            // PR-04 fix: geometric mean instead of arithmetic mean
-            val pillarGeoScore = if (subScores.isNotEmpty()) {
-                ScoreNormalizer.geometricMean(subScores.map { it.score }).roundToInt()
-            } else 0
+            // Fix-B: exclude zero-score (failed/partial) sub-scores from geo mean
+            // to avoid artificially elevating the pillar via coerceAtLeast(1) trick
+            val validSubs = subScores.filter { it.score > 0 && !it.isPartial }
+            val pillarGeoScore = when {
+                validSubs.isNotEmpty() -> ScoreNormalizer.geometricMean(validSubs.map { it.score }).roundToInt()
+                subScores.isNotEmpty() -> ScoreNormalizer.geometricMean(subScores.map { it.score.coerceAtLeast(1) }).roundToInt()
+                else -> 0
+            }
             val pScore = PillarScore(pillar, pillarGeoScore, subScores, isSkipped)
             completedScores.add(pScore)
             
@@ -225,10 +235,14 @@ class BenchmarkOrchestrator(
         }
         
         val isSkipped = subScores.isEmpty()
-        // PR-04 fix: geometric mean instead of arithmetic mean
-        val pillarGeoScore = if (subScores.isNotEmpty()) {
-            ScoreNormalizer.geometricMean(subScores.map { it.score }).roundToInt()
-        } else 0
+        // Fix-B: exclude zero-score (failed/partial) sub-scores from geo mean
+        // (same logic as runBenchmark path)
+        val validSubs = subScores.filter { it.score > 0 && !it.isPartial }
+        val pillarGeoScore = when {
+            validSubs.isNotEmpty() -> ScoreNormalizer.geometricMean(validSubs.map { it.score }).roundToInt()
+            subScores.isNotEmpty() -> ScoreNormalizer.geometricMean(subScores.map { it.score.coerceAtLeast(1) }).roundToInt()
+            else -> 0
+        }
         val pScore = PillarScore(pillar, pillarGeoScore, subScores, isSkipped)
         completedScores.add(pScore)
         
@@ -302,7 +316,16 @@ class BenchmarkOrchestrator(
         if (completed.isEmpty()) return 0
         val pillarGeoMeans = completed
             .filter { !it.isSkipped }
-            .map { Pair(it.pillar.weight, ScoreNormalizer.geometricMean(it.subScores.map { s -> s.score })) }
+            .map { pScore ->
+                // Fix-B: Match compileFinalResult — exclude zero-score and partial sub-scores
+                val validSubs = pScore.subScores.filter { it.score > 0 && !it.isPartial }
+                val geoMean = if (validSubs.isNotEmpty()) {
+                    ScoreNormalizer.geometricMean(validSubs.map { it.score })
+                } else {
+                    ScoreNormalizer.geometricMean(pScore.subScores.map { it.score.coerceAtLeast(1) })
+                }
+                Pair(pScore.pillar.weight, geoMean)
+            }
         return ScoreNormalizer.computeFinalScore(pillarGeoMeans)
     }
 
@@ -313,21 +336,33 @@ class BenchmarkOrchestrator(
      *   3. Thermal/energy penalty via ScoreNormalizer.applyDynamicCoefficients()
      */
     private fun compileFinalResult(scores: List<PillarScore>, isQuickTest: Boolean): BenchmarkResult {
-        // Weighted geometric mean across all active pillars
+        // Weighted geometric mean across all active pillars (Fix-B: skip zero-score subs)
         val pillarGeoMeans = scores
             .filter { !it.isSkipped }
             .map { pScore ->
-                Pair(
-                    pScore.pillar.weight,
-                    ScoreNormalizer.geometricMean(pScore.subScores.map { it.score })
-                )
+                val validSubs = pScore.subScores.filter { it.score > 0 && !it.isPartial }
+                val geoMean = if (validSubs.isNotEmpty()) {
+                    ScoreNormalizer.geometricMean(validSubs.map { it.score })
+                } else {
+                    ScoreNormalizer.geometricMean(pScore.subScores.map { it.score.coerceAtLeast(1) })
+                }
+                Pair(pScore.pillar.weight, geoMean)
             }
         val rawScore = ScoreNormalizer.computeFinalScore(pillarGeoMeans)
 
-        // PR-03/HI-04 fix: Apply thermal and energy coefficients
+        // RC-2: Apply thermal coefficient — narrowed to [0.85, 1.0], max 15% penalty
         val thermalCoeff = computeThermalCoefficient()
         val energyCoeff = computeEnergyCoefficient()
-        val totalScore = ScoreNormalizer.applyDynamicCoefficients(rawScore, thermalCoeff, energyCoeff)
+        val thermalAdjusted = ScoreNormalizer.applyDynamicCoefficients(rawScore, thermalCoeff, energyCoeff)
+        // RC-2: Floor totalScore at 85% of rawScore — thermal can't invert silicon rankings
+        val totalScore = thermalAdjusted.coerceAtLeast((rawScore * 0.85).toInt())
+
+        // RC-11: Determine run scope for display badge
+        val runScope = when {
+            isQuickTest -> "CPU Only"
+            scores.none { it.pillar == BenchmarkPillar.NETWORK_IPC && !it.isSkipped } -> "Full (No Network)"
+            else -> "Full"
+        }
 
         return BenchmarkResult(
             timestamp = System.currentTimeMillis(),
@@ -338,7 +373,8 @@ class BenchmarkOrchestrator(
             totalScore = totalScore,
             tier = TierClassifier.classify(totalScore),
             pillarScores = scores,
-            isQuickTest = isQuickTest
+            isQuickTest = isQuickTest,
+            runScope = runScope
         )
     }
 
@@ -349,8 +385,10 @@ class BenchmarkOrchestrator(
      */
     private fun computeThermalCoefficient(): Float {
         val h = cachedHeadroom.coerceIn(0f, 1f)
-        // Linear mapping: h=1.0 → 1.0, h=0.0 → 0.4
-        return (0.4f + 0.6f * h).coerceIn(0.4f, 1.0f)
+        // RC-2: Narrowed band — max 15% penalty prevents tablet/phone inversion
+        // h=1.0 (cool)  → 1.00 (no penalty)
+        // h=0.0 (severe throttle) → 0.85 (−15% max)
+        return (0.85f + 0.15f * h).coerceIn(0.85f, 1.0f)
     }
 
     /**

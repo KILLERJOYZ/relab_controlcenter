@@ -1608,19 +1608,8 @@
     <string name="pillar_video_codec">Video &amp; Codec</string>
     <string name="pillar_network_ipc">Network &amp; IPC</string>
 
-    <!-- Legacy strings kept for backwards DB compat -->
-    <string name="pillar_gpu">GPU Rendering</string>
-    <string name="pillar_gaming_simulation">Gaming Simulation</string>
-    <string name="pillar_memory">Memory Subsystem</string>
-    <string name="pillar_ai_ml">AI / ML Inference</string>
-    <string name="pillar_ux">UX Smoothness</string>
-    <string name="pillar_codec_media">Codec &amp; Media</string>
-    <string name="pillar_thermal">Thermal Efficiency</string>
-    <string name="pillar_wifi">Wi-Fi Quality</string>
-    <string name="pillar_cellular">Cellular Quality</string>
-    <string name="pillar_browser_web">Browser Page Load</string>
-
     <!-- Score Tiers — 7-tier 1,000,000-point scale -->
+
     <string name="tier_entry">Entry-Level</string>
     <string name="tier_entry_desc">Entry-level device. Capable of basic messaging, web browsing, and simple tasks only.</string>
     <string name="tier_entry_mid">Entry-Mid</string>

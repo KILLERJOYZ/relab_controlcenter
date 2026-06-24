@@ -33,6 +33,7 @@ import androidx.metrics.performance.JankStats
 import com.example.relab_tool.ui.AppInstallerViewModel
 import com.example.relab_tool.ui.DeviceInfoViewModel
 import com.example.relab_tool.ui.MainScreen
+import com.example.relab_tool.ui.LoadingScreen
 import com.example.relab_tool.ui.PermissionScreen
 import com.example.relab_tool.ui.theme.DarkModeOption
 import com.example.relab_tool.ui.theme.Relab_toolTheme
@@ -84,11 +85,10 @@ class MainActivity : AppCompatActivity() {
 
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
-        val splash = installSplashScreen() // Changed
-        splash.setKeepOnScreenCondition { false } // Changed
-        splash.setOnExitAnimationListener { splashScreenViewProvider -> // Changed
-            splashScreenViewProvider.remove() // Changed
-        } // Changed
+        val splash = installSplashScreen()
+        // Hold system splash until the first Compose frame is laid out
+        var isComposeReady = false
+        splash.setKeepOnScreenCondition { !isComposeReady }
         super.onCreate(savedInstanceState)
 
         // ── Edge-to-edge + LTPO fast-path rendering ───────────────────────────
@@ -169,21 +169,43 @@ class MainActivity : AppCompatActivity() {
             }
 
             Relab_toolTheme {
-                if (showCITScreen) {
-                    com.example.relab_tool.ui.cit.CITRootScreen(onExit = { showCITScreen = false })
-                } else if (!allPermissionsGranted) {
-                    PermissionScreen(
-                        onGrantClick = {
-                            requestHardwarePermissions()
-                        },
-                        onExitClick  = { finish(); exitProcess(0) }
-                    )
-                } else {
-                    MainScreen(
-                        viewModel    = viewModel,
-                        windowSizeClass = windowSizeClass,
-                        onLaunchCIT  = { showCITScreen = true }
-                    )
+                // Signal system splash to dismiss now that Compose is live
+                SideEffect { isComposeReady = true }
+
+                val isInitialized by deviceInfoViewModel.isInitialized.collectAsStateWithLifecycle()
+                // Auto-dismiss after timeout so the user is never stuck
+                var timedOut by remember { mutableStateOf(false) }
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    kotlinx.coroutines.delay(2500L)
+                    timedOut = true
+                }
+                val isAppReady = isInitialized || timedOut
+
+                // Derive a single navigation key from the three states
+                val navKey = when {
+                    !isAppReady -> 0
+                    showCITScreen -> 1
+                    !allPermissionsGranted -> 2
+                    else -> 3
+                }
+
+                androidx.compose.animation.Crossfade(
+                    targetState = navKey,
+                    label = "root_nav"
+                ) { key ->
+                    when (key) {
+                        0 -> LoadingScreen()
+                        1 -> com.example.relab_tool.ui.cit.CITRootScreen(onExit = { showCITScreen = false })
+                        2 -> PermissionScreen(
+                            onGrantClick = { requestHardwarePermissions() },
+                            onExitClick  = { finish(); exitProcess(0) }
+                        )
+                        else -> MainScreen(
+                            viewModel    = viewModel,
+                            windowSizeClass = windowSizeClass,
+                            onLaunchCIT  = { showCITScreen = true }
+                        )
+                    }
                 }
             }
         }

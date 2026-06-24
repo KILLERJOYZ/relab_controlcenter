@@ -57,110 +57,110 @@ class NetworkIpcBenchmark : BenchmarkEngine {
 
             // NW_01 — TCP loopback throughput (large buffer, 128MB)
             onProgress(0.02f)
-            val tcpGbpsVal = BenchmarkHarness.medianOfThreeLight { runTcpLoopbackThroughput(128) }
-            results += gbpsScore("NW_01: TCP Loopback Throughput", tcpGbpsVal, 3.0, 25.0)
+            val tcpGbpsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runTcpLoopbackThroughput(128) }
+            results += gbpsScore("NW_01: TCP Loopback Throughput", tcpGbpsVal, 6.0, 80.0)
 
             // NW_02 — TCP loopback latency (RTT measurement, 10K pings)
             onProgress(0.07f)
-            val tcpLatVal = BenchmarkHarness.medianOfThree(warmups = 1) { runTcpLatency(10_000) }
-            results += subScore("NW_02: TCP Loopback RTT", tcpLatVal, "µs", 100.0, 5.0, true)
+            val tcpLatVal = BenchmarkHarness.medianOfThree(warmups = 3) { runTcpLatency(10_000) }
+            results += subScore("NW_02: TCP Loopback RTT", tcpLatVal, "µs", 80.0, 2.0, true)
 
             // NW_03 — NIO SocketChannel throughput (non-blocking, 128MB)
             onProgress(0.12f)
-            val nioGbpsVal = BenchmarkHarness.medianOfThreeLight { runNioChannelThroughput(128) }
-            results += gbpsScore("NW_03: NIO SocketChannel Throughput", nioGbpsVal, 4.0, 30.0)
+            val nioGbpsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runNioChannelThroughput(128) }
+            results += gbpsScore("NW_03: NIO SocketChannel Throughput", nioGbpsVal, 8.0, 90.0)
 
             // NW_04 — UDP datagram throughput (8KB datagrams, 1M datagrams)
             onProgress(0.17f)
-            val udpGbpsVal = BenchmarkHarness.medianOfThreeLight { runUdpLoopbackThroughput() }
-            results += gbpsScore("NW_04: UDP Loopback Throughput", udpGbpsVal, 1.0, 10.0)
+            val udpGbpsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runUdpLoopbackThroughput() }
+            results += gbpsScore("NW_04: UDP Loopback Throughput", udpGbpsVal, 2.0, 30.0)
 
             // NW_05 — TCP connection setup rate (new connections/sec)
             onProgress(0.22f)
-            val tcpConnVal = BenchmarkHarness.medianOfThree(warmups = 1) { runTcpConnectionRate(1000) }
-            results += SubScore("NW_05: TCP Connection Rate", tcpConnVal, "conn/s",
-                ScoreNormalizer.normalize(tcpConnVal, 500.0, 5000.0, false))
+            val tcpConnVal = BenchmarkHarness.medianOfThree(warmups = 3) { runTcpConnectionRate(1000) }
+            results += subScore("NW_05: TCP Connection Rate", tcpConnVal, "conn/s",
+                1000.0, 15000.0, false)
 
             // NW_06 — Pipe write/read throughput (kernel IPC pipe)
             onProgress(0.27f)
-            val pipeGbpsVal = BenchmarkHarness.medianOfThreeLight { runPipeThroughput() }
-            results += gbpsScore("NW_06: Pipe IPC Throughput", pipeGbpsVal, 2.0, 15.0)
+            val pipeGbpsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runPipeThroughput() }
+            results += gbpsScore("NW_06: Pipe IPC Throughput", pipeGbpsVal, 4.0, 50.0)
 
             // NW_07 — Binder IPC overhead (Parcel serialization roundtrip)
             onProgress(0.32f)
-            val binderVal = BenchmarkHarness.medianOfThree(warmups = 2) { runBinderParcelOverhead(100_000) }
-            results += subScore("NW_07: Binder Parcel Overhead", binderVal, "µs/call", 20.0, 2.0, true)
+            val binderVal = BenchmarkHarness.medianOfThree(warmups = 3) { runBinderParcelOverhead(100_000) }
+            results += subScore("NW_07: Binder Parcel Overhead", binderVal, "µs/call", 15.0, 0.5, true)
 
             // NW_08 — Parcel write throughput (large complex object)
             onProgress(0.37f)
-            val parcelWrVal = BenchmarkHarness.medianOfThree(warmups = 2) { runParcelWriteThroughput() }
-            results += SubScore("NW_08: Parcel Write Throughput", parcelWrVal, "MB/s",
-                ScoreNormalizer.normalize(parcelWrVal, 200.0, 2000.0, false))
+            val parcelWrVal = BenchmarkHarness.medianOfThree(warmups = 3) { runParcelWriteThroughput() }
+            results += subScore("NW_08: Parcel Write Throughput", parcelWrVal, "MB/s",
+                400.0, 6000.0, false)
 
             // NW_09 — TLS handshake latency (using SSLSocket loopback)
             onProgress(0.42f)
-            val tlsVal = BenchmarkHarness.medianOfThree(warmups = 1) { runTlsHandshakeSimulation() }
-            results += subScore("NW_09: TLS Handshake Simulation", tlsVal, "ms", 20.0, 2.0, true)
+            val tlsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runTlsHandshakeSimulation() }
+            results += subScore("NW_09: TLS Handshake Simulation", tlsVal, "ms", 15.0, 0.5, true)
 
             // NW_10 — Multi-stream TCP concurrent (8 parallel connections)
             onProgress(0.47f)
-            val multiTcpVal = BenchmarkHarness.medianOfThreeLight { runMultiStreamTcp(8, 16) }
-            results += gbpsScore("NW_10: Multi-Stream TCP (8 conns)", multiTcpVal, 5.0, 40.0)
+            val multiTcpVal = BenchmarkHarness.medianOfThree(warmups = 3) { runMultiStreamTcp(8, 16) }
+            results += gbpsScore("NW_10: Multi-Stream TCP (8 conns)", multiTcpVal, 10.0, 120.0)
 
             // NW_11 — Select/poll system call overhead (1K FDs)
             onProgress(0.52f)
-            val selectVal = BenchmarkHarness.medianOfThree(warmups = 2) { runSelectOverhead(100) }
-            results += SubScore("NW_11: Socket I/O Overhead (100 sockets)", selectVal, "µs/poll",
-                ScoreNormalizer.normalize(selectVal, 500.0, 50.0, true))
+            val selectVal = BenchmarkHarness.medianOfThree(warmups = 3) { runSelectOverhead(100) }
+            results += subScore("NW_11: Socket I/O Overhead (100 sockets)", selectVal, "µs/poll",
+                400.0, 10.0, true)
 
             // NW_12 — ByteBuffer serialization throughput (proto-like)
             onProgress(0.57f)
-            val serVal = BenchmarkHarness.medianOfThree(warmups = 2) { runByteBufferSerialization() }
-            results += SubScore("NW_12: ByteBuffer Serialization", serVal, "MOps/s",
-                ScoreNormalizer.normalize(serVal, 200.0, 2000.0, false))
+            val serVal = BenchmarkHarness.medianOfThree(warmups = 3) { runByteBufferSerialization() }
+            results += subScore("NW_12: ByteBuffer Serialization", serVal, "MOps/s",
+                400.0, 6000.0, false)
 
             // NW_13 — JSON over socket (HTTP-like request/response)
             onProgress(0.62f)
-            val jsonRpcVal = BenchmarkHarness.medianOfThreeLight { runJsonRpcSimulation(500) }
-            results += SubScore("NW_13: JSON RPC (500 requests)", jsonRpcVal, "req/s",
-                ScoreNormalizer.normalize(jsonRpcVal, 1000.0, 15_000.0, false))
+            val jsonRpcVal = BenchmarkHarness.medianOfThree(warmups = 3) { runJsonRpcSimulation(500) }
+            results += subScore("NW_13: JSON RPC (500 requests)", jsonRpcVal, "req/s",
+                2000.0, 45000.0, false)
 
             // NW_14 — Memory-mapped IPC (mmap via byte arrays, simulated shared memory)
             onProgress(0.65f)
-            val mmapIpcVal = BenchmarkHarness.medianOfThreeLight { runMmapIpcSimulation() }
-            results += gbpsScore("NW_14: Shared Memory IPC (mmap sim)", mmapIpcVal, 5.0, 40.0)
+            val mmapIpcVal = BenchmarkHarness.medianOfThree(warmups = 3) { runMmapIpcSimulation() }
+            results += gbpsScore("NW_14: Shared Memory IPC (mmap sim)", mmapIpcVal, 10.0, 120.0)
 
             // NW_15 — Producer-consumer queue throughput (Kotlin Channel)
             onProgress(0.70f)
-            val prodConVal = BenchmarkHarness.medianOfThreeLight { runProducerConsumerQueue() }
-            results += SubScore("NW_15: Producer-Consumer Queue", prodConVal, "MOps/s",
-                ScoreNormalizer.normalize(prodConVal, 50.0, 500.0, false))
+            val prodConVal = BenchmarkHarness.medianOfThree(warmups = 3) { runProducerConsumerQueue() }
+            results += subScore("NW_15: Producer-Consumer Queue", prodConVal, "MOps/s",
+                100.0, 1500.0, false)
 
             // NW_16 — DNS resolution latency (127.0.0.1 loopback lookup)
             onProgress(0.75f)
-            val dnsVal = BenchmarkHarness.medianOfThree(warmups = 2) { runLoopbackResolution(1000) }
-            results += subScore("NW_16: Loopback Resolution Latency", dnsVal, "µs", 500.0, 20.0, true)
+            val dnsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runLoopbackResolution(1000) }
+            results += subScore("NW_16: Loopback Resolution Latency", dnsVal, "µs", 400.0, 5.0, true)
 
             // NW_17 — TCP zero-copy sendfile simulation (splice via pipe)
             onProgress(0.80f)
-            val zcGbpsVal = BenchmarkHarness.medianOfThreeLight { runZeroCopySimulation(32) }
-            results += gbpsScore("NW_17: Zero-Copy Transfer (32MB)", zcGbpsVal, 3.0, 25.0)
+            val zcGbpsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runZeroCopySimulation(32) }
+            results += gbpsScore("NW_17: Zero-Copy Transfer (32MB)", zcGbpsVal, 6.0, 75.0)
 
             // NW_18 — Protobuf-like binary serialization
             onProgress(0.85f)
-            val protoVal = BenchmarkHarness.medianOfThree(warmups = 2) { runBinaryProtocolSerialization() }
-            results += SubScore("NW_18: Binary Protocol Serialize", protoVal, "MB/s",
-                ScoreNormalizer.normalize(protoVal, 200.0, 2000.0, false))
+            val protoVal = BenchmarkHarness.medianOfThree(warmups = 3) { runBinaryProtocolSerialization() }
+            results += subScore("NW_18: Binary Protocol Serialize", protoVal, "MB/s",
+                400.0, 6000.0, false)
 
             // NW_19 — Socket send/recv with scatter-gather (vectored I/O)
             onProgress(0.92f)
-            val scatterVal = BenchmarkHarness.medianOfThreeLight { runScatterGatherIo(64) }
-            results += gbpsScore("NW_19: Scatter-Gather I/O (64MB)", scatterVal, 2.0, 20.0)
+            val scatterVal = BenchmarkHarness.medianOfThree(warmups = 3) { runScatterGatherIo(64) }
+            results += gbpsScore("NW_19: Scatter-Gather I/O (64MB)", scatterVal, 4.0, 60.0)
 
             // NW_20 — Peak concurrent IPC throughput (threads × connections)
             onProgress(0.97f)
-            val peakVal = BenchmarkHarness.medianOfThreeLight { runPeakConcurrentIpc() }
-            results += gbpsScore("NW_20: Peak Concurrent IPC", peakVal, 5.0, 50.0)
+            val peakVal = BenchmarkHarness.medianOfThree(warmups = 3) { runPeakConcurrentIpc() }
+            results += gbpsScore("NW_20: Peak Concurrent IPC", peakVal, 10.0, 150.0)
 
             onProgress(1.0f)
             results
@@ -686,14 +686,16 @@ class NetworkIpcBenchmark : BenchmarkEngine {
     // ── Score helpers ─────────────────────────────────────────────────────────
 
     private fun gbpsScore(name: String, raw: Double, baseline: Double, cap: Double): SubScore {
-        return SubScore(name, raw, "GB/s", ScoreNormalizer.normalize(raw, baseline, cap, false))
+        val safe = if (raw.isNaN() || raw < 0.0) 0.0 else raw
+        return SubScore(name, safe, "GB/s", ScoreNormalizer.normalize(safe, baseline, cap, false), isPartial = safe == 0.0)
     }
 
     private fun subScore(
         name: String, rawValue: Double, unit: String,
         baseline: Double, cap: Double, inverted: Boolean
     ): SubScore {
-        val score = ScoreNormalizer.normalize(rawValue, baseline, cap, inverted)
-        return SubScore(name, rawValue, unit, score)
+        val safe = if (rawValue.isNaN() || rawValue < 0.0) 0.0 else rawValue
+        val score = ScoreNormalizer.normalize(safe, baseline, cap, inverted)
+        return SubScore(name, safe, unit, score, isPartial = safe == 0.0)
     }
 }

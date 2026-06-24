@@ -45,103 +45,103 @@ class StorageBenchmark(private val context: Context) : BenchmarkEngine {
 
             // IO_01 — Sequential write (NIO FileChannel, 256MB)
             onProgress(0.02f)
-            val seqWriteVal = BenchmarkHarness.medianOfThreeLight { runSequentialWrite(256) }
-            results += subScore("IO_01: Sequential Write (256MB)", seqWriteVal, "MB/s", 400.0, 2500.0, false)
+            val seqWriteVal = BenchmarkHarness.medianOfThree(warmups = 3) { runSequentialWrite(256) }
+            results += subScore("IO_01: Sequential Write (256MB)", seqWriteVal, "MB/s", 500.0, 4000.0, false)
 
             // IO_02 — Sequential read (NIO FileChannel, 256MB)
             onProgress(0.07f)
-            val seqReadVal = BenchmarkHarness.medianOfThreeLight { runSequentialRead(256) }
-            results += subScore("IO_02: Sequential Read (256MB)", seqReadVal, "MB/s", 600.0, 4000.0, false)
+            val seqReadVal = BenchmarkHarness.medianOfThree(warmups = 3) { runSequentialRead(256) }
+            results += subScore("IO_02: Sequential Read (256MB)", seqReadVal, "MB/s", 800.0, 7000.0, false)
 
             // IO_03 — Write throughput 1MB blocks (simulate photo save)
             onProgress(0.12f)
-            val blockWriteVal = BenchmarkHarness.medianOfThreeLight { runBlockWrite(1024 * 1024, 64) }
-            results += subScore("IO_03: 1MB Block Write (64 blocks)", blockWriteVal, "MB/s", 300.0, 2000.0, false)
+            val blockWriteVal = BenchmarkHarness.medianOfThree(warmups = 3) { runBlockWrite(1024 * 1024, 64) }
+            results += subScore("IO_03: 1MB Block Write (64 blocks)", blockWriteVal, "MB/s", 450.0, 3500.0, false)
 
             // IO_04 — Read throughput 1MB blocks
             onProgress(0.17f)
-            val blockReadVal = BenchmarkHarness.medianOfThreeLight { runBlockRead(1024 * 1024, 64) }
-            results += subScore("IO_04: 1MB Block Read (64 blocks)", blockReadVal, "MB/s", 500.0, 3000.0, false)
+            val blockReadVal = BenchmarkHarness.medianOfThree(warmups = 3) { runBlockRead(1024 * 1024, 64) }
+            results += subScore("IO_04: 1MB Block Read (64 blocks)", blockReadVal, "MB/s", 700.0, 6000.0, false)
 
             // IO_05 — Random 4KB write (IOPS)
             onProgress(0.22f)
-            val rand4kWriteVal = BenchmarkHarness.medianOfThreeLight { runRandom4KWrite(10_000) }
-            results += subScore("IO_05: Random 4KB Write IOPS", rand4kWriteVal, "IOPS", 10_000.0, 100_000.0, false)
+            val rand4kWriteVal = BenchmarkHarness.medianOfThree(warmups = 3) { runRandom4KWrite(10_000) }
+            results += subScore("IO_05: Random 4KB Write IOPS", rand4kWriteVal, "IOPS", 20_000.0, 350_000.0, false)
 
             // IO_06 — Random 4KB read (IOPS)
             onProgress(0.27f)
-            val rand4kReadVal = BenchmarkHarness.medianOfThreeLight { runRandom4KRead(10_000) }
-            results += subScore("IO_06: Random 4KB Read IOPS", rand4kReadVal, "IOPS", 15_000.0, 150_000.0, false)
+            val rand4kReadVal = BenchmarkHarness.medianOfThree(warmups = 3) { runRandom4KRead(10_000) }
+            results += subScore("IO_06: Random 4KB Read IOPS", rand4kReadVal, "IOPS", 30_000.0, 450_000.0, false)
 
             // IO_07 — Mixed 70% read / 30% write queue depth 32
             onProgress(0.32f)
-            val mixedVal = BenchmarkHarness.medianOfThreeLight { runMixedReadWrite(5000) }
-            results += subScore("IO_07: Mixed I/O (70R/30W, QD32)", mixedVal, "IOPS", 12_000.0, 120_000.0, false)
+            val mixedVal = BenchmarkHarness.medianOfThree(warmups = 3) { runMixedReadWrite(5000) }
+            results += subScore("IO_07: Mixed I/O (70R/30W, QD32)", mixedVal, "IOPS", 25_000.0, 400_000.0, false)
 
             // IO_08 — SQLite WAL sequential insert (100K rows)
             onProgress(0.37f)
-            val sqlSeqVal = BenchmarkHarness.medianOfThreeLight { runSqliteWalInsert(100_000) }
-            results += subScore("IO_08: SQLite WAL Insert (100K)", sqlSeqVal, "ms", 3000.0, 800.0, true)
+            val sqlSeqVal = BenchmarkHarness.medianOfThree(warmups = 3) { runSqliteWalInsert(100_000) }
+            results += subScore("IO_08: SQLite WAL Insert (100K)", sqlSeqVal, "ms", 2500.0, 200.0, true)
 
             // IO_09 — SQLite bulk query (SELECT + sort 100K rows)
             onProgress(0.42f)
-            val sqlQueryVal = BenchmarkHarness.medianOfThreeLight { runSqliteQuery(100_000) }
-            results += subScore("IO_09: SQLite Query (100K rows)", sqlQueryVal, "ms", 2000.0, 400.0, true)
+            val sqlQueryVal = BenchmarkHarness.medianOfThree(warmups = 3) { runSqliteQuery(100_000) }
+            results += subScore("IO_09: SQLite Query (100K rows)", sqlQueryVal, "ms", 1500.0, 100.0, true)
 
             // IO_10 — SQLite indexed query (index scan vs full scan delta)
             onProgress(0.47f)
-            val sqlIndexVal = BenchmarkHarness.medianOfThreeLight { runSqliteIndexScan(100_000) }
-            results += subScore("IO_10: SQLite Index Scan (100K)", sqlIndexVal, "ms", 500.0, 80.0, true)
+            val sqlIndexVal = BenchmarkHarness.medianOfThree(warmups = 3) { runSqliteIndexScan(100_000) }
+            results += subScore("IO_10: SQLite Index Scan (100K)", sqlIndexVal, "ms", 400.0, 20.0, true)
 
             // IO_11 — O_DIRECT sequential write (native, bypasses page cache)
             onProgress(0.52f)
-            val directWriteVal = BenchmarkHarness.medianOfThreeLight { runODirectWrite(128) }
-            results += subScore("IO_11: O_DIRECT Write (128MB)", directWriteVal, "MB/s", 300.0, 2500.0, false)
+            val directWriteVal = BenchmarkHarness.medianOfThree(warmups = 3) { runODirectWrite(128) }
+            results += subScore("IO_11: O_DIRECT Write (128MB)", directWriteVal, "MB/s", 450.0, 4000.0, false)
 
             // IO_12 — O_DIRECT sequential read
             onProgress(0.57f)
-            val directReadVal = BenchmarkHarness.medianOfThreeLight { runODirectRead(128) }
-            results += subScore("IO_12: O_DIRECT Read (128MB)", directReadVal, "MB/s", 500.0, 4000.0, false)
+            val directReadVal = BenchmarkHarness.medianOfThree(warmups = 3) { runODirectRead(128) }
+            results += subScore("IO_12: O_DIRECT Read (128MB)", directReadVal, "MB/s", 700.0, 7000.0, false)
 
             // IO_13 — MappedByteBuffer sequential read (mmap)
             onProgress(0.62f)
-            val mmapVal = BenchmarkHarness.medianOfThreeLight { runMmapRead(128) }
-            results += subScore("IO_13: MappedByteBuffer Read", mmapVal, "MB/s", 600.0, 4000.0, false)
+            val mmapVal = BenchmarkHarness.medianOfThree(warmups = 3) { runMmapRead(128) }
+            results += subScore("IO_13: MappedByteBuffer Read", mmapVal, "MB/s", 800.0, 7000.0, false)
 
             // IO_14 — File open/close latency (1000 operations)
             onProgress(0.65f)
-            val openCloseVal = BenchmarkHarness.medianOfThree(warmups = 2) { runFileOpenCloseLatency(1000) }
-            results += subScore("IO_14: File Open/Close Latency", openCloseVal, "ms/op", 0.8, 0.1, true)
+            val openCloseVal = BenchmarkHarness.medianOfThree(warmups = 3) { runFileOpenCloseLatency(1000) }
+            results += subScore("IO_14: File Open/Close Latency", openCloseVal, "ms/op", 0.6, 0.03, true)
 
             // IO_15 — Directory listing (10K files)
             onProgress(0.70f)
-            val dirListVal = BenchmarkHarness.medianOfThree(warmups = 1) { runDirectoryListing(10_000) }
-            results += subScore("IO_15: Directory Listing (10K)", dirListVal, "ms", 600.0, 80.0, true)
+            val dirListVal = BenchmarkHarness.medianOfThree(warmups = 3) { runDirectoryListing(10_000) }
+            results += subScore("IO_15: Directory Listing (10K)", dirListVal, "ms", 450.0, 20.0, true)
 
             // IO_16 — File metadata stat() (1000 files)
             onProgress(0.75f)
-            val statVal = BenchmarkHarness.medianOfThree(warmups = 2) { runFileStatOps(1000) }
-            results += subScore("IO_16: File Stat (1K files)", statVal, "µs/op", 100.0, 10.0, true)
+            val statVal = BenchmarkHarness.medianOfThree(warmups = 3) { runFileStatOps(1000) }
+            results += subScore("IO_16: File Stat (1K files)", statVal, "µs/op", 80.0, 3.0, true)
 
             // IO_17 — Shared preferences throughput (simulating app data serialization)
             onProgress(0.80f)
-            val sharedPrefVal = BenchmarkHarness.medianOfThree(warmups = 1) { runSharedPrefsSimulation() }
-            results += subScore("IO_17: SharedPrefs Simulation", sharedPrefVal, "ms", 500.0, 80.0, true)
+            val sharedPrefVal = BenchmarkHarness.medianOfThree(warmups = 3) { runSharedPrefsSimulation() }
+            results += subScore("IO_17: SharedPrefs Simulation", sharedPrefVal, "ms", 400.0, 20.0, true)
 
             // IO_18 — Scoped Storage API overhead (ContentResolver throughput)
             onProgress(0.85f)
-            val scopedVal = BenchmarkHarness.medianOfThreeLight { runScopedStorageOverhead() }
-            results += subScore("IO_18: Scoped Storage Overhead", scopedVal, "MB/s", 150.0, 800.0, false)
+            val scopedVal = BenchmarkHarness.medianOfThree(warmups = 3) { runScopedStorageOverhead() }
+            results += subScore("IO_18: Scoped Storage Overhead", scopedVal, "MB/s", 250.0, 2000.0, false)
 
             // IO_19 — JSON serialization to disk (100K records)
             onProgress(0.92f)
-            val jsonDiskVal = BenchmarkHarness.medianOfThreeLight { runJsonSerializeToDisk() }
-            results += subScore("IO_19: JSON Serialize to Disk", jsonDiskVal, "ms", 2000.0, 400.0, true)
+            val jsonDiskVal = BenchmarkHarness.medianOfThree(warmups = 3) { runJsonSerializeToDisk() }
+            results += subScore("IO_19: JSON Serialize to Disk", jsonDiskVal, "ms", 1500.0, 100.0, true)
 
             // IO_20 — File integrity verification (SHA-256 of 512MB file)
             onProgress(0.97f)
-            val integrityVal = BenchmarkHarness.medianOfThreeLight { runFileIntegrityCheck() }
-            results += subScore("IO_20: File Integrity Check (512MB SHA)", integrityVal, "MB/s", 400.0, 2000.0, false)
+            val integrityVal = BenchmarkHarness.medianOfThree(warmups = 3) { runFileIntegrityCheck() }
+            results += subScore("IO_20: File Integrity Check (512MB SHA)", integrityVal, "MB/s", 600.0, 5000.0, false)
 
             onProgress(1.0f)
             results
@@ -504,7 +504,8 @@ class StorageBenchmark(private val context: Context) : BenchmarkEngine {
         name: String, rawValue: Double, unit: String,
         baseline: Double, cap: Double, inverted: Boolean
     ): SubScore {
-        val score = ScoreNormalizer.normalize(rawValue, baseline, cap, inverted)
-        return SubScore(name, rawValue, unit, score)
+        val safe = if (rawValue.isNaN() || rawValue < 0.0) 0.0 else rawValue
+        val score = ScoreNormalizer.normalize(safe, baseline, cap, inverted)
+        return SubScore(name, safe, unit, score, isPartial = safe == 0.0)
     }
 }

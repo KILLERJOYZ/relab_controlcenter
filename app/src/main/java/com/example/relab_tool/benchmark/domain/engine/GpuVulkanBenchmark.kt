@@ -79,123 +79,132 @@ class GpuVulkanBenchmark(private val context: Context) : BenchmarkEngine {
             Log.d(TAG, "Vulkan available: $vulkanAvailable, GLES31 compute: $computeOk")
 
             fun fps(name: String, raw: Double, bl: Double, cap: Double, partial: Boolean = false): SubScore {
-                val s = ScoreNormalizer.normalize(raw, bl, cap, false)
-                return SubScore(name, raw, "fps", s, partial)
+                val safe = if (raw.isNaN() || raw < 0.0) 0.0 else raw
+                val s = ScoreNormalizer.normalize(safe, bl, cap, false)
+                return SubScore(name, safe, "fps", s, partial || safe == 0.0)
             }
             fun gops(name: String, raw: Double, bl: Double, cap: Double, partial: Boolean = false): SubScore {
-                val s = ScoreNormalizer.normalize(raw, bl, cap, false)
-                return SubScore(name, raw, "GOps/s", s, partial)
+                val safe = if (raw.isNaN() || raw < 0.0) 0.0 else raw
+                val s = ScoreNormalizer.normalize(safe, bl, cap, false)
+                return SubScore(name, safe, "GOps/s", s, partial || safe == 0.0)
             }
             fun gbps(name: String, raw: Double, bl: Double, cap: Double, partial: Boolean = false): SubScore {
-                val s = ScoreNormalizer.normalize(raw, bl, cap, false)
-                return SubScore(name, raw, "GB/s", s, partial)
+                val safe = if (raw.isNaN() || raw < 0.0) 0.0 else raw
+                val s = ScoreNormalizer.normalize(safe, bl, cap, false)
+                return SubScore(name, safe, "GB/s", s, partial || safe == 0.0)
             }
 
             // VK_01 — Mandelbrot compute dispatch (128×128 groups, 16×16 local)
+            try {
             onProgress(0.02f)
             val mandelbrotFps = if (computeOk) runComputeMandelbrot(egl) else runCpuMandelbrot()
-            results += fps("VK_01: Mandelbrot Compute Dispatch", mandelbrotFps, 20.0, 150.0, !computeOk)
+            results += fps("VK_01: Mandelbrot Compute Dispatch", mandelbrotFps, 40.0, 450.0, !computeOk)
 
             // VK_02 — Bilateral filter compute (2D image processing)
             onProgress(0.07f)
             val bilateralFps = if (computeOk) runComputeBilateralFilter(egl) else runCpuBilateralFilter()
-            results += fps("VK_02: Bilateral Filter Compute", bilateralFps, 15.0, 100.0, !computeOk)
+            results += fps("VK_02: Bilateral Filter Compute", bilateralFps, 30.0, 300.0, !computeOk)
 
             // VK_03 — N-Body compute shader (50K particles, O(N²) GPU)
             onProgress(0.12f)
             val nBodyGops = if (computeOk) runComputeNBody(egl) else runCpuNBodyDispatch()
-            results += gops("VK_03: N-Body Gravity Compute (50K)", nBodyGops, 2.0, 20.0, !computeOk)
+            results += gops("VK_03: N-Body Gravity Compute (50K)", nBodyGops, 4.0, 60.0, !computeOk)
 
             // VK_04 — FFT 2D compute (1024×1024 via row/col transforms)
             onProgress(0.17f)
             val fft2dFps = if (computeOk) runComputeFFT2D(egl) else runCpuFft2D()
-            results += fps("VK_04: FFT-2D Compute (1K×1K)", fft2dFps, 10.0, 80.0, !computeOk)
+            results += fps("VK_04: FFT-2D Compute (1K×1K)", fft2dFps, 20.0, 240.0, !computeOk)
 
             // VK_05 — Parallel reduction (256M elements → single sum)
             onProgress(0.22f)
             val reductionGops = if (computeOk) runComputeReduction(egl) else runCpuReduction()
-            results += gops("VK_05: Parallel Reduction (256M)", reductionGops, 50.0, 400.0, !computeOk)
+            results += gops("VK_05: Parallel Reduction (256M)", reductionGops, 100.0, 1200.0, !computeOk)
 
             // VK_06 — MatMul SSBO (512×512 × 512×512, compute shader)
             onProgress(0.27f)
             val matMulGflops = if (computeOk) runComputeMatMul(egl) else runCpuMatMulDispatch()
-            results += SubScore("VK_06: MatMul SSBO (512×512)", matMulGflops, "GFLOPS",
-                ScoreNormalizer.normalize(matMulGflops, 50.0, 400.0, false), !computeOk)
+            val matMulSafe = if (matMulGflops.isNaN() || matMulGflops < 0.0) 0.0 else matMulGflops
+            results += SubScore("VK_06: MatMul SSBO (512×512)", matMulSafe, "GFLOPS",
+                ScoreNormalizer.normalize(matMulSafe, 100.0, 1200.0, false), !computeOk || matMulSafe == 0.0)
 
             // VK_07 — Prefix sum (scan algorithm, 64M elements)
             onProgress(0.32f)
             val scanGops = if (computeOk) runComputeScan(egl) else runCpuScan()
-            results += gops("VK_07: Prefix Scan (64M elements)", scanGops, 20.0, 150.0, !computeOk)
+            results += gops("VK_07: Prefix Scan (64M elements)", scanGops, 40.0, 450.0, !computeOk)
 
             // VK_08 — Particle physics integrate (1M particles × 60 steps)
             onProgress(0.37f)
             val particleGflops = if (computeOk) runComputeParticleIntegrate(egl) else runCpuParticleIntegrate()
-            results += SubScore("VK_08: Particle Integrate (1M)", particleGflops, "GFLOPS",
-                ScoreNormalizer.normalize(particleGflops, 10.0, 100.0, false), !computeOk)
+            val particleSafe = if (particleGflops.isNaN() || particleGflops < 0.0) 0.0 else particleGflops
+            results += SubScore("VK_08: Particle Integrate (1M)", particleSafe, "GFLOPS",
+                ScoreNormalizer.normalize(particleSafe, 20.0, 300.0, false), !computeOk || particleSafe == 0.0)
 
             // VK_09 — Histogram equalization (16M pixels)
             onProgress(0.42f)
             val histFps = if (computeOk) runComputeHistogram(egl) else runCpuHistogram()
-            results += fps("VK_09: Histogram Equalization", histFps, 30.0, 200.0, !computeOk)
+            results += fps("VK_09: Histogram Equalization", histFps, 60.0, 600.0, !computeOk)
 
             // VK_10 — Ray tracing BVH traversal (software)
             onProgress(0.47f)
             val bvhFps = if (computeOk) runComputeBvhRayTrace(egl) else runCpuBvhRayTrace()
-            results += fps("VK_10: Software BVH Ray Trace", bvhFps, 5.0, 40.0, !computeOk)
+            results += fps("VK_10: Software BVH Ray Trace", bvhFps, 10.0, 120.0, !computeOk)
 
             // VK_11 — Depth-of-field bokeh filter
             onProgress(0.52f)
             val dofFps = if (computeOk) runComputeDoF(egl) else runCpuDoF()
-            results += fps("VK_11: Depth-of-Field Bokeh", dofFps, 15.0, 100.0, !computeOk)
+            results += fps("VK_11: Depth-of-Field Bokeh", dofFps, 30.0, 300.0, !computeOk)
 
             // VK_12 — Compute flocking (Boids, 200K agents)
             onProgress(0.57f)
             val boidsGops = if (computeOk) runComputeBoids(egl) else runCpuBoids()
-            results += gops("VK_12: Boids Flocking (200K)", boidsGops, 1.0, 10.0, !computeOk)
+            results += gops("VK_12: Boids Flocking (200K)", boidsGops, 2.0, 30.0, !computeOk)
 
             // VK_13 — Sort (Bitonic sort, 4M elements on GPU)
             onProgress(0.62f)
             val sortFps = if (computeOk) runComputeBitonicSort(egl) else runCpuBitonicSort()
-            results += fps("VK_13: Bitonic Sort (4M elements)", sortFps, 5.0, 50.0, !computeOk)
+            results += fps("VK_13: Bitonic Sort (4M elements)", sortFps, 10.0, 150.0, !computeOk)
 
             // VK_14 — Compute path tracer (accumulation buffer)
             onProgress(0.65f)
             val pathTraceFps = if (computeOk) runComputePathTracer(egl) else runCpuPathTracer()
-            results += fps("VK_14: Path Tracer (accumulate)", pathTraceFps, 3.0, 25.0, !computeOk)
+            results += fps("VK_14: Path Tracer (accumulate)", pathTraceFps, 6.0, 50.0, !computeOk)
 
             // VK_15 — GEMM FP16 performance
             onProgress(0.70f)
             val gemmFp16 = if (computeOk) runComputeGemmFp16(egl) else runCpuGemmFp16()
-            results += SubScore("VK_15: GEMM FP16 Throughput", gemmFp16, "TFLOPS",
-                ScoreNormalizer.normalize(gemmFp16, 1.0, 12.0, false), !computeOk)
+            val gemmSafe = if (gemmFp16.isNaN() || gemmFp16 < 0.0) 0.0 else gemmFp16
+            results += SubScore("VK_15: GEMM FP16 Throughput", gemmSafe, "TFLOPS",
+                ScoreNormalizer.normalize(gemmSafe, 2.0, 24.0, false), !computeOk || gemmSafe == 0.0)
 
             // VK_16 — Wavefront occupancy stress
             onProgress(0.75f)
             val occupancyGops = if (computeOk) runWavefrontOccupancy(egl) else runCpuOccupancyMimic()
-            results += gops("VK_16: Wavefront Occupancy Stress", occupancyGops, 100.0, 800.0, !computeOk)
+            results += gops("VK_16: Wavefront Occupancy Stress", occupancyGops, 200.0, 1600.0, !computeOk)
 
             // VK_17 — Shared memory bandwidth (intra-workgroup)
             onProgress(0.80f)
             val sharedMemGbps = if (computeOk) runSharedMemBandwidth(egl) else runCpuCacheSimBandwidth()
-            results += gbps("VK_17: Shared Memory Bandwidth", sharedMemGbps, 100.0, 1000.0, !computeOk)
+            results += gbps("VK_17: Shared Memory Bandwidth", sharedMemGbps, 200.0, 2000.0, !computeOk)
 
             // VK_18 — Image store/load (UAV round-trip)
             onProgress(0.85f)
             val imageIoGbps = if (computeOk) runImageStoreBandwidth(egl) else runCpuImageIo()
-            results += gbps("VK_18: Image Store/Load Bandwidth", imageIoGbps, 50.0, 400.0, !computeOk)
+            results += gbps("VK_18: Image Store/Load Bandwidth", imageIoGbps, 100.0, 800.0, !computeOk)
 
             // VK_19 — Divergent branch penalty (SIMT)
             onProgress(0.92f)
             val divFps = if (computeOk) runDivergentBranch(egl) else runCpuDivergentBranch()
-            results += fps("VK_19: Divergent Branch Penalty", divFps, 20.0, 150.0, !computeOk)
+            results += fps("VK_19: Divergent Branch Penalty", divFps, 40.0, 300.0, !computeOk)
 
             // VK_20 — Combined mixed ALU/memory compute
             onProgress(0.97f)
             val mixedGops = if (computeOk) runMixedAluMemory(egl) else runCpuMixedAluMemory()
-            results += gops("VK_20: Mixed ALU+Memory Compute", mixedGops, 30.0, 250.0, !computeOk)
+            results += gops("VK_20: Mixed ALU+Memory Compute", mixedGops, 60.0, 500.0, !computeOk)
 
-            if (computeOk) {
-                egl.release()
+            } finally {
+                if (computeOk) {
+                    egl.release()
+                }
             }
             onProgress(1.0f)
             results

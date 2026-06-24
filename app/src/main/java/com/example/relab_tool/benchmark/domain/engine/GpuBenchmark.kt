@@ -51,115 +51,120 @@ class GpuOpenGLBenchmark(private val context: Context) : BenchmarkEngine {
             val ok = egl.initEGL(RENDER_W, RENDER_H)
 
             fun fps(name: String, raw: Double, baseline: Double, cap: Double): SubScore {
-                val s = ScoreNormalizer.normalize(raw, baseline, cap, false)
-                return SubScore(name, raw, "fps", s, !ok)
+                val safe = if (raw.isNaN() || raw < 0.0) 0.0 else raw
+                val s = ScoreNormalizer.normalize(safe, baseline, cap, false)
+                return SubScore(name, safe, "fps", s, !ok || safe == 0.0)
             }
             fun bw(name: String, raw: Double, baseline: Double, cap: Double): SubScore {
-                val s = ScoreNormalizer.normalize(raw, baseline, cap, false)
-                return SubScore(name, raw, "GB/s", s, !ok)
+                val safe = if (raw.isNaN() || raw < 0.0) 0.0 else raw
+                val s = ScoreNormalizer.normalize(safe, baseline, cap, false)
+                return SubScore(name, safe, "GB/s", s, !ok || safe == 0.0)
             }
 
             // GL_01 — Driver overhead / draw calls per second
+            try {
             onProgress(0.02f)
             val drawCallFps = if (ok) runDrawCallOverhead(egl) else 0.0
-            results += fps("GL_01: Driver Draw Call Overhead", drawCallFps, 800.0, 4000.0)
+            results += fps("GL_01: Driver Draw Call Overhead", drawCallFps, 2000.0, 12000.0)
 
             // GL_02 — Procedural texture generation (Perlin noise compute)
             onProgress(0.07f)
             val procTexFps = if (ok) runProceduralTexture(egl) else 0.0
-            results += fps("GL_02: Procedural Texture (Perlin)", procTexFps, 15.0, 80.0)
+            results += fps("GL_02: Procedural Texture (Perlin)", procTexFps, 30.0, 240.0)
 
             // GL_03 — Vertex throughput (20M triangles/frame)
             onProgress(0.12f)
             val vertexFps = if (ok) runVertexThroughput(egl) else 0.0
-            results += fps("GL_03: Vertex Throughput (20M tri)", vertexFps, 20.0, 120.0)
+            results += fps("GL_03: Vertex Throughput (20M tri)", vertexFps, 40.0, 360.0)
 
             // GL_04 — Fragment ALU (ray-march, 128 iterations/pixel)
             onProgress(0.17f)
             val fragFps = if (ok) runFragmentAlu(egl) else 0.0
-            results += fps("GL_04: Fragment ALU (ray-march 128)", fragFps, 5.0, 35.0)
+            results += fps("GL_04: Fragment ALU (ray-march 128)", fragFps, 10.0, 100.0)
 
             // GL_05 — Particle physics compute shader (1M particles)
             onProgress(0.22f)
             val particleFps = if (ok) runParticleCompute(egl) else 0.0
-            results += fps("GL_05: Particle Physics (1M pts)", particleFps, 15.0, 90.0)
+            results += fps("GL_05: Particle Physics (1M pts)", particleFps, 30.0, 280.0)
 
             // GL_06 — Deferred rendering (G-Buffer + 512 lights)
             onProgress(0.27f)
             val deferredFps = if (ok) runDeferredRendering(egl) else 0.0
-            results += fps("GL_06: Deferred (512 lights)", deferredFps, 8.0, 50.0)
+            results += fps("GL_06: Deferred (512 lights)", deferredFps, 15.0, 150.0)
 
             // GL_07 — PBR microfacet shading (GGX BRDF)
             onProgress(0.32f)
             val pbrFps = if (ok) runPbrShading(egl) else 0.0
-            results += fps("GL_07: PBR Microfacet BRDF", pbrFps, 12.0, 70.0)
+            results += fps("GL_07: PBR Microfacet BRDF", pbrFps, 25.0, 200.0)
 
             // GL_08 — Ray Query (software ray-march for shadow, 64 steps)
             onProgress(0.37f)
             val rayFps = if (ok) runSoftwareRayQuery(egl) else 0.0
-            results += fps("GL_08: Software Ray-March Shadow", rayFps, 8.0, 50.0)
+            results += fps("GL_08: Software Ray-March Shadow", rayFps, 15.0, 150.0)
 
             // GL_09 — SSAO (64 samples per pixel)
             onProgress(0.42f)
             val ssaoFps = if (ok) runSsao(egl) else 0.0
-            results += fps("GL_09: SSAO (64 samples/pixel)", ssaoFps, 10.0, 60.0)
+            results += fps("GL_09: SSAO (64 samples/pixel)", ssaoFps, 20.0, 180.0)
 
             // GL_10 — Bloom multipass (8-level Gaussian chain)
             onProgress(0.47f)
             val bloomFps = if (ok) runBloomMultipass(egl) else 0.0
-            results += fps("GL_10: Bloom Multipass (8 levels)", bloomFps, 20.0, 120.0)
+            results += fps("GL_10: Bloom Multipass (8 levels)", bloomFps, 40.0, 350.0)
 
             // GL_11 — MSAA 4× fill rate
             onProgress(0.52f)
             val msaaFps = if (ok) runMsaa4x(egl) else 0.0
-            results += fps("GL_11: MSAA 4× Fill Rate", msaaFps, 15.0, 90.0)
+            results += fps("GL_11: MSAA 4× Fill Rate", msaaFps, 30.0, 260.0)
 
             // GL_12 — YCbCr conversion shader
             onProgress(0.55f)
             val ycbcrFps = if (ok) runYCbCrConversion(egl) else 0.0
-            results += fps("GL_12: YCbCr → RGB Conversion", ycbcrFps, 30.0, 180.0)
+            results += fps("GL_12: YCbCr → RGB Conversion", ycbcrFps, 60.0, 500.0)
 
             // GL_13 — Anisotropic texture fetch (bandwidth stress)
             onProgress(0.60f)
             val anisoFps = if (ok) runAnisotropicFetch(egl) else 0.0
-            results += fps("GL_13: Anisotropic Tex Bandwidth", anisoFps, 10.0, 60.0)
+            results += fps("GL_13: Anisotropic Tex Bandwidth", anisoFps, 20.0, 180.0)
 
             // GL_14 — FP16 compute throughput
             onProgress(0.65f)
             val fp16Fps = if (ok) runFp16Compute(egl) else 0.0
-            results += fps("GL_14: FP16 Compute Throughput", fp16Fps, 30.0, 200.0)
+            results += fps("GL_14: FP16 Compute Throughput", fp16Fps, 60.0, 600.0)
 
             // GL_15 — Dynamic tessellation (LOD-based)
             onProgress(0.70f)
             val tessFps = if (ok) runTessellation(egl) else 0.0
-            results += fps("GL_15: Dynamic Tessellation", tessFps, 10.0, 60.0)
+            results += fps("GL_15: Dynamic Tessellation", tessFps, 20.0, 180.0)
 
             // GL_16 — Shadow mapping (4K depth buffer pass)
             onProgress(0.75f)
             val shadowFps = if (ok) runShadowMapping(egl) else 0.0
-            results += fps("GL_16: Shadow Mapping (4K depth)", shadowFps, 15.0, 90.0)
+            results += fps("GL_16: Shadow Mapping (4K depth)", shadowFps, 30.0, 260.0)
 
             // GL_17 — Dynamic cubemap (6-face environment)
             onProgress(0.80f)
             val cubeFps = if (ok) runDynamicCubemap(egl) else 0.0
-            results += fps("GL_17: Dynamic Cubemap (6 faces)", cubeFps, 10.0, 60.0)
+            results += fps("GL_17: Dynamic Cubemap (6 faces)", cubeFps, 20.0, 180.0)
 
             // GL_18 — Early-Z efficiency (overdraw measurement)
             onProgress(0.85f)
             val earlyZFps = if (ok) runEarlyZEfficiency(egl) else 0.0
-            results += fps("GL_18: Early-Z Culling Efficiency", earlyZFps, 80.0, 400.0)
+            results += fps("GL_18: Early-Z Culling Efficiency", earlyZFps, 150.0, 1200.0)
 
             // GL_19 — TAA temporal anti-aliasing
             onProgress(0.92f)
             val taaFps = if (ok) runTAA(egl) else 0.0
-            results += fps("GL_19: TAA Temporal AA", taaFps, 25.0, 150.0)
+            results += fps("GL_19: TAA Temporal AA", taaFps, 50.0, 450.0)
 
             // GL_20 — Multi-draw indirect (instanced draw batch)
             onProgress(0.97f)
             val mdiGbps = if (ok) runMultiDrawBandwidth(egl) else 0.0
-            results += bw("GL_20: Multi-Draw Indirect BW", mdiGbps, 50.0, 300.0)
+            results += bw("GL_20: Multi-Draw Indirect BW", mdiGbps, 100.0, 900.0)
 
-            if (ok) egl.release()
+            } finally {
+                if (ok) egl.release()
+            }
             onProgress(1.0f)
             results
         }

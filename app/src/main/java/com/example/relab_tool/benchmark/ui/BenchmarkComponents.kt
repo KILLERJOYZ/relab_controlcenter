@@ -91,24 +91,13 @@ fun RadarChartView(
     val entriesWithLabels = remember(pillarScores) {
         RadarChartData.fromPillarScores(pillarScores).map { entry ->
             val baseLabel = when (entry.pillar) {
-                BenchmarkPillar.CPU_SINGLE_CORE    -> "CPU Single"
-                BenchmarkPillar.CPU_MULTI_CORE     -> "CPU Multi"
-                BenchmarkPillar.GPU_VULKAN         -> "GPU Vulkan"
-                BenchmarkPillar.GPU_OPENGL         -> "GPU OpenGL"
-                BenchmarkPillar.STORAGE_IO         -> "Storage"
-                BenchmarkPillar.VIDEO_CODEC        -> "Codec"
-                BenchmarkPillar.NETWORK_IPC        -> "Network"
-                // Legacy stubs (weight=0, not shown in active runs)
-                BenchmarkPillar.GPU_RENDERING      -> "GPU Render"
-                BenchmarkPillar.GAMING_SIMULATION  -> "Gaming"
-                BenchmarkPillar.MEMORY             -> "Memory"
-                BenchmarkPillar.AI_ML              -> "AI/ML"
-                BenchmarkPillar.UX_SMOOTHNESS      -> "UX Smooth"
-                BenchmarkPillar.CODEC_MEDIA        -> "Codec"
-                BenchmarkPillar.THERMAL_EFFICIENCY -> "Thermal"
-                BenchmarkPillar.WIFI               -> "Wi-Fi"
-                BenchmarkPillar.CELLULAR           -> "Cellular"
-                BenchmarkPillar.BROWSER_WEB        -> "Browser"
+                BenchmarkPillar.CPU_SINGLE_CORE -> "CPU Single"
+                BenchmarkPillar.CPU_MULTI_CORE  -> "CPU Multi"
+                BenchmarkPillar.GPU_VULKAN      -> "GPU Vulkan"
+                BenchmarkPillar.GPU_OPENGL      -> "GPU OpenGL"
+                BenchmarkPillar.STORAGE_IO      -> "Storage"
+                BenchmarkPillar.VIDEO_CODEC     -> "Codec"
+                BenchmarkPillar.NETWORK_IPC     -> "Network"
             }
             val scoreStr = if (entry.score > 0) " (${entry.score})" else ""
             RadarChartLabelEntry(entry, "$baseLabel$scoreStr")
@@ -116,7 +105,6 @@ fun RadarChartView(
     }
     
     val primaryColor = MaterialTheme.colorScheme.primary
-    val secondaryColor = MaterialTheme.colorScheme.secondary
     val outlineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
     val textColor = MaterialTheme.colorScheme.onSurface
     
@@ -199,23 +187,7 @@ fun RadarChartView(
             )
         }
         
-        // 3. Draw Reference Poly (baseline: score 500 on all spokes)
-        val refPath = Path()
-        for (i in 0 until count) {
-            val angle = i * angleStep - Math.PI.toFloat() / 2f
-            val r = maxRadius * 0.5f // 500 / 1000
-            val x = center.x + r * cos(angle)
-            val y = center.y + r * sin(angle)
-            if (i == 0) refPath.moveTo(x, y) else refPath.lineTo(x, y)
-        }
-        refPath.close()
-        drawPath(
-            path = refPath,
-            color = secondaryColor.copy(alpha = 0.5f),
-            style = Stroke(width = 1.5.dp.toPx())
-        )
-        
-        // 4. Draw Device Score Poly
+        // 3. Draw Device Score Poly
         val devicePath = Path()
         for (i in 0 until count) {
             val angle = i * angleStep - Math.PI.toFloat() / 2f

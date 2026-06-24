@@ -40,125 +40,127 @@ class CpuMultiCoreBenchmark : BenchmarkEngine {
         withContext(Dispatchers.Default) {
             val results = mutableListOf<SubScore>()
 
-            // MC_01 — Parallel Matrix Multiply (blocked DGEMM on 2048×2048)
+            // MC_01 — Parallel Matrix Multiply (blocked DGEMM on 768×768, RC-4: larger workload)
             onProgress(0.02f)
-            val matMulVal = BenchmarkHarness.medianOfThreeLight { runParallelMatrixMultiply() }
+            val matMulVal = BenchmarkHarness.medianOfThree(warmups = 3) { runParallelMatrixMultiply() }
             results += subScore("MC_01: Parallel Matrix Multiply", matMulVal, "GFLOPS",
-                baseline = 10.0, cap = 90.0, inverted = false)
+                baseline = 25.0, cap = 400.0, inverted = false)
 
-            // MC_02 — N-Body Gravity (50K particles, O(N²) parallel)
+            // MC_02 — N-Body Gravity (8K particles, RC-4: increased from 5K)
             onProgress(0.07f)
-            val nBodyVal = BenchmarkHarness.medianOfThreeLight { runNBody() }
-            results += subScore("MC_02: N-Body Gravity (50K)", nBodyVal, "GFlop/s",
-                baseline = 2.0, cap = 15.0, inverted = false)
+            val nBodyVal = BenchmarkHarness.medianOfThree(warmups = 3) { runNBody() }
+            results += subScore("MC_02: N-Body Gravity (8K)", nBodyVal, "GFlop/s",
+                baseline = 5.0, cap = 60.0, inverted = false)
 
             // MC_03 — Parallel Merge Sort (10M elements)
             onProgress(0.12f)
-            val sortVal = BenchmarkHarness.medianOfThreeLight { runParallelMergeSort() }
+            val sortVal = BenchmarkHarness.medianOfThree(warmups = 3) { runParallelMergeSort() }
             results += subScore("MC_03: Parallel Merge Sort (10M)", sortVal, "ms",
-                baseline = 800.0, cap = 200.0, inverted = true)
+                baseline = 600.0, cap = 70.0, inverted = true)
 
             // MC_04 — Parallel AES-256 (chunk per core)
             onProgress(0.17f)
-            val aesVal = BenchmarkHarness.medianOfThreeLight { runParallelAes() }
+            val aesVal = BenchmarkHarness.medianOfThree(warmups = 3) { runParallelAes() }
             results += subScore("MC_04: Parallel AES-256 Encrypt", aesVal, "MB/s",
-                baseline = 200.0, cap = 800.0, inverted = false)
+                baseline = 400.0, cap = 3000.0, inverted = false)
 
             // MC_05 — Parallel SHA-256 (all cores at 100% saturation)
             onProgress(0.22f)
-            val shaVal = BenchmarkHarness.medianOfThreeLight { runParallelSha256() }
+            val shaVal = BenchmarkHarness.medianOfThree(warmups = 3) { runParallelSha256() }
             results += subScore("MC_05: Parallel SHA-256 (all cores)", shaVal, "GH/s",
-                baseline = 0.05, cap = 0.25, inverted = false)
+                baseline = 0.10, cap = 1.0, inverted = false)
 
             // MC_06 — SQLite Parallel Read (16 concurrent readers on :memory:)
             onProgress(0.27f)
-            val sqlReadVal = BenchmarkHarness.medianOfThreeLight { runSqliteParallelRead() }
+            val sqlReadVal = BenchmarkHarness.medianOfThree(warmups = 3) { runSqliteParallelRead() }
             results += subScore("MC_06: SQLite Parallel Read", sqlReadVal, "ms",
-                baseline = 600.0, cap = 150.0, inverted = true)
+                baseline = 500.0, cap = 60.0, inverted = true)
 
-            // MC_07 — Monte Carlo Pi (1B points, distributed)
+            // MC_07 — Monte Carlo Pi (RC-4: 50M pts/core, was 25M)
             onProgress(0.32f)
-            val piVal = BenchmarkHarness.medianOfThreeLight { runMonteCarloPi() }
-            results += subScore("MC_07: Monte Carlo Pi (1B pts)", piVal, "Mpts/s",
-                baseline = 800.0, cap = 4000.0, inverted = false)
+            val piVal = BenchmarkHarness.medianOfThree(warmups = 3) { runMonteCarloPi() }
+            results += subScore("MC_07: Monte Carlo Pi (50M/core)", piVal, "Mpts/s",
+                baseline = 1500.0, cap = 16000.0, inverted = false)
 
             // MC_08 — Context Switch Storm (2000 coroutines)
+            // RC-4: medianOfFive — scheduler noise makes this high-variance
             onProgress(0.37f)
-            val ctxVal = BenchmarkHarness.medianOfThree(warmups = 1) { runContextSwitchStorm() }
+            val ctxVal = BenchmarkHarness.medianOfFive(warmups = 3) { runContextSwitchStorm() }
             results += subScore("MC_08: Context Switch Storm (2K)", ctxVal, "ms",
-                baseline = 600.0, cap = 150.0, inverted = true)
+                baseline = 450.0, cap = 50.0, inverted = true)
 
             // MC_09 — STREAM Copy (multi-threaded sequential copy)
             onProgress(0.42f)
-            val streamCopyVal = BenchmarkHarness.medianOfThreeLight { runStreamCopy() }
+            val streamCopyVal = BenchmarkHarness.medianOfThree(warmups = 3) { runStreamCopy() }
             results += subScore("MC_09: STREAM Copy", streamCopyVal, "GB/s",
-                baseline = 15.0, cap = 60.0, inverted = false)
+                baseline = 30.0, cap = 160.0, inverted = false)
 
             // MC_10 — STREAM Scale (multiply by constant)
             onProgress(0.47f)
-            val streamScaleVal = BenchmarkHarness.medianOfThreeLight { runStreamScale() }
+            val streamScaleVal = BenchmarkHarness.medianOfThree(warmups = 3) { runStreamScale() }
             results += subScore("MC_10: STREAM Scale", streamScaleVal, "GB/s",
-                baseline = 14.0, cap = 55.0, inverted = false)
+                baseline = 28.0, cap = 140.0, inverted = false)
 
             // MC_11 — STREAM Add (dual-read add)
             onProgress(0.52f)
-            val streamAddVal = BenchmarkHarness.medianOfThreeLight { runStreamAdd() }
+            val streamAddVal = BenchmarkHarness.medianOfThree(warmups = 3) { runStreamAdd() }
             results += subScore("MC_11: STREAM Add", streamAddVal, "GB/s",
-                baseline = 18.0, cap = 70.0, inverted = false)
+                baseline = 35.0, cap = 180.0, inverted = false)
 
             // MC_12 — STREAM Triad (combined scale + add)
             onProgress(0.57f)
-            val streamTriadVal = BenchmarkHarness.medianOfThreeLight { runStreamTriad() }
+            val streamTriadVal = BenchmarkHarness.medianOfThree(warmups = 3) { runStreamTriad() }
             results += subScore("MC_12: STREAM Triad", streamTriadVal, "GB/s",
-                baseline = 17.0, cap = 65.0, inverted = false)
+                baseline = 32.0, cap = 160.0, inverted = false)
 
             // MC_13 — BVH Tree Build (parallel bounding volume hierarchy)
             onProgress(0.62f)
-            val bvhVal = BenchmarkHarness.medianOfThree(warmups = 1) { runBvhBuild() }
+            val bvhVal = BenchmarkHarness.medianOfThree(warmups = 3) { runBvhBuild() }
             results += subScore("MC_13: BVH Tree Build (parallel)", bvhVal, "ms",
-                baseline = 800.0, cap = 200.0, inverted = true)
+                baseline = 600.0, cap = 70.0, inverted = true)
 
             // MC_14 — Collision Detection (10K bodies with Octree)
             onProgress(0.65f)
-            val collisionVal = BenchmarkHarness.medianOfThree(warmups = 1) { runCollisionDetection() }
+            val collisionVal = BenchmarkHarness.medianOfThree(warmups = 3) { runCollisionDetection() }
             results += subScore("MC_14: Collision Detection (10K)", collisionVal, "ms",
-                baseline = 600.0, cap = 150.0, inverted = true)
+                baseline = 450.0, cap = 50.0, inverted = true)
 
             // MC_15 — Parallel Gaussian Blur (image strip distribution)
             onProgress(0.70f)
-            val blurVal = BenchmarkHarness.medianOfThreeLight { runParallelGaussianBlur() }
+            val blurVal = BenchmarkHarness.medianOfThree(warmups = 3) { runParallelGaussianBlur() }
             results += subScore("MC_15: Parallel Gaussian Blur", blurVal, "MPix/s",
-                baseline = 800.0, cap = 3500.0, inverted = false)
+                baseline = 1500.0, cap = 12000.0, inverted = false)
 
             // MC_16 — Parallel Zlib-like Decompression (independent chunks)
             onProgress(0.75f)
-            val decompVal = BenchmarkHarness.medianOfThreeLight { runParallelDecompress() }
+            val decompVal = BenchmarkHarness.medianOfThree(warmups = 3) { runParallelDecompress() }
             results += subScore("MC_16: Parallel Decompression", decompVal, "MB/s",
-                baseline = 400.0, cap = 1800.0, inverted = false)
+                baseline = 800.0, cap = 7000.0, inverted = false)
 
             // MC_17 — BFS Graph Traversal (parallel frontier expansion)
             onProgress(0.80f)
-            val bfsVal = BenchmarkHarness.medianOfThree(warmups = 1) { runParallelBfs() }
+            val bfsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runParallelBfs() }
             results += subScore("MC_17: Parallel BFS Graph", bfsVal, "ms",
-                baseline = 600.0, cap = 150.0, inverted = true)
+                baseline = 400.0, cap = 40.0, inverted = true)
 
             // MC_18 — TFLite CPU-only Inference (force no NPU delegation)
             onProgress(0.85f)
-            val inferVal = BenchmarkHarness.medianOfThree(warmups = 1) { runCpuOnlyInference() }
+            val inferVal = BenchmarkHarness.medianOfThree(warmups = 3) { runCpuOnlyInference() }
             results += subScore("MC_18: CPU-only Neural Net (MatMul)", inferVal, "GFLOPS",
-                baseline = 8.0, cap = 40.0, inverted = false)
+                baseline = 20.0, cap = 160.0, inverted = false)
 
             // MC_19 — Atomic CAS Contention (2000 threads → 1 counter)
+            // RC-4: medianOfFive — highly variable due to cache-coherency bus contention
             onProgress(0.92f)
-            val atomicVal = BenchmarkHarness.medianOfThree(warmups = 1) { runAtomicContention() }
+            val atomicVal = BenchmarkHarness.medianOfFive(warmups = 3) { runAtomicContention() }
             results += subScore("MC_19: Atomic CAS Contention", atomicVal, "MOps/s",
-                baseline = 50.0, cap = 300.0, inverted = false)
+                baseline = 80.0, cap = 800.0, inverted = false)
 
-            // MC_20 — Peak Thermal Saturation (FMA-equivalent all-core)
+            // MC_20 — Peak Thermal Saturation (RC-4: 200M iter/core, was 100M)
             onProgress(0.97f)
-            val satVal = BenchmarkHarness.medianOfThreeLight { runPeakAllCoreSaturation() }
+            val satVal = BenchmarkHarness.medianOfThree(warmups = 3) { runPeakAllCoreSaturation() }
             results += subScore("MC_20: Peak All-Core Saturation", satVal, "GFLOPS",
-                baseline = 15.0, cap = 100.0, inverted = false)
+                baseline = 35.0, cap = 500.0, inverted = false)
 
             onProgress(1.0f)
             results
@@ -168,7 +170,7 @@ class CpuMultiCoreBenchmark : BenchmarkEngine {
 
     /** Blocked parallel matrix multiply on [size]×[size] matrix */
     private suspend fun runParallelMatrixMultiply(): Double = coroutineScope {
-        val size = 512 // 512×512 is 256MB — manageable on mid devices
+        val size = 768 // RC-4: 768×768 (was 512) — forces scheduler into full-core mode
         val a = Array(size) { r -> DoubleArray(size) { c -> (r + c + 1).toDouble() } }
         val b = Array(size) { r -> DoubleArray(size) { c -> (r - c + 1).toDouble() } }
         val c = Array(size) { DoubleArray(size) }
@@ -197,7 +199,7 @@ class CpuMultiCoreBenchmark : BenchmarkEngine {
 
     /** O(N²) N-Body: simplified Barnes-Hut approximation split across cores */
     private suspend fun runNBody(): Double = coroutineScope {
-        val n = 5000 // 5K particles (N² = 25M interactions)
+        val n = 8000 // RC-4: 8K particles (N² = 64M interactions)
         val x = DoubleArray(n) { Math.random() * 1000 }
         val y = DoubleArray(n) { Math.random() * 1000 }
         val m = DoubleArray(n) { Math.random() + 0.1 }
@@ -330,7 +332,7 @@ class CpuMultiCoreBenchmark : BenchmarkEngine {
     }
 
     private suspend fun runMonteCarloPi(): Double = coroutineScope {
-        val ptsPerCore = 25_000_000
+        val ptsPerCore = 50_000_000 // RC-4: 50M pts/core (was 25M)
         val start = System.nanoTime()
         val insideList = (0 until coreCount).map { seed ->
             async {
@@ -667,7 +669,8 @@ class CpuMultiCoreBenchmark : BenchmarkEngine {
         name: String, rawValue: Double, unit: String,
         baseline: Double, cap: Double, inverted: Boolean
     ): SubScore {
-        val score = ScoreNormalizer.normalize(rawValue, baseline, cap, inverted)
-        return SubScore(name, rawValue, unit, score)
+        val safe = if (rawValue.isNaN() || rawValue < 0.0) 0.0 else rawValue
+        val score = ScoreNormalizer.normalize(safe, baseline, cap, inverted)
+        return SubScore(name, safe, unit, score, isPartial = safe == 0.0)
     }
 }
