@@ -542,16 +542,13 @@ class VideoCodecBenchmark : BenchmarkEngine {
     // ── Score helpers ─────────────────────────────────────────────────────────
 
     private fun fpsScore(name: String, raw: Double, baseline: Double, cap: Double): SubScore {
-        val safe = if (raw.isNaN() || raw < 0.0) 0.0 else raw
-        return SubScore(name, safe, "fps", ScoreNormalizer.normalize(safe, baseline, cap, false), isPartial = safe == 0.0)
+        return ScoreNormalizer.createSubScore(name, raw, "fps", baseline, cap, false, false)
     }
 
     private fun subScore(
         name: String, rawValue: Double, unit: String,
         baseline: Double, cap: Double, inverted: Boolean
     ): SubScore {
-        val safe = if (rawValue.isNaN() || rawValue < 0.0) 0.0 else rawValue
-        val score = ScoreNormalizer.normalize(safe, baseline, cap, inverted)
-        return SubScore(name, safe, unit, score, isPartial = safe == 0.0)
+        return ScoreNormalizer.createSubScore(name, rawValue, unit, baseline, cap, inverted, false)
     }
 }

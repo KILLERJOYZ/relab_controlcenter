@@ -504,8 +504,6 @@ class StorageBenchmark(private val context: Context) : BenchmarkEngine {
         name: String, rawValue: Double, unit: String,
         baseline: Double, cap: Double, inverted: Boolean
     ): SubScore {
-        val safe = if (rawValue.isNaN() || rawValue < 0.0) 0.0 else rawValue
-        val score = ScoreNormalizer.normalize(safe, baseline, cap, inverted)
-        return SubScore(name, safe, unit, score, isPartial = safe == 0.0)
+        return ScoreNormalizer.createSubScore(name, rawValue, unit, baseline, cap, inverted, false)
     }
 }

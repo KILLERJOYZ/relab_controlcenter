@@ -17,7 +17,7 @@ sealed interface BenchmarkUiState {
         val thermalHeadroom: Float,
         val estimatedRemainingSeconds: Int,
         val isThermalPaused: Boolean,
-        val runningHardwareScore: Int
+        val runningHardwareScore: Double
     ) : BenchmarkUiState
     data class Complete(
         val result: BenchmarkResult

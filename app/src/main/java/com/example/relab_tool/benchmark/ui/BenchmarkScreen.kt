@@ -444,7 +444,7 @@ fun RunningScreen(
                     val isActive = state.currentPillar == pillar
                     val completedObj = state.completedPillarScores.find { it.pillar == pillar }
                     val isComplete = completedObj != null
-                    val score = completedObj?.score ?: 0
+                    val score = completedObj?.score ?: 0.0
                     
                     PhaseProgressRow(
                         pillar = pillar,
@@ -458,7 +458,7 @@ fun RunningScreen(
         
         if (state.runningHardwareScore > 0) {
             Text(
-                text = stringResource(R.string.bench_running_hardware_score, state.runningHardwareScore),
+                text = stringResource(R.string.bench_running_hardware_score, state.runningHardwareScore.toInt()),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
@@ -489,11 +489,11 @@ fun CompleteScreen(
     val scrollState = rememberScrollState()
     
     // Animate score from 0 to target
-    var targetScore by remember { mutableStateOf(0) }
+    var targetScore by remember { mutableStateOf(0f) }
     LaunchedEffect(state.result.totalScore) {
-        targetScore = state.result.totalScore
+        targetScore = state.result.totalScore.toFloat()
     }
-    val animatedScore by animateIntAsState(
+    val animatedScore by animateFloatAsState(
         targetValue = targetScore,
         animationSpec = tween(durationMillis = 2000, easing = FastOutSlowInEasing),
         label = "score_counter"
@@ -527,7 +527,7 @@ fun CompleteScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = animatedScore.toString(),
+                    text = String.format(java.util.Locale.US, "%.3f", animatedScore),
                     style = MaterialTheme.typography.displayLarge,
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.primary,
@@ -789,7 +789,7 @@ fun BenchmarkSummaryCard(
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Text(
-                text = result.totalScore.toString(),
+                text = String.format(java.util.Locale.US, "%.3f", result.totalScore),
                 style = MaterialTheme.typography.displayLarge,
                 fontWeight = FontWeight.Black,
                 color = MaterialTheme.colorScheme.primary,
@@ -804,11 +804,11 @@ fun BenchmarkSummaryCard(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("HARDWARE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
-                    Text(result.hardwareScore.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(String.format(java.util.Locale.US, "%.3f", result.hardwareScore), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("CONNECTIVITY", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
-                    Text(result.connectivityScore.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(String.format(java.util.Locale.US, "%.3f", result.connectivityScore), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             }
         }

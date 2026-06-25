@@ -23,33 +23,7 @@ class CpuMultiCoreBenchmark : BenchmarkEngine {
     private val coreCount = getCoreCount()
 
     private fun getCoreCount(): Int {
-        try {
-            val file = java.io.File("/sys/devices/system/cpu/possible")
-            if (file.exists()) {
-                val content = file.readText().trim()
-                var count = 0
-                val ranges = content.split(",")
-                for (range in ranges) {
-                    val bounds = range.split("-")
-                    if (bounds.size == 2) {
-                        val start = bounds[0].trim().toIntOrNull()
-                        val end = bounds[1].trim().toIntOrNull()
-                        if (start != null && end != null) {
-                            count += (end - start + 1)
-                        }
-                    } else if (bounds.size == 1) {
-                        val single = bounds[0].trim().toIntOrNull()
-                        if (single != null) {
-                            count += 1
-                        }
-                    }
-                }
-                if (count > 0) return count
-            }
-        } catch (e: Exception) {
-            // Fallback
-        }
-        return Runtime.getRuntime().availableProcessors()
+        return com.example.relab_tool.benchmark.util.CoreAffinityHarness.getHardwareCoreCount()
     }
 
     override suspend fun run(onProgress: suspend (Float) -> Unit): List<SubScore> =
@@ -747,11 +721,13 @@ class CpuMultiCoreBenchmark : BenchmarkEngine {
     }
 
     private fun subScore(
-        name: String, rawValue: Double, unit: String,
-        baseline: Double, cap: Double, inverted: Boolean
+        name: String,
+        rawValue: Double,
+        unit: String,
+        baseline: Double,
+        cap: Double,
+        inverted: Boolean
     ): SubScore {
-        val safe = if (rawValue.isNaN() || rawValue < 0.0) 0.0 else rawValue
-        val score = ScoreNormalizer.normalize(safe, baseline, cap, inverted)
-        return SubScore(name, safe, unit, score, isPartial = safe == 0.0)
+        return ScoreNormalizer.createSubScore(name, rawValue, unit, baseline, cap, inverted, false)
     }
 }

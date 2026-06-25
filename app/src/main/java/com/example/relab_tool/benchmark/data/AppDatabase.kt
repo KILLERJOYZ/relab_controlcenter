@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [BenchmarkResultEntity::class], version = 2, exportSchema = false)
+@Database(entities = [BenchmarkResultEntity::class], version = 3, exportSchema = false)
 @TypeConverters(BenchmarkConverters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun benchmarkDao(): BenchmarkDao

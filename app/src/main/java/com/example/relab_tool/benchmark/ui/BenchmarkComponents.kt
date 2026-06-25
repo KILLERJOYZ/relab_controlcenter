@@ -99,7 +99,7 @@ fun RadarChartView(
                 BenchmarkPillar.VIDEO_CODEC     -> "Codec"
                 BenchmarkPillar.NETWORK_IPC     -> "Network"
             }
-            val scoreStr = if (entry.score > 0) " (${entry.score})" else ""
+            val scoreStr = if (entry.score > 0.0) String.format(java.util.Locale.US, " (%.3f)", entry.score) else ""
             RadarChartLabelEntry(entry, "$baseLabel$scoreStr")
         }
     }
@@ -191,7 +191,7 @@ fun RadarChartView(
         val devicePath = Path()
         for (i in 0 until count) {
             val angle = i * angleStep - Math.PI.toFloat() / 2f
-            val scoreFraction = (entriesWithLabels[i].entry.score / 1000f).coerceIn(0f, 1f)
+            val scoreFraction = (entriesWithLabels[i].entry.score.toFloat() / 10.0f).coerceIn(0f, 1f)
             val r = maxRadius * scoreFraction
             val x = center.x + r * cos(angle)
             val y = center.y + r * sin(angle)
@@ -288,7 +288,7 @@ fun PhaseProgressRow(
     pillar: BenchmarkPillar,
     isActive: Boolean,
     isComplete: Boolean,
-    score: Int
+    score: Double
 ) {
     val contentColor = if (isActive) {
         MaterialTheme.colorScheme.primary
@@ -343,8 +343,9 @@ fun PhaseProgressRow(
         )
         
         if (isComplete) {
+            val formattedScore = String.format(java.util.Locale.US, "%.3f", score)
             Text(
-                text = "$score pts",
+                text = "$formattedScore pts",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -402,18 +403,18 @@ fun HistoryListItem(
                 ) {
                     SuggestionChip(
                         onClick = {},
-                        label = { Text("HW: ${result.hardwareScore}") }
+                        label = { Text(String.format(java.util.Locale.US, "HW: %.3f", result.hardwareScore)) }
                     )
                     SuggestionChip(
                         onClick = {},
-                        label = { Text("Net: ${result.connectivityScore}") }
+                        label = { Text(String.format(java.util.Locale.US, "Net: %.3f", result.connectivityScore)) }
                     )
                 }
             }
             
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = result.totalScore.toString(),
+                    text = String.format(java.util.Locale.US, "%.3f", result.totalScore),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.primary
@@ -539,20 +540,20 @@ fun ConsentCard(
 }
 
 @Composable
-fun getScoreBadgeColors(score: Int): Triple<Color, Color, Color> {
+fun getScoreBadgeColors(score: Double): Triple<Color, Color, Color> {
     val scheme = MaterialTheme.colorScheme
     return when {
-        score >= 800 -> Triple(
+        score >= 8.0 -> Triple(
             scheme.primaryContainer.copy(alpha = 0.5f),
             scheme.primary,
             scheme.primary.copy(alpha = 0.4f)
         )
-        score >= 500 -> Triple(
+        score >= 5.0 -> Triple(
             scheme.secondaryContainer.copy(alpha = 0.5f),
             scheme.secondary,
             scheme.secondary.copy(alpha = 0.4f)
         )
-        score >= 300 -> Triple(
+        score >= 3.0 -> Triple(
             scheme.tertiaryContainer.copy(alpha = 0.5f),
             scheme.tertiary,
             scheme.tertiary.copy(alpha = 0.4f)

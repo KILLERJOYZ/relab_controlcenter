@@ -4,6 +4,6 @@ data class SubScore(
     val name: String,
     val rawValue: Double,
     val unit: String,
-    val score: Int,
+    val score: Double,
     val isPartial: Boolean = false
 )

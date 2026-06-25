@@ -31,9 +31,12 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
 
     override fun isAvailable() = true
 
-    override suspend fun run(onProgress: suspend (Float) -> Unit): List<SubScore> =
-        withContext(Dispatchers.Default) {
-            val results = mutableListOf<SubScore>()
+    override suspend fun run(onProgress: suspend (Float) -> Unit): List<SubScore> {
+        val targetCore = 7
+        val pinnedDispatcher = com.example.relab_tool.benchmark.util.CoreAffinityHarness.createPinnedDispatcher(targetCore)
+        return try {
+            withContext(pinnedDispatcher) {
+                val results = mutableListOf<SubScore>()
 
             // 1. Pre-allocate all buffers to eliminate GC pauses during timed runs
             val sieveArray = BooleanArray(10_000_001)
@@ -219,13 +222,17 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
                 subScore("SC_20: JNI Overhead (5M calls)", jniVal, "ns/call",
                     baseline = 180.0, cap = 40.0, inverted = true)
             } else {
-                SubScore("SC_20: JNI Overhead", jniVal, "ns/call", 5000, isPartial = true)
+                SubScore("SC_20: JNI Overhead", jniVal, "ns/call", 5.0, isPartial = true)
             }
             results += jniScore
 
             onProgress(1.0f)
             results
         }
+    } finally {
+        (pinnedDispatcher as? AutoCloseable)?.close()
+    }
+}
 
     // ── Individual test implementations ──────────────────────────────────────
 
@@ -537,12 +544,14 @@ class CpuSingleCoreBenchmark : BenchmarkEngine {
     // ── Helper ────────────────────────────────────────────────────────────────
 
     private fun subScore(
-        name: String, rawValue: Double, unit: String,
-        baseline: Double, cap: Double, inverted: Boolean
+        name: String,
+        rawValue: Double,
+        unit: String,
+        baseline: Double,
+        cap: Double,
+        inverted: Boolean
     ): SubScore {
-        val safe = if (rawValue.isNaN() || rawValue < 0.0) 0.0 else rawValue
-        val score = ScoreNormalizer.normalize(safe, baseline, cap, inverted)
-        return SubScore(name, safe, unit, score, isPartial = safe == 0.0)
+        return ScoreNormalizer.createSubScore(name, rawValue, unit, baseline, cap, inverted, false)
     }
 }
 

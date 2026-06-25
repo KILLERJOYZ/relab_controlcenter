@@ -14,6 +14,7 @@
  * No MANAGE_EXTERNAL_STORAGE permission is required.
  */
 
+#define _GNU_SOURCE
 #include <jni.h>
 #include <android/log.h>
 
@@ -26,6 +27,12 @@
 #include <time.h>
 #include <stdint.h>
 #include <math.h>
+#include <sched.h>
+#include <sys/syscall.h>
+
+#ifndef gettid
+#define gettid() syscall(SYS_gettid)
+#endif
 
 #define TAG "rlcc_bench_native"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
@@ -220,25 +227,30 @@ JNIEXPORT jdouble JNICALL
 Java_com_example_relab_1tool_benchmark_domain_engine_BenchmarkNativeBridge_nativeIntAluGops(
     JNIEnv *env, jclass clazz, jlong iterations)
 {
-    volatile uint64_t sink = 0;
-    uint64_t a = 0x123456789ABCDEF0ULL;
-    uint64_t b = 0xFEDCBA9876543210ULL;
-
-    long long start = get_nanos();
-    for (long long i = 0; i < iterations; i++) {
-        a = a * 6364136223846793005ULL + 1442695040888963407ULL;
-        b ^= (a >> 33);
-        b = (b << 17) | (b >> 47);
-        a += b;
+    struct timespec start, end;
+    if (clock_gettime(CLOCK_MONOTONIC, &start) != 0) {
+        return -1.0;
     }
-    long long elapsed = get_nanos() - start;
-    sink = a ^ b;
-    (void)sink;  /* prevent elimination */
 
-    if (elapsed <= 0) return 0.0;
-    /* Each iteration performs ~5 operations */
-    double gops = (double)iterations * 5.0 / (elapsed / 1e9);
-    return gops;
+    // Chained multiply-xor-shift calculations to prevent compiler elimination
+    volatile uint64_t state = 0x123456789ABCDEF0ULL;
+    for (jlong i = 0; i < iterations; ++i) {
+        state = (state ^ (i * 0x5851F42D4C957F2DULL)) + 0x14057B7EF767814FULL;
+        state = (state << 13) | (state >> 51);
+    }
+
+    if (clock_gettime(CLOCK_MONOTONIC, &end) != 0) {
+        return -1.0;
+    }
+
+    double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) * 1e-9;
+    if (elapsed <= 0.0) {
+        return -1.0;
+    }
+    
+    // Each loop iteration executes approximately 3 discrete ALU operations
+    double total_ops = (double)iterations * 3.0;
+    return (total_ops / elapsed) / 1e9; // Returns normalized GOps/s
 }
 
 /* ──────────────────────────────────────────────────────────────────
@@ -269,4 +281,39 @@ Java_com_example_relab_1tool_benchmark_domain_engine_BenchmarkNativeBridge_nativ
     /* Each iteration: ~3 transcendental ops */
     double mops = ((double)iterations * 3.0 / (elapsed / 1e9)) / 1e6;
     return mops;
+}
+
+/**
+ * Pins the calling thread to a specific CPU core using sched_setaffinity.
+ */
+JNIEXPORT jboolean JNICALL
+Java_com_example_relab_1tool_benchmark_util_CoreAffinityHarness_setThreadAffinity(
+    JNIEnv* env, jobject obj, jint core_index) {
+    
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(core_index, &cpuset);
+
+    pid_t tid = gettid(); // Bind to thread ID, not process ID
+    int result = sched_setaffinity(tid, sizeof(cpu_set_t), &cpuset);
+
+    if (result == 0) {
+        LOGD("Successfully pinned thread %d to CPU core %d", tid, core_index);
+        return JNI_TRUE;
+    } else {
+        LOGD("Failed to pin thread %d to CPU core %d. Error code: %d", tid, core_index, result);
+        return JNI_FALSE;
+    }
+}
+
+/**
+ * Returns the total number of configured processors in the system.
+ * Bypasses Java's availableProcessors runtime limitations.
+ */
+JNIEXPORT jint JNICALL
+Java_com_example_relab_1tool_benchmark_util_CoreAffinityHarness_getNativeCoreCount(
+    JNIEnv* env, jobject obj) {
+    
+    long num_cores = sysconf(_SC_NPROCESSORS_CONF);
+    return (jint)num_cores;
 }

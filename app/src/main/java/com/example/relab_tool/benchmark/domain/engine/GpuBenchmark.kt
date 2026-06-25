@@ -51,14 +51,10 @@ class GpuOpenGLBenchmark(private val context: Context) : BenchmarkEngine {
             val ok = egl.initEGL(RENDER_W, RENDER_H)
 
             fun fps(name: String, raw: Double, baseline: Double, cap: Double): SubScore {
-                val safe = if (raw.isNaN() || raw < 0.0) 0.0 else raw
-                val s = ScoreNormalizer.normalize(safe, baseline, cap, false)
-                return SubScore(name, safe, "fps", s, !ok || safe == 0.0)
+                return ScoreNormalizer.createSubScore(name, raw, "fps", baseline, cap, false, !ok)
             }
             fun bw(name: String, raw: Double, baseline: Double, cap: Double): SubScore {
-                val safe = if (raw.isNaN() || raw < 0.0) 0.0 else raw
-                val s = ScoreNormalizer.normalize(safe, baseline, cap, false)
-                return SubScore(name, safe, "GB/s", s, !ok || safe == 0.0)
+                return ScoreNormalizer.createSubScore(name, raw, "GB/s", baseline, cap, false, !ok)
             }
 
             // GL_01 — Driver overhead / draw calls per second

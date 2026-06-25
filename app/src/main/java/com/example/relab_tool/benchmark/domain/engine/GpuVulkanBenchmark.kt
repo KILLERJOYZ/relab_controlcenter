@@ -7,6 +7,7 @@ import android.util.Log
 import com.example.relab_tool.benchmark.domain.model.BenchmarkPillar
 import com.example.relab_tool.benchmark.domain.model.SubScore
 import com.example.relab_tool.benchmark.scoring.ScoreNormalizer
+import com.example.relab_tool.benchmark.util.EglComputeHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
@@ -79,19 +80,13 @@ class GpuVulkanBenchmark(private val context: Context) : BenchmarkEngine {
             Log.d(TAG, "Vulkan available: $vulkanAvailable, GLES31 compute: $computeOk")
 
             fun fps(name: String, raw: Double, bl: Double, cap: Double, partial: Boolean = false): SubScore {
-                val safe = if (raw.isNaN() || raw < 0.0) 0.0 else raw
-                val s = ScoreNormalizer.normalize(safe, bl, cap, false)
-                return SubScore(name, safe, "fps", s, partial || safe == 0.0)
+                return ScoreNormalizer.createSubScore(name, raw, "fps", bl, cap, false, partial)
             }
             fun gops(name: String, raw: Double, bl: Double, cap: Double, partial: Boolean = false): SubScore {
-                val safe = if (raw.isNaN() || raw < 0.0) 0.0 else raw
-                val s = ScoreNormalizer.normalize(safe, bl, cap, false)
-                return SubScore(name, safe, "GOps/s", s, partial || safe == 0.0)
+                return ScoreNormalizer.createSubScore(name, raw, "GOps/s", bl, cap, false, partial)
             }
             fun gbps(name: String, raw: Double, bl: Double, cap: Double, partial: Boolean = false): SubScore {
-                val safe = if (raw.isNaN() || raw < 0.0) 0.0 else raw
-                val s = ScoreNormalizer.normalize(safe, bl, cap, false)
-                return SubScore(name, safe, "GB/s", s, partial || safe == 0.0)
+                return ScoreNormalizer.createSubScore(name, raw, "GB/s", bl, cap, false, partial)
             }
 
             // VK_01 — Mandelbrot compute dispatch (128×128 groups, 16×16 local)
@@ -124,8 +119,8 @@ class GpuVulkanBenchmark(private val context: Context) : BenchmarkEngine {
             onProgress(0.27f)
             val matMulGflops = if (computeOk) runComputeMatMul(egl) else runCpuMatMulDispatch()
             val matMulSafe = if (matMulGflops.isNaN() || matMulGflops < 0.0) 0.0 else matMulGflops
-            results += SubScore("VK_06: MatMul SSBO (512×512)", matMulSafe, "GFLOPS",
-                ScoreNormalizer.normalize(matMulSafe, 100.0, 1200.0, false), !computeOk || matMulSafe == 0.0)
+            results += ScoreNormalizer.createSubScore("VK_06: MatMul SSBO (512×512)", matMulSafe, "GFLOPS",
+                100.0, 1200.0, false, !computeOk)
 
             // VK_07 — Prefix sum (scan algorithm, 64M elements)
             onProgress(0.32f)
@@ -136,8 +131,8 @@ class GpuVulkanBenchmark(private val context: Context) : BenchmarkEngine {
             onProgress(0.37f)
             val particleGflops = if (computeOk) runComputeParticleIntegrate(egl) else runCpuParticleIntegrate()
             val particleSafe = if (particleGflops.isNaN() || particleGflops < 0.0) 0.0 else particleGflops
-            results += SubScore("VK_08: Particle Integrate (1M)", particleSafe, "GFLOPS",
-                ScoreNormalizer.normalize(particleSafe, 20.0, 300.0, false), !computeOk || particleSafe == 0.0)
+            results += ScoreNormalizer.createSubScore("VK_08: Particle Integrate (1M)", particleSafe, "GFLOPS",
+                20.0, 300.0, false, !computeOk)
 
             // VK_09 — Histogram equalization (16M pixels)
             onProgress(0.42f)
@@ -173,8 +168,8 @@ class GpuVulkanBenchmark(private val context: Context) : BenchmarkEngine {
             onProgress(0.70f)
             val gemmFp16 = if (computeOk) runComputeGemmFp16(egl) else runCpuGemmFp16()
             val gemmSafe = if (gemmFp16.isNaN() || gemmFp16 < 0.0) 0.0 else gemmFp16
-            results += SubScore("VK_15: GEMM FP16 Throughput", gemmSafe, "TFLOPS",
-                ScoreNormalizer.normalize(gemmSafe, 2.0, 24.0, false), !computeOk || gemmSafe == 0.0)
+            results += ScoreNormalizer.createSubScore("VK_15: GEMM FP16 Throughput", gemmSafe, "TFLOPS",
+                2.0, 24.0, false, !computeOk)
 
             // VK_16 — Wavefront occupancy stress
             onProgress(0.75f)
@@ -1080,84 +1075,5 @@ class GpuVulkanBenchmark(private val context: Context) : BenchmarkEngine {
         GLES31.glBindTexture(GLES31.GL_TEXTURE_2D, ids[0])
         GLES31.glTexStorage2D(GLES31.GL_TEXTURE_2D, 1, GLES31.GL_RGBA32F, w, h)
         return ids[0]
-    }
-
-    /**
-     * EGL helper for GLES 3.1 compute shader context.
-     * Creates a minimal 1×1 PBuffer (we only use compute dispatches, not rendering).
-     */
-    private class EglComputeHelper {
-        var display: EGLDisplay = EGL14.EGL_NO_DISPLAY
-        var context: EGLContext = EGL14.EGL_NO_CONTEXT
-        var surface: EGLSurface = EGL14.EGL_NO_SURFACE
-
-        fun initEGL(): Boolean {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP_MR1) return false
-            return try {
-                display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
-                if (display == EGL14.EGL_NO_DISPLAY) return false
-                val ver = IntArray(2)
-                if (!EGL14.eglInitialize(display, ver, 0, ver, 1)) return false
-                val cfgAttribs = intArrayOf(
-                    EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
-                    EGL14.EGL_SURFACE_TYPE, EGL14.EGL_PBUFFER_BIT,
-                    EGL14.EGL_NONE
-                )
-                val cfgs = arrayOfNulls<EGLConfig>(1); val nCfg = IntArray(1)
-                if (!EGL14.eglChooseConfig(display, cfgAttribs, 0, cfgs, 0, 1, nCfg, 0)) return false
-                val cfg = cfgs[0] ?: return false
-                val surfAttribs = intArrayOf(EGL14.EGL_WIDTH, 1, EGL14.EGL_HEIGHT, 1, EGL14.EGL_NONE)
-                surface = EGL14.eglCreatePbufferSurface(display, cfg, surfAttribs, 0)
-                if (surface == EGL14.EGL_NO_SURFACE) return false
-                val ctxAttribs = intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 3, EGL14.EGL_NONE)
-                context = EGL14.eglCreateContext(display, cfg, EGL14.EGL_NO_CONTEXT, ctxAttribs, 0)
-                if (context == EGL14.EGL_NO_CONTEXT) return false
-                // Check that we actually got ES 3.1 (not just 3.0)
-                if (!EGL14.eglMakeCurrent(display, surface, surface, context)) return false
-                val renderer = GLES31.glGetString(GLES31.GL_RENDERER) ?: ""
-                val version = GLES31.glGetString(GLES31.GL_VERSION) ?: ""
-                Log.d("EglComputeHelper", "Renderer: $renderer, Version: $version")
-                // Verify compute shaders compile (glDispatchCompute exists at GLES 3.1)
-                true
-            } catch (e: Exception) {
-                Log.e("EglComputeHelper", "ES 3.1 compute init failed", e)
-                false
-            }
-        }
-
-        fun createComputeProgram(src: String): Int {
-            return try {
-                val shader = GLES31.glCreateShader(GLES31.GL_COMPUTE_SHADER)
-                if (shader == 0) return 0
-                GLES31.glShaderSource(shader, src)
-                GLES31.glCompileShader(shader)
-                val ok = IntArray(1)
-                GLES31.glGetShaderiv(shader, GLES31.GL_COMPILE_STATUS, ok, 0)
-                if (ok[0] != GLES31.GL_TRUE) {
-                    Log.e("EglComputeHelper", "CS compile fail: ${GLES31.glGetShaderInfoLog(shader)}")
-                    GLES31.glDeleteShader(shader); return 0
-                }
-                val prog = GLES31.glCreateProgram()
-                GLES31.glAttachShader(prog, shader)
-                GLES31.glLinkProgram(prog)
-                GLES31.glGetProgramiv(prog, GLES31.GL_LINK_STATUS, ok, 0)
-                if (ok[0] != GLES31.GL_TRUE) {
-                    Log.e("EglComputeHelper", "CS link fail: ${GLES31.glGetProgramInfoLog(prog)}")
-                    GLES31.glDeleteProgram(prog); return 0
-                }
-                prog
-            } catch (e: Exception) { 0 }
-        }
-
-        fun release() {
-            try {
-                if (display != EGL14.EGL_NO_DISPLAY) {
-                    EGL14.eglMakeCurrent(display, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
-                    if (surface != EGL14.EGL_NO_SURFACE) EGL14.eglDestroySurface(display, surface)
-                    if (context != EGL14.EGL_NO_CONTEXT) EGL14.eglDestroyContext(display, context)
-                    EGL14.eglTerminate(display)
-                }
-            } catch (_: Exception) {}
-        }
     }
 }

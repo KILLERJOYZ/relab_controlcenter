@@ -5,7 +5,7 @@ import com.example.relab_tool.benchmark.domain.model.PillarScore
 
 data class RadarChartEntry(
     val pillar: BenchmarkPillar,
-    val score: Int
+    val score: Double
 )
 
 object RadarChartData {
@@ -24,7 +24,7 @@ object RadarChartData {
         return BenchmarkPillar.entries
             .filter { it.weight > 0f && it in runPillarSet }
             .map { pillar ->
-                val scoreVal = scores.find { it.pillar == pillar }?.score ?: 0
+                val scoreVal = scores.find { it.pillar == pillar }?.score ?: 0.0
                 RadarChartEntry(pillar, scoreVal)
             }
     }

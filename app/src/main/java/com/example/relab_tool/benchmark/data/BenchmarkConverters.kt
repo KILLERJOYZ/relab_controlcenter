@@ -15,7 +15,8 @@ class BenchmarkConverters {
         for (pillarScore in scores) {
             val pillarObj = JSONObject()
             pillarObj.put("pillar", pillarScore.pillar.name)
-            pillarObj.put("score", pillarScore.score)
+            val safePillarScore = if (pillarScore.score.isNaN() || pillarScore.score.isInfinite()) 0.0 else pillarScore.score
+            pillarObj.put("score", safePillarScore)
             pillarObj.put("isSkipped", pillarScore.isSkipped)
             
             val subArray = JSONArray()
@@ -25,7 +26,8 @@ class BenchmarkConverters {
                 val safeRawValue = if (sub.rawValue.isNaN() || sub.rawValue.isInfinite()) 0.0 else sub.rawValue
                 subObj.put("rawValue", safeRawValue)
                 subObj.put("unit", sub.unit)
-                subObj.put("score", sub.score)
+                val safeSubScore = if (sub.score.isNaN() || sub.score.isInfinite()) 0.0 else sub.score
+                subObj.put("score", safeSubScore)
                 subObj.put("isPartial", sub.isPartial)
                 subArray.put(subObj)
             }
@@ -44,7 +46,8 @@ class BenchmarkConverters {
                 val pillarObj = array.getJSONObject(i)
                 val pillarName = pillarObj.getString("pillar")
                 val pillar = BenchmarkPillar.valueOf(pillarName)
-                val score = pillarObj.getInt("score")
+                val score = pillarObj.optDouble("score", 0.0)
+                val safeScore = if (score.isNaN() || score.isInfinite()) 0.0 else score
                 val isSkipped = pillarObj.optBoolean("isSkipped", false)
                 
                 val subScores = mutableListOf<SubScore>()
@@ -52,13 +55,15 @@ class BenchmarkConverters {
                 for (j in 0 until subArray.length()) {
                     val subObj = subArray.getJSONObject(j)
                     val name = subObj.getString("name")
-                    val rawValue = subObj.getDouble("rawValue")
+                    val rawValue = subObj.optDouble("rawValue", 0.0)
+                    val safeRawValue = if (rawValue.isNaN() || rawValue.isInfinite()) 0.0 else rawValue
                     val unit = subObj.getString("unit")
-                    val subScoreVal = subObj.getInt("score")
+                    val subScoreVal = subObj.optDouble("score", 0.0)
+                    val safeSubScoreVal = if (subScoreVal.isNaN() || subScoreVal.isInfinite()) 0.0 else subScoreVal
                     val isPartial = subObj.optBoolean("isPartial", false)
-                    subScores.add(SubScore(name, rawValue, unit, subScoreVal, isPartial))
+                    subScores.add(SubScore(name, safeRawValue, unit, safeSubScoreVal, isPartial))
                 }
-                list.add(PillarScore(pillar, score, subScores, isSkipped))
+                list.add(PillarScore(pillar, safeScore, subScores, isSkipped))
             }
         } catch (e: Exception) {
             e.printStackTrace()

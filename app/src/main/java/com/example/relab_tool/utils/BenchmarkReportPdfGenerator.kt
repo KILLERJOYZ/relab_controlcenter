@@ -108,7 +108,7 @@ object BenchmarkReportPdfGenerator {
         textPaint.textSize = 28f
         textPaint.isFakeBoldText = true
         textPaint.color = Color.parseColor(tierColor)
-        val scoreText = String.format("%,d", result.totalScore)
+        val scoreText = String.format(Locale.US, "%.3f", result.totalScore)
         canvas1.drawText(scoreText, 40f, yOffset + 50f, textPaint)
 
         textPaint.textSize = 10f
@@ -137,8 +137,8 @@ object BenchmarkReportPdfGenerator {
         textPaint.textSize = 11f
         textPaint.color = Color.BLACK
         textPaint.isFakeBoldText = true
-        canvas1.drawText(String.format("Hardware Performance Score: %,d", result.hardwareScore), 25f, yOffset, textPaint)
-        canvas1.drawText(String.format("Network & Connectivity Score: %,d", result.connectivityScore), 320f, yOffset, textPaint)
+        canvas1.drawText(String.format(Locale.US, "Hardware Performance Score: %.3f", result.hardwareScore), 25f, yOffset, textPaint)
+        canvas1.drawText(String.format(Locale.US, "Network & Connectivity Score: %.3f", result.connectivityScore), 320f, yOffset, textPaint)
 
         // Pillars Summary Table
         yOffset += 30f
@@ -185,7 +185,7 @@ object BenchmarkReportPdfGenerator {
                 canvas1.drawText("Skipped / N/A", 470f, yOffset + 18f, textPaint)
             } else {
                 textPaint.color = Color.parseColor("#2E7D32")
-                canvas1.drawText(String.format("%,d pts", pScore.score), 470f, yOffset + 18f, textPaint)
+                canvas1.drawText(String.format(Locale.US, "%.3f pts", pScore.score), 470f, yOffset + 18f, textPaint)
             }
 
             yOffset += 25f
@@ -262,7 +262,7 @@ object BenchmarkReportPdfGenerator {
                         canvas.drawText("Fallback (0)", startX + 410f, y + 11f, textPaint)
                     } else {
                         textPaint.color = Color.parseColor("#2E7D32")
-                        canvas.drawText(String.format("%,d pts", sub.score), startX + 410f, y + 11f, textPaint)
+                        canvas.drawText(String.format(Locale.US, "%.3f pts", sub.score), startX + 410f, y + 11f, textPaint)
                     }
 
                     y += 16f
@@ -414,7 +414,7 @@ object BenchmarkReportPdfGenerator {
         canvas5.drawText("RELAB SYSTEM COMPLIANCE LABS", 35f, y5 + 22f, textPaint)
         textPaint.isFakeBoldText = false
         textPaint.textSize = 9f
-        canvas5.drawText("Report Cryptographic Verification Stamp: RLCC-BENCH-STAMP-" + String.format("%08X", result.totalScore), 35f, y5 + 38f, textPaint)
+        canvas5.drawText("Report Cryptographic Verification Stamp: RLCC-BENCH-STAMP-" + String.format(Locale.US, "%08X", (result.totalScore * 1000.0).toInt()), 35f, y5 + 38f, textPaint)
 
         // Footer
         paint.color = Color.parseColor("#EEEEEE")

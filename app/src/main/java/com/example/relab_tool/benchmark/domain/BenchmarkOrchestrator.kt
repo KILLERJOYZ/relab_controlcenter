@@ -47,15 +47,15 @@ class BenchmarkOrchestrator(
         send(BenchmarkOrchestratorState.Running(
             currentPillar = pillarsToRun[0],
             currentSubTestLabel = "Starting...",
-            pillarProgress = 0f,
+            runningHardwareScore = 0.0,
             overallProgress = 0f,
+            pillarProgress = 0f,
             completedPillarScores = emptyList(),
             thermalStatus = 0,
             thermalHeadroom = 0.3f,
             estimatedRemainingSeconds = calculateRemainingSeconds(pillarsToRun, 0, 0f),
-            isThermalPaused = false,
-            runningHardwareScore = 0
-        ))
+            isThermalPaused = false
+        ).let { RunningStateBridge.runningDouble(it, 0.0) })
         
         for ((index, pillar) in pillarsToRun.withIndex()) {
             val engine = engines.find { it.pillar == pillar }
@@ -122,13 +122,11 @@ class BenchmarkOrchestrator(
             }
             
             val isSkipped = subScores.isEmpty()
-            // Fix-B: exclude zero-score (failed/partial) sub-scores from geo mean
-            // to avoid artificially elevating the pillar via coerceAtLeast(1) trick
-            val validSubs = subScores.filter { it.score > 0 && !it.isPartial }
+            val validSubs = subScores.filter { it.score > 0.0 && !it.isPartial }
             val pillarGeoScore = when {
-                validSubs.isNotEmpty() -> ScoreNormalizer.geometricMean(validSubs.map { it.score }).roundToInt()
-                subScores.isNotEmpty() -> ScoreNormalizer.geometricMean(subScores.map { it.score.coerceAtLeast(1) }).roundToInt()
-                else -> 0
+                validSubs.isNotEmpty() -> ScoreNormalizer.geometricMean(validSubs.map { it.score })
+                subScores.isNotEmpty() -> ScoreNormalizer.geometricMean(subScores.map { it.score.coerceAtLeast(0.001) })
+                else -> 0.0
             }
             val pScore = PillarScore(pillar, pillarGeoScore, subScores, isSkipped)
             completedScores.add(pScore)
@@ -161,15 +159,15 @@ class BenchmarkOrchestrator(
         send(BenchmarkOrchestratorState.Running(
             currentPillar = pillar,
             currentSubTestLabel = "Starting...",
-            pillarProgress = 0f,
+            runningHardwareScore = 0.0,
             overallProgress = 0f,
+            pillarProgress = 0f,
             completedPillarScores = emptyList(),
             thermalStatus = 0,
             thermalHeadroom = 0.3f,
             estimatedRemainingSeconds = getPillarEstimatedDuration(pillar),
-            isThermalPaused = false,
-            runningHardwareScore = 0
-        ))
+            isThermalPaused = false
+        ).let { RunningStateBridge.runningDouble(it, 0.0) })
         
         val engine = engines.find { it.pillar == pillar }
         
@@ -188,7 +186,7 @@ class BenchmarkOrchestrator(
                 thermalHeadroom = curHeadroom,
                 estimatedRemainingSeconds = getPillarEstimatedDuration(pillar),
                 isThermalPaused = true,
-                runningHardwareScore = 0
+                runningHardwareScore = 0.0
             ))
             delay(3000L)
         }
@@ -198,15 +196,15 @@ class BenchmarkOrchestrator(
         send(BenchmarkOrchestratorState.Running(
             currentPillar = pillar,
             currentSubTestLabel = "Running ${pillar.name}...",
-            pillarProgress = 0f,
+            runningHardwareScore = 0.0,
             overallProgress = 0f,
+            pillarProgress = 0f,
             completedPillarScores = completedScores.toList(),
             thermalStatus = curStatus,
             thermalHeadroom = curHeadroom,
             estimatedRemainingSeconds = getPillarEstimatedDuration(pillar),
-            isThermalPaused = false,
-            runningHardwareScore = 0
-        ))
+            isThermalPaused = false
+        ).let { RunningStateBridge.runningDouble(it, 0.0) })
         
         val subScores = if (engine != null && engine.isAvailable()) {
             try {
@@ -223,7 +221,7 @@ class BenchmarkOrchestrator(
                         thermalHeadroom = cHeadroom,
                         estimatedRemainingSeconds = ((1f - progress) * getPillarEstimatedDuration(pillar)).roundToInt().coerceAtLeast(0),
                         isThermalPaused = false,
-                        runningHardwareScore = 0
+                        runningHardwareScore = 0.0
                     ))
                 }
             } catch (e: Throwable) {
@@ -235,13 +233,11 @@ class BenchmarkOrchestrator(
         }
         
         val isSkipped = subScores.isEmpty()
-        // Fix-B: exclude zero-score (failed/partial) sub-scores from geo mean
-        // (same logic as runBenchmark path)
-        val validSubs = subScores.filter { it.score > 0 && !it.isPartial }
+        val validSubs = subScores.filter { it.score > 0.0 && !it.isPartial }
         val pillarGeoScore = when {
-            validSubs.isNotEmpty() -> ScoreNormalizer.geometricMean(validSubs.map { it.score }).roundToInt()
-            subScores.isNotEmpty() -> ScoreNormalizer.geometricMean(subScores.map { it.score.coerceAtLeast(1) }).roundToInt()
-            else -> 0
+            validSubs.isNotEmpty() -> ScoreNormalizer.geometricMean(validSubs.map { it.score })
+            subScores.isNotEmpty() -> ScoreNormalizer.geometricMean(subScores.map { it.score.coerceAtLeast(0.001) })
+            else -> 0.0
         }
         val pScore = PillarScore(pillar, pillarGeoScore, subScores, isSkipped)
         completedScores.add(pScore)
@@ -251,15 +247,15 @@ class BenchmarkOrchestrator(
         send(BenchmarkOrchestratorState.Running(
             currentPillar = pillar,
             currentSubTestLabel = "Completed ${pillar.name}",
-            pillarProgress = 1.0f,
+            runningHardwareScore = 0.0,
             overallProgress = 1.0f,
+            pillarProgress = 1.0f,
             completedPillarScores = completedScores.toList(),
             thermalStatus = finalStatus,
             thermalHeadroom = finalHeadroom,
             estimatedRemainingSeconds = 0,
-            isThermalPaused = false,
-            runningHardwareScore = 0
-        ))
+            isThermalPaused = false
+        ).let { RunningStateBridge.runningDouble(it, 0.0) })
         delay(200L)
         
         val finalResult = compileFinalResult(completedScores, isQuickTest = false)
@@ -312,17 +308,16 @@ class BenchmarkOrchestrator(
      * Running score uses weighted geometric mean of completed pillars.
      * Returns the current estimated total score on a [0, 1_000_000] scale.
      */
-    private fun calculateRunningScore(completed: List<PillarScore>, pillarsToRun: List<BenchmarkPillar>): Int {
-        if (completed.isEmpty()) return 0
+    private fun calculateRunningScore(completed: List<PillarScore>, pillarsToRun: List<BenchmarkPillar>): Double {
+        if (completed.isEmpty()) return 0.0
         val pillarGeoMeans = completed
             .filter { !it.isSkipped }
             .map { pScore ->
-                // Fix-B: Match compileFinalResult — exclude zero-score and partial sub-scores
-                val validSubs = pScore.subScores.filter { it.score > 0 && !it.isPartial }
+                val validSubs = pScore.subScores.filter { it.score > 0.0 && !it.isPartial }
                 val geoMean = if (validSubs.isNotEmpty()) {
                     ScoreNormalizer.geometricMean(validSubs.map { it.score })
                 } else {
-                    ScoreNormalizer.geometricMean(pScore.subScores.map { it.score.coerceAtLeast(1) })
+                    ScoreNormalizer.geometricMean(pScore.subScores.map { it.score.coerceAtLeast(0.001) })
                 }
                 Pair(pScore.pillar.weight, geoMean)
             }
@@ -336,40 +331,38 @@ class BenchmarkOrchestrator(
      *   3. Thermal/energy penalty via ScoreNormalizer.applyDynamicCoefficients()
      */
     private fun compileFinalResult(scores: List<PillarScore>, isQuickTest: Boolean): BenchmarkResult {
-        // Weighted geometric mean across all active pillars (Fix-B: skip zero-score subs)
         val pillarGeoMeans = scores
             .filter { !it.isSkipped }
             .map { pScore ->
-                val validSubs = pScore.subScores.filter { it.score > 0 && !it.isPartial }
+                val validSubs = pScore.subScores.filter { it.score > 0.0 && !it.isPartial }
                 val geoMean = if (validSubs.isNotEmpty()) {
                     ScoreNormalizer.geometricMean(validSubs.map { it.score })
                 } else {
-                    ScoreNormalizer.geometricMean(pScore.subScores.map { it.score.coerceAtLeast(1) })
+                    ScoreNormalizer.geometricMean(pScore.subScores.map { it.score.coerceAtLeast(0.001) })
                 }
                 Pair(pScore.pillar.weight, geoMean)
             }
         val rawScore = ScoreNormalizer.computeFinalScore(pillarGeoMeans)
 
-        // RC-2: Apply thermal coefficient — narrowed to [0.85, 1.0], max 15% penalty
         val thermalCoeff = computeThermalCoefficient()
         val energyCoeff = computeEnergyCoefficient()
         val thermalAdjusted = ScoreNormalizer.applyDynamicCoefficients(rawScore, thermalCoeff, energyCoeff)
-        // RC-2: Floor totalScore at 85% of rawScore — thermal can't invert silicon rankings
-        val totalScore = thermalAdjusted.coerceAtLeast((rawScore * 0.85).toInt())
+        val totalScore = thermalAdjusted.coerceAtLeast(rawScore * 0.85)
 
-        // RC-11: Determine run scope for display badge
         val runScope = when {
             isQuickTest -> "CPU Only"
             scores.none { it.pillar == BenchmarkPillar.NETWORK_IPC && !it.isSkipped } -> "Full (No Network)"
             else -> "Full"
         }
 
+        val netPillarScore = scores.find { it.pillar == BenchmarkPillar.NETWORK_IPC && !it.isSkipped }?.score ?: 0.0
+
         return BenchmarkResult(
             timestamp = System.currentTimeMillis(),
             deviceModel = Build.MODEL ?: "Unknown Device",
             deviceSoc = Build.HARDWARE ?: "Unknown SoC",
             hardwareScore = rawScore,
-            connectivityScore = 0,
+            connectivityScore = netPillarScore,
             totalScore = totalScore,
             tier = TierClassifier.classify(totalScore),
             pillarScores = scores,
@@ -450,7 +443,13 @@ sealed interface BenchmarkOrchestratorState {
         val thermalHeadroom: Float,
         val estimatedRemainingSeconds: Int,
         val isThermalPaused: Boolean,
-        val runningHardwareScore: Int
+        val runningHardwareScore: Double
     ) : BenchmarkOrchestratorState
     data class Complete(val result: BenchmarkResult) : BenchmarkOrchestratorState
+}
+
+object RunningStateBridge {
+    fun runningDouble(state: BenchmarkOrchestratorState.Running, score: Double): BenchmarkOrchestratorState.Running {
+        return state.copy(runningHardwareScore = score)
+    }
 }
