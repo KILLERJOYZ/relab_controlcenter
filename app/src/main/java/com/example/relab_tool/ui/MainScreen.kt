@@ -89,9 +89,6 @@ fun MainScreen(viewModel: AppInstallerViewModel, windowSizeClass: WindowSizeClas
             deviceInfoViewModel.setAppInForeground(false)
         }
     }
-    val performanceViewModel: PerformanceViewModel = hiltViewModel()
-    val performanceRepository = performanceViewModel.performanceRepository
-    val towerInfoProvider = performanceViewModel.towerInfoProvider
     val pagerState = rememberPagerState(pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
 

@@ -54,129 +54,134 @@ class NetworkIpcBenchmark : BenchmarkEngine {
     override suspend fun run(onProgress: suspend (Float) -> Unit): List<SubScore> =
         withContext(Dispatchers.IO) {
             val results = mutableListOf<SubScore>()
+            try {
 
             // NW_01 — TCP loopback throughput (large buffer, 128MB)
             onProgress(0.02f)
             val tcpGbpsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runTcpLoopbackThroughput(128) }
-            results += gbpsScore("NW_01: TCP Loopback Throughput", tcpGbpsVal, 6.0, 80.0)
+            results += gbpsScore("NW_01: TCP Loopback Throughput", tcpGbpsVal, 6.0, 240.0)
 
             // NW_02 — TCP loopback latency (RTT measurement, 10K pings)
             onProgress(0.07f)
             val tcpLatVal = BenchmarkHarness.medianOfThree(warmups = 3) { runTcpLatency(10_000) }
-            results += subScore("NW_02: TCP Loopback RTT", tcpLatVal, "µs", 80.0, 2.0, true)
+            results += subScore("NW_02: TCP Loopback RTT", tcpLatVal, "µs", 80.0, 0.667, true)
 
             // NW_03 — NIO SocketChannel throughput (non-blocking, 128MB)
             onProgress(0.12f)
             val nioGbpsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runNioChannelThroughput(128) }
-            results += gbpsScore("NW_03: NIO SocketChannel Throughput", nioGbpsVal, 8.0, 90.0)
+            results += gbpsScore("NW_03: NIO SocketChannel Throughput", nioGbpsVal, 8.0, 270.0)
 
             // NW_04 — UDP datagram throughput (8KB datagrams, 1M datagrams)
             onProgress(0.17f)
             val udpGbpsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runUdpLoopbackThroughput() }
-            results += gbpsScore("NW_04: UDP Loopback Throughput", udpGbpsVal, 2.0, 30.0)
+            results += gbpsScore("NW_04: UDP Loopback Throughput", udpGbpsVal, 2.0, 90.0)
 
             // NW_05 — TCP connection setup rate (new connections/sec)
             onProgress(0.22f)
             val tcpConnVal = BenchmarkHarness.medianOfThree(warmups = 3) { runTcpConnectionRate(1000) }
             results += subScore("NW_05: TCP Connection Rate", tcpConnVal, "conn/s",
-                1000.0, 15000.0, false)
+                1000.0, 45000.0, false)
 
             // NW_06 — Pipe write/read throughput (kernel IPC pipe)
             onProgress(0.27f)
             val pipeGbpsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runPipeThroughput() }
-            results += gbpsScore("NW_06: Pipe IPC Throughput", pipeGbpsVal, 4.0, 50.0)
+            results += gbpsScore("NW_06: Pipe IPC Throughput", pipeGbpsVal, 4.0, 150.0)
 
             // NW_07 — Binder IPC overhead (Parcel serialization roundtrip)
             onProgress(0.32f)
             val binderVal = BenchmarkHarness.medianOfThree(warmups = 3) { runBinderParcelOverhead(100_000) }
-            results += subScore("NW_07: Binder Parcel Overhead", binderVal, "µs/call", 15.0, 0.5, true)
+            results += subScore("NW_07: Binder Parcel Overhead", binderVal, "µs/call", 15.0, 0.167, true)
 
             // NW_08 — Parcel write throughput (large complex object)
             onProgress(0.37f)
             val parcelWrVal = BenchmarkHarness.medianOfThree(warmups = 3) { runParcelWriteThroughput() }
             results += subScore("NW_08: Parcel Write Throughput", parcelWrVal, "MB/s",
-                400.0, 6000.0, false)
+                400.0, 18000.0, false)
 
             // NW_09 — TLS handshake latency (using SSLSocket loopback)
             onProgress(0.42f)
             val tlsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runTlsHandshakeSimulation() }
-            results += subScore("NW_09: TLS Handshake Simulation", tlsVal, "ms", 15.0, 0.5, true)
+            results += subScore("NW_09: TLS Handshake Simulation", tlsVal, "ms", 15.0, 0.167, true)
 
             // NW_10 — Multi-stream TCP concurrent (8 parallel connections)
             onProgress(0.47f)
             val multiTcpVal = BenchmarkHarness.medianOfThree(warmups = 3) { runMultiStreamTcp(8, 16) }
-            results += gbpsScore("NW_10: Multi-Stream TCP (8 conns)", multiTcpVal, 10.0, 120.0)
+            results += gbpsScore("NW_10: Multi-Stream TCP (8 conns)", multiTcpVal, 10.0, 360.0)
 
             // NW_11 — Select/poll system call overhead (1K FDs)
             onProgress(0.52f)
             val selectVal = BenchmarkHarness.medianOfThree(warmups = 3) { runSelectOverhead(100) }
             results += subScore("NW_11: Socket I/O Overhead (100 sockets)", selectVal, "µs/poll",
-                400.0, 10.0, true)
+                400.0, 3.333, true)
 
             // NW_12 — ByteBuffer serialization throughput (proto-like)
             onProgress(0.57f)
             val serVal = BenchmarkHarness.medianOfThree(warmups = 3) { runByteBufferSerialization() }
             results += subScore("NW_12: ByteBuffer Serialization", serVal, "MOps/s",
-                400.0, 6000.0, false)
+                400.0, 18000.0, false)
 
             // NW_13 — JSON over socket (HTTP-like request/response)
             onProgress(0.62f)
             val jsonRpcVal = BenchmarkHarness.medianOfThree(warmups = 3) { runJsonRpcSimulation(500) }
             results += subScore("NW_13: JSON RPC (500 requests)", jsonRpcVal, "req/s",
-                2000.0, 45000.0, false)
+                2000.0, 135000.0, false)
 
             // NW_14 — Memory-mapped IPC (mmap via byte arrays, simulated shared memory)
             onProgress(0.65f)
             val mmapIpcVal = BenchmarkHarness.medianOfThree(warmups = 3) { runMmapIpcSimulation() }
-            results += gbpsScore("NW_14: Shared Memory IPC (mmap sim)", mmapIpcVal, 10.0, 120.0)
+            results += gbpsScore("NW_14: Shared Memory IPC (mmap sim)", mmapIpcVal, 10.0, 360.0)
 
             // NW_15 — Producer-consumer queue throughput (Kotlin Channel)
             onProgress(0.70f)
             val prodConVal = BenchmarkHarness.medianOfThree(warmups = 3) { runProducerConsumerQueue() }
             results += subScore("NW_15: Producer-Consumer Queue", prodConVal, "MOps/s",
-                100.0, 1500.0, false)
+                100.0, 4500.0, false)
 
             // NW_16 — DNS resolution latency (127.0.0.1 loopback lookup)
             onProgress(0.75f)
             val dnsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runLoopbackResolution(1000) }
-            results += subScore("NW_16: Loopback Resolution Latency", dnsVal, "µs", 400.0, 5.0, true)
+            results += subScore("NW_16: Loopback Resolution Latency", dnsVal, "µs", 400.0, 1.667, true)
 
             // NW_17 — TCP zero-copy sendfile simulation (splice via pipe)
             onProgress(0.80f)
             val zcGbpsVal = BenchmarkHarness.medianOfThree(warmups = 3) { runZeroCopySimulation(32) }
-            results += gbpsScore("NW_17: Zero-Copy Transfer (32MB)", zcGbpsVal, 6.0, 75.0)
+            results += gbpsScore("NW_17: Zero-Copy Transfer (32MB)", zcGbpsVal, 6.0, 225.0)
 
             // NW_18 — Protobuf-like binary serialization
             onProgress(0.85f)
             val protoVal = BenchmarkHarness.medianOfThree(warmups = 3) { runBinaryProtocolSerialization() }
             results += subScore("NW_18: Binary Protocol Serialize", protoVal, "MB/s",
-                400.0, 6000.0, false)
+                400.0, 18000.0, false)
 
             // NW_19 — Socket send/recv with scatter-gather (vectored I/O)
             onProgress(0.92f)
             val scatterVal = BenchmarkHarness.medianOfThree(warmups = 3) { runScatterGatherIo(64) }
-            results += gbpsScore("NW_19: Scatter-Gather I/O (64MB)", scatterVal, 4.0, 60.0)
+            results += gbpsScore("NW_19: Scatter-Gather I/O (64MB)", scatterVal, 4.0, 180.0)
 
             // NW_20 — Peak concurrent IPC throughput (threads × connections)
             onProgress(0.97f)
             val peakVal = BenchmarkHarness.medianOfThree(warmups = 3) { runPeakConcurrentIpc() }
-            results += gbpsScore("NW_20: Peak Concurrent IPC", peakVal, 10.0, 150.0)
+            results += gbpsScore("NW_20: Peak Concurrent IPC", peakVal, 10.0, 450.0)
 
             onProgress(1.0f)
+            } catch (e: Exception) {
+                android.util.Log.e("NetworkIpcBenchmark", "Network benchmark failed midway", e)
+            }
             results
         }
 
     // ── Test implementations ──────────────────────────────────────────────────
 
     private fun runTcpLoopbackThroughput(sizeMb: Int): Double {
-        val port = BASE_PORT
         val data = ByteArray(65536) { (it % 256).toByte() } // 64KB chunks
         val totalBytes = sizeMb.toLong() * 1024 * 1024
         var received = 0L
 
         val serverSocket = ServerSocket()
         serverSocket.reuseAddress = true
-        serverSocket.bind(java.net.InetSocketAddress(LOOPBACK, port), 1)
+        serverSocket.soTimeout = 5000
+        serverSocket.bind(java.net.InetSocketAddress(LOOPBACK, 0), 1)
+        val boundPort = serverSocket.localPort
         val serverThread = Thread {
             try {
                 serverSocket.accept().use { client ->
@@ -191,27 +196,33 @@ class NetworkIpcBenchmark : BenchmarkEngine {
         Thread.sleep(10) // let server start
 
         val start = System.nanoTime()
-        Socket(LOOPBACK, port).use { socket ->
-            socket.sendBufferSize = 1024 * 1024
-            val os: OutputStream = socket.getOutputStream()
-            var sent = 0L
-            while (sent < totalBytes) {
-                val toSend = minOf(data.size.toLong(), totalBytes - sent).toInt()
-                os.write(data, 0, toSend)
-                sent += toSend
+        try {
+            Socket(LOOPBACK, boundPort).use { socket ->
+                socket.sendBufferSize = 1024 * 1024
+                val os: OutputStream = socket.getOutputStream()
+                var sent = 0L
+                while (sent < totalBytes) {
+                    val toSend = minOf(data.size.toLong(), totalBytes - sent).toInt()
+                    os.write(data, 0, toSend)
+                    sent += toSend
+                }
             }
+        } catch (e: Exception) {
+            return 0.0
+        } finally {
+            serverThread.join(5000)
+            serverSocket.close()
         }
-        serverThread.join(5000)
-        serverSocket.close()
         val elapsed = (System.nanoTime() - start) / 1e9
         return sizeMb / elapsed / 1000.0 // GB/s
     }
 
     private fun runTcpLatency(pingCount: Int): Double {
-        val port = BASE_PORT + 1
         val serverSocket = ServerSocket()
         serverSocket.reuseAddress = true
-        serverSocket.bind(java.net.InetSocketAddress(LOOPBACK, port), 1)
+        serverSocket.soTimeout = 5000
+        serverSocket.bind(java.net.InetSocketAddress(LOOPBACK, 0), 1)
+        val boundPort = serverSocket.localPort
         val serverThread = Thread {
             try {
                 serverSocket.accept().use { client ->
@@ -228,67 +239,78 @@ class NetworkIpcBenchmark : BenchmarkEngine {
         Thread.sleep(10)
 
         val start = System.nanoTime()
-        Socket(LOOPBACK, port).use { socket ->
-            socket.tcpNoDelay = true
-            val os = socket.getOutputStream()
-            val ins = socket.getInputStream()
-            val ping = byteArrayOf(0x42)
-            val pong = ByteArray(1)
-            repeat(pingCount) {
-                os.write(ping)
-                ins.read(pong)
+        try {
+            Socket(LOOPBACK, boundPort).use { socket ->
+                socket.tcpNoDelay = true
+                val os = socket.getOutputStream()
+                val ins = socket.getInputStream()
+                val ping = byteArrayOf(0x42)
+                val pong = ByteArray(1)
+                repeat(pingCount) {
+                    os.write(ping)
+                    ins.read(pong)
+                }
             }
+        } catch (e: Exception) {
+            return 0.0
+        } finally {
+            serverThread.join(5000)
+            serverSocket.close()
         }
-        serverThread.join(5000)
-        serverSocket.close()
         val elapsed = (System.nanoTime() - start) / 1e3 // µs
         return elapsed / pingCount // µs per RTT
     }
 
     private fun runNioChannelThroughput(sizeMb: Int): Double {
-        val port = BASE_PORT + 2
         val totalBytes = sizeMb.toLong() * 1024 * 1024
         val data = ByteBuffer.allocateDirect(65536).apply { repeat(65536) { put((it % 256).toByte()) }; flip() }
         var received = 0L
 
         val serverChannel = ServerSocketChannel.open()
         serverChannel.socket().reuseAddress = true
-        serverChannel.socket().bind(java.net.InetSocketAddress(LOOPBACK, port))
+        serverChannel.socket().soTimeout = 5000
+        serverChannel.socket().bind(java.net.InetSocketAddress(LOOPBACK, 0))
+        val boundPort = serverChannel.socket().localPort
         val serverThread = Thread {
             try {
-                val client = serverChannel.accept()
-                val buf = ByteBuffer.allocateDirect(65536)
-                var n = client.read(buf)
-                while (n > 0) { received += n; buf.clear(); n = client.read(buf) }
-                client.close()
+                serverChannel.accept().use { client ->
+                    val buf = ByteBuffer.allocateDirect(65536)
+                    var n = client.read(buf)
+                    while (n > 0) { received += n; buf.clear(); n = client.read(buf) }
+                }
             } catch (e: Exception) {}
         }
         serverThread.start()
         Thread.sleep(20)
 
         val start = System.nanoTime()
-        val clientChannel = SocketChannel.open(java.net.InetSocketAddress(LOOPBACK, port))
-        var sent = 0L
-        while (sent < totalBytes) {
-            data.position(0)
-            data.limit(minOf(65536.toLong(), totalBytes - sent).toInt())
-            sent += clientChannel.write(data)
+        try {
+            SocketChannel.open(java.net.InetSocketAddress(LOOPBACK, boundPort)).use { clientChannel ->
+                var sent = 0L
+                while (sent < totalBytes) {
+                    data.position(0)
+                    data.limit(minOf(65536L, totalBytes - sent).toInt())
+                    sent += clientChannel.write(data)
+                }
+            }
+        } catch (e: Exception) {
+            return 0.0
+        } finally {
+            serverThread.join(5000)
+            serverChannel.close()
         }
-        clientChannel.close()
-        serverThread.join(5000)
-        serverChannel.close()
         val elapsed = (System.nanoTime() - start) / 1e9
         return sizeMb / elapsed / 1000.0 // GB/s
     }
 
     private fun runUdpLoopbackThroughput(): Double {
-        val port = BASE_PORT + 3
         val datagramSize = 8192
         val totalDatagrams = 10_000
         val data = ByteArray(datagramSize) { (it % 256).toByte() }
         var received = 0
 
-        val serverSocket = java.net.DatagramSocket(port, LOOPBACK)
+        val serverSocket = java.net.DatagramSocket(0, LOOPBACK)
+        val boundPort = serverSocket.localPort
         val serverThread = Thread {
             val buf = java.net.DatagramPacket(ByteArray(datagramSize + 100), datagramSize + 100)
             try {
@@ -300,7 +322,7 @@ class NetworkIpcBenchmark : BenchmarkEngine {
         Thread.sleep(10)
 
         val clientSocket = java.net.DatagramSocket()
-        val packet = java.net.DatagramPacket(data, datagramSize, LOOPBACK, port)
+        val packet = java.net.DatagramPacket(data, datagramSize, LOOPBACK, boundPort)
         val start = System.nanoTime()
         repeat(totalDatagrams) { clientSocket.send(packet) }
         clientSocket.close()
@@ -311,10 +333,10 @@ class NetworkIpcBenchmark : BenchmarkEngine {
     }
 
     private fun runTcpConnectionRate(count: Int): Double {
-        val port = BASE_PORT + 4
         val serverSocket = ServerSocket()
         serverSocket.reuseAddress = true
-        serverSocket.bind(java.net.InetSocketAddress(LOOPBACK, port), count + 5)
+        serverSocket.bind(java.net.InetSocketAddress(LOOPBACK, 0), count + 5)
+        val boundPort = serverSocket.localPort
         serverSocket.soTimeout = 5000
         val serverThread = Thread {
             try { repeat(count) { val c = serverSocket.accept(); c.close() } } catch (_: Exception) {}
@@ -322,7 +344,7 @@ class NetworkIpcBenchmark : BenchmarkEngine {
         serverThread.start()
         Thread.sleep(10)
         val start = System.nanoTime()
-        repeat(count) { Socket(LOOPBACK, port).close() }
+        try { repeat(count) { Socket(LOOPBACK, boundPort).close() } } catch (e: Exception) { return 0.0 }
         serverThread.join(5000)
         serverSocket.close()
         return count / ((System.nanoTime() - start) / 1e9) // conn/s
@@ -430,7 +452,9 @@ class NetworkIpcBenchmark : BenchmarkEngine {
             val totalBytes = sizeMb.toLong() * 1024 * 1024
             val serverSocket = ServerSocket()
             serverSocket.reuseAddress = true
-            serverSocket.bind(java.net.InetSocketAddress(LOOPBACK, port), 1)
+            serverSocket.soTimeout = 5000
+            serverSocket.bind(java.net.InetSocketAddress(LOOPBACK, 0), 1)
+            val boundPort = serverSocket.localPort
             var received = 0L
             val serverThread = Thread {
                 try {
@@ -444,17 +468,20 @@ class NetworkIpcBenchmark : BenchmarkEngine {
             serverThread.start()
             Thread.sleep(5)
             val start = System.nanoTime()
-            Socket(LOOPBACK, port).use { socket ->
-                val os = socket.getOutputStream()
-                var sent = 0L
-                while (sent < totalBytes) {
-                    val toSend = minOf(data.size.toLong(), totalBytes - sent).toInt()
-                    os.write(data, 0, toSend)
-                    sent += toSend
+            try {
+                Socket(LOOPBACK, boundPort).use { socket ->
+                    val os = socket.getOutputStream()
+                    var sent = 0L
+                    while (sent < totalBytes) {
+                        val toSend = minOf(data.size.toLong(), totalBytes - sent).toInt()
+                        os.write(data, 0, toSend)
+                        sent += toSend
+                    }
                 }
+            } finally {
+                serverThread.join(5000)
+                serverSocket.close()
             }
-            serverThread.join(5000)
-            serverSocket.close()
             sizeMb / ((System.nanoTime() - start) / 1e9) / 1000.0
         } catch (_: Exception) { 0.0 }
     }
@@ -467,9 +494,11 @@ class NetworkIpcBenchmark : BenchmarkEngine {
             for (i in 0 until socketCount) {
                 val ss = ServerSocket()
                 ss.reuseAddress = true
-                ss.bind(java.net.InetSocketAddress(LOOPBACK, BASE_PORT + 100 + i), 1)
+                ss.soTimeout = 5000
+                ss.bind(java.net.InetSocketAddress(LOOPBACK, 0), 1)
+                val boundPort = ss.localPort
                 serverSockets.add(ss)
-                val client = Socket(LOOPBACK, BASE_PORT + 100 + i)
+                val client = Socket(LOOPBACK, boundPort)
                 val server = ss.accept()
                 sockets.add(Pair(client, server))
             }
@@ -483,8 +512,13 @@ class NetworkIpcBenchmark : BenchmarkEngine {
             val elapsed = (System.nanoTime() - start) / 1e3 // µs
             return elapsed / (1000 * socketCount) // µs per poll
         } finally {
-            sockets.forEach { (c, s) -> c.close(); s.close() }
-            serverSockets.forEach { it.close() }
+            sockets.forEach { (c, s) ->
+                try { c.close() } catch (_: Exception) {}
+                try { s.close() } catch (_: Exception) {}
+            }
+            serverSockets.forEach {
+                try { it.close() } catch (_: Exception) {}
+            }
         }
     }
 
@@ -507,10 +541,11 @@ class NetworkIpcBenchmark : BenchmarkEngine {
     }
 
     private fun runJsonRpcSimulation(requestCount: Int): Double {
-        val port = BASE_PORT + 50
         val serverSocket = ServerSocket()
         serverSocket.reuseAddress = true
-        serverSocket.bind(java.net.InetSocketAddress(LOOPBACK, port), 1)
+        serverSocket.soTimeout = 5000
+        serverSocket.bind(java.net.InetSocketAddress(LOOPBACK, 0), 1)
+        val boundPort = serverSocket.localPort
         val serverThread = Thread {
             try {
                 serverSocket.accept().use { client ->
@@ -529,17 +564,20 @@ class NetworkIpcBenchmark : BenchmarkEngine {
         Thread.sleep(10)
 
         val start = System.nanoTime()
-        Socket(LOOPBACK, port).use { socket ->
-            val writer = socket.getOutputStream().bufferedWriter()
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
-            repeat(requestCount) { i ->
-                val request = """{"method":"bench","params":{"id":$i,"data":"test_value_$i"}}""" + "\n"
-                writer.write(request); writer.flush()
-                BenchmarkHarness.consume(reader.readLine()?.length?.toLong() ?: 0L)
+        try {
+            Socket(LOOPBACK, boundPort).use { socket ->
+                val writer = socket.getOutputStream().bufferedWriter()
+                val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
+                repeat(requestCount) { i ->
+                    val request = """{"method":"bench","params":{"id":$i,"data":"test_value_$i"}}""" + "\n"
+                    writer.write(request); writer.flush()
+                    BenchmarkHarness.consume(reader.readLine()?.length?.toLong() ?: 0L)
+                }
             }
+        } finally {
+            serverThread.join(5000)
+            serverSocket.close()
         }
-        serverThread.join(5000)
-        serverSocket.close()
         return requestCount / ((System.nanoTime() - start) / 1e9) // req/s
     }
 
@@ -585,34 +623,38 @@ class NetworkIpcBenchmark : BenchmarkEngine {
 
     private fun runZeroCopySimulation(sizeMb: Int): Double {
         // Zero-copy via NIO direct buffer transfer
-        val port = BASE_PORT + 60
         val data = ByteBuffer.allocateDirect(65536).apply { repeat(65536) { put((it % 256).toByte()) }; flip() }
         val totalBytes = sizeMb.toLong() * 1024 * 1024
         var received = 0L
         val serverChannel = ServerSocketChannel.open()
         serverChannel.socket().reuseAddress = true
-        serverChannel.socket().bind(java.net.InetSocketAddress(LOOPBACK, port))
+        serverChannel.socket().soTimeout = 5000
+        serverChannel.socket().bind(java.net.InetSocketAddress(LOOPBACK, 0))
+        val boundPort = serverChannel.socket().localPort
         val serverThread = Thread {
             try {
-                val client = serverChannel.accept()
-                val buf = ByteBuffer.allocateDirect(65536)
-                var n = client.read(buf)
-                while (n > 0) { received += n; buf.clear(); n = client.read(buf) }
-                client.close()
+                serverChannel.accept().use { client ->
+                    val buf = ByteBuffer.allocateDirect(65536)
+                    var n = client.read(buf)
+                    while (n > 0) { received += n; buf.clear(); n = client.read(buf) }
+                }
             } catch (e: Exception) {}
         }
         serverThread.start()
         Thread.sleep(10)
         val start = System.nanoTime()
-        val clientChannel = SocketChannel.open(java.net.InetSocketAddress(LOOPBACK, port))
-        var sent = 0L
-        while (sent < totalBytes) {
-            data.position(0); data.limit(minOf(65536L, totalBytes - sent).toInt())
-            sent += clientChannel.write(data)
+        try {
+            SocketChannel.open(java.net.InetSocketAddress(LOOPBACK, boundPort)).use { clientChannel ->
+                var sent = 0L
+                while (sent < totalBytes) {
+                    data.position(0); data.limit(minOf(65536L, totalBytes - sent).toInt())
+                    sent += clientChannel.write(data)
+                }
+            }
+        } finally {
+            serverThread.join(5000)
+            serverChannel.close()
         }
-        clientChannel.close()
-        serverThread.join(5000)
-        serverChannel.close()
         return sizeMb / ((System.nanoTime() - start) / 1e9) / 1000.0
     }
 
@@ -639,35 +681,39 @@ class NetworkIpcBenchmark : BenchmarkEngine {
 
     private fun runScatterGatherIo(sizeMb: Int): Double {
         // Simulate scatter-gather by splitting transfers into multiple ByteBuffers
-        val port = BASE_PORT + 70
         val buffers = Array(16) { ByteBuffer.allocateDirect(4096).apply { repeat(4096) { put((it % 256).toByte()) }; flip() } }
         val totalBytes = sizeMb.toLong() * 1024 * 1024
         val serverChannel = ServerSocketChannel.open()
         serverChannel.socket().reuseAddress = true
-        serverChannel.socket().bind(java.net.InetSocketAddress(LOOPBACK, port))
+        serverChannel.socket().soTimeout = 5000
+        serverChannel.socket().bind(java.net.InetSocketAddress(LOOPBACK, 0))
+        val boundPort = serverChannel.socket().localPort
         var received = 0L
         val serverThread = Thread {
             try {
-                val client = serverChannel.accept()
-                val buf = ByteBuffer.allocateDirect(65536)
-                var n = client.read(buf)
-                while (n > 0) { received += n; buf.clear(); n = client.read(buf) }
-                client.close()
+                serverChannel.accept().use { client ->
+                    val buf = ByteBuffer.allocateDirect(65536)
+                    var n = client.read(buf)
+                    while (n > 0) { received += n; buf.clear(); n = client.read(buf) }
+                }
             } catch (e: Exception) {}
         }
         serverThread.start()
         Thread.sleep(10)
         val start = System.nanoTime()
-        val client = SocketChannel.open(java.net.InetSocketAddress(LOOPBACK, port))
-        var sent = 0L
-        while (sent < totalBytes) {
-            buffers.forEach { it.rewind() }
-            val written = client.write(buffers)
-            sent += written
+        try {
+            SocketChannel.open(java.net.InetSocketAddress(LOOPBACK, boundPort)).use { client ->
+                var sent = 0L
+                while (sent < totalBytes) {
+                    buffers.forEach { it.rewind() }
+                    val written = client.write(buffers)
+                    sent += written
+                }
+            }
+        } finally {
+            serverThread.join(5000)
+            serverChannel.close()
         }
-        client.close()
-        serverThread.join(5000)
-        serverChannel.close()
         return sizeMb / ((System.nanoTime() - start) / 1e9) / 1000.0
     }
 

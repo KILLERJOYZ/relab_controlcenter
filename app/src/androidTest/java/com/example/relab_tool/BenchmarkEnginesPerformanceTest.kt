@@ -32,6 +32,11 @@ class BenchmarkEnginesPerformanceTest {
             assertTrue("SubScore value should not be NaN or infinite", !scoreDouble.isNaN() && !scoreDouble.isInfinite())
             // Check that it's a non-negative score
             assertTrue("SubScore should be >= 0", scoreDouble >= 0.0)
+
+            // Validate that if raw value is 0.0 or invalid, the score is partial
+            if (subScore.rawValue == 0.0 || subScore.rawValue.isNaN() || subScore.rawValue.isInfinite()) {
+                assertTrue("SubScore with zero or invalid raw value should be marked as partial", subScore.isPartial)
+            }
         }
     }
 
@@ -103,5 +108,39 @@ class BenchmarkEnginesPerformanceTest {
             Log.d("BenchmarkEngineTest", "NetworkIpc progress: ${(progress * 100).toInt()}%")
         }
         verifyEngineResults("NetworkIpcBenchmark", results)
+    }
+
+    @Test
+    fun testVideoCodecBenchmarkTruth() = runBlocking {
+        val engine = VideoCodecBenchmark()
+        assertTrue(engine.isAvailable())
+        val results = engine.run { }
+        val aacEncode = results.find { it.name.contains("AAC Encode") }
+        val aacDecode = results.find { it.name.contains("AAC Decode") }
+        if (aacEncode != null && aacDecode != null && aacEncode.rawValue > 0.0 && aacDecode.rawValue > 0.0) {
+            val ratio = aacDecode.rawValue / aacEncode.rawValue
+            assertTrue("AAC Decode should not be a trivial multiple (6x) of Encode", Math.abs(ratio - 6.0) > 1e-4)
+        }
+    }
+
+    @Test
+    fun testGpuVulkanBenchmarkTruth() = runBlocking {
+        val engine = GpuVulkanBenchmark(context)
+        assertTrue(engine.isAvailable())
+        val results = engine.run { }
+        for (subScore in results) {
+            assertTrue("Vulkan/compute subtest raw value should be non-negative", subScore.rawValue >= 0.0)
+        }
+    }
+
+    @Test
+    fun testStorageBenchmarkTruth() = runBlocking {
+        val engine = StorageBenchmark(context)
+        assertTrue(engine.isAvailable())
+        val results = engine.run { }
+        val randomRead = results.find { it.name.contains("Random Read") }
+        if (randomRead != null && !randomRead.isPartial) {
+            assertTrue("Random read should have non-zero throughput", randomRead.rawValue > 0.0)
+        }
     }
 }

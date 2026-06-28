@@ -1592,76 +1592,76 @@
     <string name="card_why_it_matters_group_camera_modes">Determines visual capture features, allowing the user to take advanced photographs under various lighting conditions.</string>
 
     <!-- Settings Privacy Policy and Root Toggles -->
-    <string name="settings_privacy_policy">Privacy Policy</string>
-    <string name="settings_privacy_policy_desc">View the privacy policy and data usage disclosures.</string>
-    <string name="settings_enable_root">Enable Root Tools</string>
-    <string name="settings_enable_root_desc">Unlock CPU governor and battery charge control (Requires manual consent).</string>
-    <string name="settings_root_warning_title">Enable Root Features?</string>
-    <string name="settings_root_warning_message">This will run commands using \'su\'. Enable this only if your device is rooted. Root tools can affect system stability. Do you want to proceed?</string>
+    <string name="settings_privacy_policy" translatable="false">Privacy Policy</string>
+    <string name="settings_privacy_policy_desc" translatable="false">View the privacy policy and data usage disclosures.</string>
+    <string name="settings_enable_root" translatable="false">Enable Root Tools</string>
+    <string name="settings_enable_root_desc" translatable="false">Unlock CPU governor and battery charge control (Requires manual consent).</string>
+    <string name="settings_root_warning_title" translatable="false">Enable Root Features?</string>
+    <string name="settings_root_warning_message" translatable="false">This will run commands using \'su\'. Enable this only if your device is rooted. Root tools can affect system stability. Do you want to proceed?</string>
 
     <!-- ControlCenter Benchmark Suite Strings — v2.0 (140 tests, 7 subsystems) -->
-    <string name="pillar_cpu_single">CPU Single-Core</string>
-    <string name="pillar_cpu_multi">CPU Multi-Core</string>
-    <string name="pillar_gpu_vulkan">GPU · Vulkan</string>
-    <string name="pillar_gpu_opengl">GPU · OpenGL ES</string>
-    <string name="pillar_storage">Storage I/O</string>
-    <string name="pillar_video_codec">Video &amp; Codec</string>
-    <string name="pillar_network_ipc">Network &amp; IPC</string>
+    <string name="pillar_cpu_single" translatable="false">CPU Single-Core</string>
+    <string name="pillar_cpu_multi" translatable="false">CPU Multi-Core</string>
+    <string name="pillar_gpu_vulkan" translatable="false">GPU · Compute (GLES 3.1)</string>
+    <string name="pillar_gpu_opengl" translatable="false">GPU · OpenGL ES</string>
+    <string name="pillar_storage" translatable="false">Storage I/O</string>
+    <string name="pillar_video_codec" translatable="false">Video &amp; Codec</string>
+    <string name="pillar_network_ipc" translatable="false">Local IPC &amp; Loopback</string>
 
     <!-- Score Tiers — 7-tier 1,000,000-point scale -->
 
-    <string name="tier_entry">Entry-Level</string>
-    <string name="tier_entry_desc">Entry-level device. Capable of basic messaging, web browsing, and simple tasks only.</string>
-    <string name="tier_entry_mid">Entry-Mid</string>
-    <string name="tier_entry_mid_desc">Entry-mid range device. Handles everyday social media, camera use, and casual gaming.</string>
-    <string name="tier_mid">Mid-Range</string>
-    <string name="tier_mid_desc">Mid-range device. Smooth everyday multitasking, competent gaming, reliable performance.</string>
-    <string name="tier_mid_high">Mid-High</string>
-    <string name="tier_mid_high_desc">Mid-high device. Near-flagship performance with excellent gaming and multitasking capability.</string>
-    <string name="tier_high">High-End</string>
-    <string name="tier_high_desc">High-end device. Excellent multitasking, high-fidelity gaming, professional-grade compute.</string>
-    <string name="tier_flagship">Flagship</string>
-    <string name="tier_flagship_desc">Top-tier flagship. Exceptional multi-threaded performance, advanced GPU, and future-proof power.</string>
-    <string name="tier_elite">Elite</string>
-    <string name="tier_elite_desc">Bleeding-edge elite device. Best-in-class compute with next-generation silicon architecture.</string>
+    <string name="tier_entry" translatable="false">Entry-Level</string>
+    <string name="tier_entry_desc" translatable="false">Entry-level device. Capable of basic messaging, web browsing, and simple tasks only.</string>
+    <string name="tier_entry_mid" translatable="false">Entry-Mid</string>
+    <string name="tier_entry_mid_desc" translatable="false">Entry-mid range device. Handles everyday social media, camera use, and casual gaming.</string>
+    <string name="tier_mid" translatable="false">Mid-Range</string>
+    <string name="tier_mid_desc" translatable="false">Mid-range device. Smooth everyday multitasking, competent gaming, reliable performance.</string>
+    <string name="tier_mid_high" translatable="false">Mid-High</string>
+    <string name="tier_mid_high_desc" translatable="false">Mid-high device. Near-flagship performance with excellent gaming and multitasking capability.</string>
+    <string name="tier_high" translatable="false">High-End</string>
+    <string name="tier_high_desc" translatable="false">High-end device. Excellent multitasking, high-fidelity gaming, professional-grade compute.</string>
+    <string name="tier_flagship" translatable="false">Flagship</string>
+    <string name="tier_flagship_desc" translatable="false">Top-tier flagship. Exceptional multi-threaded performance, advanced GPU, and future-proof power.</string>
+    <string name="tier_elite" translatable="false">Elite</string>
+    <string name="tier_elite_desc" translatable="false">Bleeding-edge elite device. Best-in-class compute with next-generation silicon architecture.</string>
 
-    <string name="bench_quick_test">Quick CPU Test</string>
-    <string name="bench_full_test">Run Full Benchmark</string>
-    <string name="bench_consent_title">Benchmark Consent &amp; Warning</string>
-    <string name="bench_consent_desc">ControlCenter Benchmark is a comprehensive 140-test hardware evaluation suite (7 subsystems × 20 tests). Please read the following disclosures before starting:</string>
-    <string name="bench_consent_data">- 100% Offline: All performance data is processed on-device. No personal identifiers or scores leave your device.</string>
-    <string name="bench_consent_network">- Network Tests: All network tests use localhost loopback (127.0.0.1) only. Zero external data is transmitted.</string>
-    <string name="bench_consent_heating">- Heating &amp; Thermal Load: Heavy CPU, GPU, and storage tasks will stress your hardware. Your device will feel warm. The benchmark may pause automatically if the device reaches critical thermal levels.</string>
-    <string name="bench_consent_endurance">- Endurance Mode (Optional): If enabled, an additional 15-minute sustained stress test runs after the main benchmark. This is a separate opt-in mode and will be clearly disclosed before starting.</string>
-    <string name="bench_consent_disclaimer">Legal Disclaimer: ControlCenter Benchmark is not affiliated with or endorsed by AnTuTu®, Geekbench®, or PCMark Mobile®.</string>
-    <string name="bench_include_network">Include Network &amp; IPC tests</string>
-    <string name="bench_consent_accept">Agree &amp; Start Benchmark</string>
+    <string name="bench_quick_test" translatable="false">Quick CPU Test</string>
+    <string name="bench_full_test" translatable="false">Run Full Benchmark</string>
+    <string name="bench_consent_title" translatable="false">Benchmark Consent &amp; Warning</string>
+    <string name="bench_consent_desc" translatable="false">ControlCenter Benchmark is a comprehensive 140-test hardware evaluation suite (7 subsystems × 20 tests). Please read the following disclosures before starting:</string>
+    <string name="bench_consent_data" translatable="false">- 100% Offline: All performance data is processed on-device. No personal identifiers or scores leave your device.</string>
+    <string name="bench_consent_network" translatable="false">- Network Tests: All network tests use localhost loopback (127.0.0.1) only. Zero external data is transmitted.</string>
+    <string name="bench_consent_heating" translatable="false">- Heating &amp; Thermal Load: Heavy CPU, GPU, and storage tasks will stress your hardware. Your device will feel warm. The benchmark may pause automatically if the device reaches critical thermal levels.</string>
+    <string name="bench_consent_endurance" translatable="false">- Endurance Mode (Optional): If enabled, an additional 15-minute sustained stress test runs after the main benchmark. This is a separate opt-in mode and will be clearly disclosed before starting.</string>
+    <string name="bench_consent_disclaimer" translatable="false">Legal Disclaimer: ControlCenter Benchmark is not affiliated with or endorsed by AnTuTu®, Geekbench®, or PCMark Mobile®.</string>
+    <string name="bench_include_network" translatable="false">Include Network &amp; IPC tests</string>
+    <string name="bench_consent_accept" translatable="false">Agree &amp; Start Benchmark</string>
 
-    <string name="bench_endurance_title">Endurance Mode</string>
-    <string name="bench_endurance_desc">Endurance Mode runs a 15-minute sustained CPU + GPU + Storage stress test to measure thermal stability and sustained performance. Your device will get hot. Battery will drain significantly. This test is optional and will not affect your main benchmark score.</string>
-    <string name="bench_endurance_start">Start Endurance Test</string>
-    <string name="bench_endurance_skip">Skip, Use Main Score Only</string>
-    <string name="bench_endurance_running">Endurance Test Running (%1$d/%2$d min)</string>
+    <string name="bench_endurance_title" translatable="false">Endurance Mode</string>
+    <string name="bench_endurance_desc" translatable="false">Endurance Mode runs a 15-minute sustained CPU + GPU + Storage stress test to measure thermal stability and sustained performance. Your device will get hot. Battery will drain significantly. This test is optional and will not affect your main benchmark score.</string>
+    <string name="bench_endurance_start" translatable="false">Start Endurance Test</string>
+    <string name="bench_endurance_skip" translatable="false">Skip, Use Main Score Only</string>
+    <string name="bench_endurance_running" translatable="false">Endurance Test Running (%1$d/%2$d min)</string>
 
-    <string name="bench_running_title">Running Benchmark</string>
-    <string name="bench_running_est_time">Estimated remaining: %1$d seconds</string>
-    <string name="bench_running_thermal_paused">Benchmark Paused: cooling down device…</string>
-    <string name="bench_running_hardware_score">Est. Score: %1$d</string>
-    <string name="bench_running_cancel">Cancel Benchmark</string>
+    <string name="bench_running_title" translatable="false">Running Benchmark</string>
+    <string name="bench_running_est_time" translatable="false">Estimated remaining: %1$d seconds</string>
+    <string name="bench_running_thermal_paused" translatable="false">Benchmark Paused: cooling down device…</string>
+    <string name="bench_running_hardware_score" translatable="false">Est. Score: %1$d</string>
+    <string name="bench_running_cancel" translatable="false">Cancel Benchmark</string>
 
-    <string name="bench_complete_title">Benchmark Complete</string>
-    <string name="bench_share">Share Score Card</string>
-    <string name="bench_run_again">Run Again</string>
-    <string name="bench_compare_device">Compare Device</string>
-    <string name="bench_history">Benchmark History</string>
-    <string name="bench_clear_history">Clear History</string>
+    <string name="bench_complete_title" translatable="false">Benchmark Complete</string>
+    <string name="bench_share" translatable="false">Share Score Card</string>
+    <string name="bench_run_again" translatable="false">Run Again</string>
+    <string name="bench_compare_device" translatable="false">Compare Device</string>
+    <string name="bench_history" translatable="false">Benchmark History</string>
+    <string name="bench_clear_history" translatable="false">Clear History</string>
 
-    <string name="bench_score_hardware">Performance Score</string>
-    <string name="bench_score_connectivity">Network Score</string>
-    <string name="bench_score_total">Total Score</string>
-    <string name="bench_faster_than">Faster than %1$.0f%% of all tested devices</string>
-    <string name="bench_nearest_device">Performance level close to %1$s (%2$s)</string>
-    <string name="bench_quick_test_desc">Quick test covering CPU Single-Core and CPU Multi-Core only. (~90 seconds)</string>
-    <string name="bench_thermal_coefficient">Thermal Stability: %1$.2f×</string>
-    <string name="bench_energy_efficiency">Power Efficiency: %1$.0f ops/J</string>
-</resources>
+    <string name="bench_score_hardware" translatable="false">Performance Score</string>
+    <string name="bench_score_connectivity" translatable="false">Network Score</string>
+    <string name="bench_score_total" translatable="false">Total Score</string>
+    <string name="bench_faster_than" translatable="false">Faster than %1$.0f%% of all tested devices</string>
+    <string name="bench_nearest_device" translatable="false">Performance level close to %1$s (%2$s)</string>
+    <string name="bench_quick_test_desc" translatable="false">Quick test covering CPU Single-Core and CPU Multi-Core only. (~90 seconds)</string>
+    <string name="bench_thermal_coefficient" translatable="false">Thermal Stability: %1$.2f×</string>
+    <string name="bench_energy_efficiency" translatable="false">Power Efficiency: %1$.0f ops/J</string>
+</resources>

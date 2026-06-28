@@ -52,12 +52,16 @@ object BenchmarkNativeBridge {
     @JvmStatic
     external fun nativeODirectRandomRead(filePath: String, opCount: Int): Double
 
-    // ── SC_20: JNI roundtrip overhead measurement ──────────────────────────────
+    @JvmStatic
+    external fun nativeEvictCache(filePath: String): Boolean
+
+
+    // ── JNI roundtrip overhead measurement (formerly SC_20, now unused as a test) ──
     /** Empty function used as the target for JNI overhead measurement. */
     @JvmStatic
     external fun nativeJniVoidCall()
 
-    // ── SC_01: Native 64-bit integer ALU ──────────────────────────────────────
+    // ── Test 01: Native 64-bit integer ALU ────────────────────────────────────
     /**
      * Run [iterations] chained 64-bit integer operations.
      * @return Throughput in Giga-operations/second.
@@ -65,7 +69,7 @@ object BenchmarkNativeBridge {
     @JvmStatic
     external fun nativeIntAluGops(iterations: Long): Double
 
-    // ── SC_02: Native double-precision FPU ─────────────────────────────────────
+    // ── Test 02: Native double-precision FPU ──────────────────────────────────
     /**
      * Run [iterations] double-precision transcendental operations (sin/cos/log).
      * @return Throughput in Mega-operations/second.
@@ -83,6 +87,10 @@ object BenchmarkNativeBridge {
 
     fun safeODirectRandomRead(filePath: String, opCount: Int): Double =
         if (_isAvailable) nativeODirectRandomRead(filePath, opCount) else -1.0
+
+    fun safeEvictCache(filePath: String): Boolean =
+        if (_isAvailable) nativeEvictCache(filePath) else false
+
 
     /**
      * Measure JNI call overhead in nanoseconds per roundtrip.

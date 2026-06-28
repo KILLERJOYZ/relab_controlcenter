@@ -42,27 +42,6 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- Gaming mode keeps CPU active via partial WakeLock -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!--
-      QUERY_ALL_PACKAGES Justification (Play Console Declaration Form):
-      Category: Device management / Device search tool
-
-      This app is a comprehensive hardware diagnostics and device info tool.
-      It requires QUERY_ALL_PACKAGES for the following core features:
-      1. "Installed Apps" tab — enumerates ALL installed packages to display
-         app name, version, install date, APK size, and permissions.
-         (DeviceInfoViewModel.loadInstalledAppsInfoInternal -> pm.getInstalledPackages)
-      2. "Security Audit" — scans all apps' declared permissions to identify
-         potentially dangerous permission usage across the device.
-         (DeviceInfoViewModel.updateSecurityInfo -> pm.getInstalledPackages(GET_PERMISSIONS))
-      3. "AssistiveTouch app launcher" — lets users pin any installed app
-         to a floating quick-launch menu.
-         (AssistiveTouchSettingsScreen -> pm.getInstalledApplications)
-
-      Without QUERY_ALL_PACKAGES, only the ~40 packages declared in <queries>
-      would be visible, making these features non-functional.
-    -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-
     <!-- CIT Tests Required Permissions -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.NFC" />
@@ -80,6 +59,10 @@
     <uses-feature android:name="android.hardware.sensor.barometer" android:required="false" />
 
     <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
         <package android:name="com.primatelabs.geekbench6" />
         <package android:name="com.antutu.ABenchMark" />
         <package android:name="com.antutu.benchmark.full" />
@@ -124,6 +107,7 @@
         android:name=".RelabApp"
         android:allowBackup="true"
         android:hardwareAccelerated="true"
+        android:largeHeap="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"

@@ -98,6 +98,23 @@ class BenchmarkOrchestrator(
             val subScores = if (engine != null && engine.isAvailable()) {
                 try {
                     engine.run { progress ->
+                        while (isThermalThrottled(powerManager)) {
+                            val pausedStatus = getThermalStatus(powerManager)
+                            val pausedHeadroom = getThermalHeadroom(powerManager)
+                            send(BenchmarkOrchestratorState.Running(
+                                currentPillar = pillar,
+                                currentSubTestLabel = "Thermal Limit Reached. Cooling down device...",
+                                pillarProgress = progress,
+                                overallProgress = (index.toFloat() + progress) / pillarsToRun.size.toFloat(),
+                                completedPillarScores = completedScores.toList(),
+                                thermalStatus = pausedStatus,
+                                thermalHeadroom = pausedHeadroom,
+                                estimatedRemainingSeconds = calculateRemainingSeconds(pillarsToRun, index, progress),
+                                isThermalPaused = true,
+                                runningHardwareScore = calculateRunningScore(completedScores, pillarsToRun)
+                            ))
+                            delay(3000L)
+                        }
                         val currentStatus = getThermalStatus(powerManager)
                         val currentHeadroom = getThermalHeadroom(powerManager)
                         send(BenchmarkOrchestratorState.Running(
@@ -115,19 +132,14 @@ class BenchmarkOrchestrator(
                     }
                 } catch (e: Throwable) {
                     Log.e(TAG, "Engine failed for $pillar", e)
-                    emptyList()
+                    failedPillarSubScores(pillar, e)
                 }
             } else {
-                emptyList()
+                failedPillarSubScores(pillar, IllegalStateException("Benchmark engine unavailable"))
             }
             
-            val isSkipped = subScores.isEmpty()
-            val validSubs = subScores.filter { it.score > 0.0 && !it.isPartial }
-            val pillarGeoScore = when {
-                validSubs.isNotEmpty() -> ScoreNormalizer.geometricMean(validSubs.map { it.score })
-                subScores.isNotEmpty() -> ScoreNormalizer.geometricMean(subScores.map { it.score.coerceAtLeast(0.001) })
-                else -> 0.0
-            }
+            val isSkipped = false
+            val pillarGeoScore = calculatePillarScore(subScores)
             val pScore = PillarScore(pillar, pillarGeoScore, subScores, isSkipped)
             completedScores.add(pScore)
             
@@ -209,6 +221,23 @@ class BenchmarkOrchestrator(
         val subScores = if (engine != null && engine.isAvailable()) {
             try {
                 engine.run { progress ->
+                    while (isThermalThrottled(powerManager)) {
+                        val pausedStatus = getThermalStatus(powerManager)
+                        val pausedHeadroom = getThermalHeadroom(powerManager)
+                        send(BenchmarkOrchestratorState.Running(
+                            currentPillar = pillar,
+                            currentSubTestLabel = "Thermal Limit Reached. Cooling down device...",
+                            pillarProgress = progress,
+                            overallProgress = progress,
+                            completedPillarScores = completedScores.toList(),
+                            thermalStatus = pausedStatus,
+                            thermalHeadroom = pausedHeadroom,
+                            estimatedRemainingSeconds = ((1f - progress) * getPillarEstimatedDuration(pillar)).roundToInt().coerceAtLeast(0),
+                            isThermalPaused = true,
+                            runningHardwareScore = 0.0
+                        ))
+                        delay(3000L)
+                    }
                     val cStatus = getThermalStatus(powerManager)
                     val cHeadroom = getThermalHeadroom(powerManager)
                     send(BenchmarkOrchestratorState.Running(
@@ -226,19 +255,14 @@ class BenchmarkOrchestrator(
                 }
             } catch (e: Throwable) {
                 Log.e(TAG, "Engine failed for $pillar", e)
-                emptyList()
+                failedPillarSubScores(pillar, e)
             }
         } else {
-            emptyList()
+            failedPillarSubScores(pillar, IllegalStateException("Benchmark engine unavailable"))
         }
         
-        val isSkipped = subScores.isEmpty()
-        val validSubs = subScores.filter { it.score > 0.0 && !it.isPartial }
-        val pillarGeoScore = when {
-            validSubs.isNotEmpty() -> ScoreNormalizer.geometricMean(validSubs.map { it.score })
-            subScores.isNotEmpty() -> ScoreNormalizer.geometricMean(subScores.map { it.score.coerceAtLeast(0.001) })
-            else -> 0.0
-        }
+        val isSkipped = false
+        val pillarGeoScore = calculatePillarScore(subScores)
         val pScore = PillarScore(pillar, pillarGeoScore, subScores, isSkipped)
         completedScores.add(pScore)
         
@@ -286,20 +310,20 @@ class BenchmarkOrchestrator(
      * We cache the result and only re-read every 10 seconds (PR-03 fix).
      */
     private var lastHeadroomReadTimeMs = 0L
-    private var cachedHeadroom = 0.3f
+    private var cachedHeadroom = 1.0f
 
     private fun getThermalHeadroom(pm: PowerManager?): Float {
-        if (pm == null) return 0.3f
+        if (pm == null) return 1.0f
         val now = System.currentTimeMillis()
         if (now - lastHeadroomReadTimeMs < 10_000L) return cachedHeadroom
         lastHeadroomReadTimeMs = now
         cachedHeadroom = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
                 val h = pm.getThermalHeadroom(10) // 10s forecast (PR-03)
-                if (h.isNaN() || h <= 0f) 0.3f else h
-            } catch (e: Exception) { 0.3f }
+                if (h.isNaN() || h <= 0f) 1.0f else h
+            } catch (e: Exception) { 1.0f }
         } else {
-            0.3f
+            1.0f
         }
         return cachedHeadroom
     }
@@ -312,15 +336,7 @@ class BenchmarkOrchestrator(
         if (completed.isEmpty()) return 0.0
         val pillarGeoMeans = completed
             .filter { !it.isSkipped }
-            .map { pScore ->
-                val validSubs = pScore.subScores.filter { it.score > 0.0 && !it.isPartial }
-                val geoMean = if (validSubs.isNotEmpty()) {
-                    ScoreNormalizer.geometricMean(validSubs.map { it.score })
-                } else {
-                    ScoreNormalizer.geometricMean(pScore.subScores.map { it.score.coerceAtLeast(0.001) })
-                }
-                Pair(pScore.pillar.weight, geoMean)
-            }
+            .map { pScore -> Pair(pScore.pillar.weight, pScore.score) }
         return ScoreNormalizer.computeFinalScore(pillarGeoMeans)
     }
 
@@ -333,20 +349,14 @@ class BenchmarkOrchestrator(
     private fun compileFinalResult(scores: List<PillarScore>, isQuickTest: Boolean): BenchmarkResult {
         val pillarGeoMeans = scores
             .filter { !it.isSkipped }
-            .map { pScore ->
-                val validSubs = pScore.subScores.filter { it.score > 0.0 && !it.isPartial }
-                val geoMean = if (validSubs.isNotEmpty()) {
-                    ScoreNormalizer.geometricMean(validSubs.map { it.score })
-                } else {
-                    ScoreNormalizer.geometricMean(pScore.subScores.map { it.score.coerceAtLeast(0.001) })
-                }
-                Pair(pScore.pillar.weight, geoMean)
-            }
+            .map { pScore -> Pair(pScore.pillar.weight, pScore.score) }
         val rawScore = ScoreNormalizer.computeFinalScore(pillarGeoMeans)
 
+        // RC-2: Apply thermal coefficient — narrowed to [0.85, 1.0], max 15% penalty
         val thermalCoeff = computeThermalCoefficient()
         val energyCoeff = computeEnergyCoefficient()
         val thermalAdjusted = ScoreNormalizer.applyDynamicCoefficients(rawScore, thermalCoeff, energyCoeff)
+        // RC-2: Floor totalScore at 85% of rawScore — thermal can't invert silicon rankings
         val totalScore = thermalAdjusted.coerceAtLeast(rawScore * 0.85)
 
         val runScope = when {
@@ -372,34 +382,50 @@ class BenchmarkOrchestrator(
     }
 
     /**
-     * Convert thermal headroom to a penalty coefficient [0.4, 1.0].
-     * headroom near 0.0 → device is severely throttled → heavy penalty.
-     * headroom > 0.8 → device is cool → no penalty.
+     * Convert thermal headroom to a penalty coefficient [0.85, 1.0].
+     * RC-2: Narrowed band — max 15% penalty prevents tablet/phone inversion.
+     * h=1.0 (cool)  → 1.00 (no penalty)
+     * h=0.0 (severe throttle) → 0.85 (−15% max)
+     *
+     * Rationale: Faster SoCs (D9400+, SD 8 Elite) generate more heat by design.
+     * A wide penalty band (e.g. [0.4, 1.0]) punishes them disproportionately,
+     * causing ranking inversions where cooler but slower chips score higher.
      */
     private fun computeThermalCoefficient(): Float {
         val h = cachedHeadroom.coerceIn(0f, 1f)
-        // RC-2: Narrowed band — max 15% penalty prevents tablet/phone inversion
-        // h=1.0 (cool)  → 1.00 (no penalty)
-        // h=0.0 (severe throttle) → 0.85 (−15% max)
         return (0.85f + 0.15f * h).coerceIn(0.85f, 1.0f)
     }
 
-    /**
-     * Read battery energy consumption if available.
-     * Returns coefficient in [0.5, 1.5].
-     * Default 1.0 when data is unavailable.
-     */
-    private fun computeEnergyCoefficient(): Float {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) return 1.0f
-        return try {
-            val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
-            val energyUwh = bm?.getLongProperty(BatteryManager.BATTERY_PROPERTY_ENERGY_COUNTER)
-            // If energy data is unavailable or unsupported, return neutral coefficient
-            if (energyUwh == null || energyUwh <= 0L) 1.0f else 1.0f
-            // Note: Full energy efficiency scoring requires measuring delta energy
-            // across the entire benchmark run. For now, return neutral.
-        } catch (_: Exception) { 1.0f }
+    private fun calculatePillarScore(subScores: List<SubScore>): Double {
+        if (subScores.isEmpty()) return 0.0
+        val nonZeroScores = subScores.filter { it.score > 0.0 && !it.score.isNaN() && !it.score.isInfinite() }
+        if (nonZeroScores.isEmpty()) return 0.0
+        return ScoreNormalizer.geometricMean(nonZeroScores.map { it.score.coerceIn(0.0, 10.0) })
     }
+
+
+    private fun failedPillarSubScores(pillar: BenchmarkPillar, cause: Throwable): List<SubScore> {
+        val label = cause.message?.takeIf { it.isNotBlank() } ?: cause.javaClass.simpleName
+        return listOf(
+            SubScore(
+                name = "${pillar.name}: unavailable ($label)",
+                rawValue = 0.0,
+                unit = "error",
+                score = 0.0,
+                isPartial = true
+            )
+        )
+    }
+
+    /**
+     * Energy efficiency coefficient — currently neutral (1.0).
+     *
+     * Full energy efficiency scoring requires delta-energy measurement across
+     * the entire benchmark run (start/end snapshots via ThermalEnergyMonitor).
+     * The current single-snapshot approach cannot produce reliable data.
+     * Returns neutral 1.0f until a proper integration is implemented.
+     */
+    private fun computeEnergyCoefficient(): Float = 1.0f
 
     private fun getPillarEstimatedDuration(pillar: BenchmarkPillar): Int {
         return when (pillar) {

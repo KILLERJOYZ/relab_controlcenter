@@ -108,9 +108,12 @@ class EglComputeHelper {
             GLES31.glGetProgramiv(prog, GLES31.GL_LINK_STATUS, ok, 0)
             if (ok[0] != GLES31.GL_TRUE) {
                 Log.e(TAG, "CS link fail: ${GLES31.glGetProgramInfoLog(prog)}")
+                GLES31.glDeleteShader(shader)
                 GLES31.glDeleteProgram(prog)
                 return 0
             }
+            GLES31.glDetachShader(prog, shader)
+            GLES31.glDeleteShader(shader)
             prog
         } catch (e: Exception) {
             0

@@ -317,3 +317,20 @@ Java_com_example_relab_1tool_benchmark_util_CoreAffinityHarness_getNativeCoreCou
     long num_cores = sysconf(_SC_NPROCESSORS_CONF);
     return (jint)num_cores;
 }
+
+JNIEXPORT jboolean JNICALL
+Java_com_example_relab_1tool_benchmark_domain_engine_BenchmarkNativeBridge_nativeEvictCache(
+    JNIEnv *env, jclass clazz, jstring jFilePath)
+{
+    const char *filePath = (*env)->GetStringUTFChars(env, jFilePath, NULL);
+    if (!filePath) return JNI_FALSE;
+    int fd = open(filePath, O_RDONLY);
+    if (fd >= 0) {
+        posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+        close(fd);
+        (*env)->ReleaseStringUTFChars(env, jFilePath, filePath);
+        return JNI_TRUE;
+    }
+    (*env)->ReleaseStringUTFChars(env, jFilePath, filePath);
+    return JNI_FALSE;
+}

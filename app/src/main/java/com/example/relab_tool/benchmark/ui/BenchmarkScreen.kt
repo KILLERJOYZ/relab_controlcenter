@@ -551,11 +551,11 @@ fun CompleteScreen(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("HARDWARE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(state.result.hardwareScore.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(String.format(java.util.Locale.US, "%.3f", state.result.hardwareScore), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("CONNECTIVITY", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(state.result.connectivityScore.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(String.format(java.util.Locale.US, "%.3f", state.result.connectivityScore), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -663,8 +663,9 @@ fun CompleteScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                             }
+                            val formattedPillarScore = String.format(java.util.Locale.US, "%.3f", pillarScore.score)
                             Text(
-                                text = "${pillarScore.score} pts",
+                                text = "$formattedPillarScore pts",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -716,8 +717,9 @@ fun CompleteScreen(
                                                     color = badgeBg,
                                                     border = BorderStroke(0.5.dp, badgeBorder)
                                                 ) {
+                                                    val formattedSubScore = String.format(java.util.Locale.US, "%.3f", sub.score)
                                                     Text(
-                                                        text = "${sub.score} pts",
+                                                        text = "$formattedSubScore pts",
                                                         style = MaterialTheme.typography.labelMedium,
                                                         fontWeight = FontWeight.Bold,
                                                         color = badgeText,

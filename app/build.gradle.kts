@@ -13,8 +13,8 @@ android {
         applicationId = "com.relab.controlcenter"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "0.4.3.5"
+        versionCode = 12
+        versionName = "0.4.3.6"
 
         ndk {
             abiFilters += listOf("arm64-v8a")

@@ -31,6 +31,9 @@ import android.view.KeyEvent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -1215,42 +1218,52 @@ fun InteractiveTestLayout(
                                 factory = { ctx ->
                                     val viewFinder = PreviewView(ctx)
                                     val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                                    cameraProviderFuture.addListener({
-                                        val cameraProvider = cameraProviderFuture.get()
-                                        val preview = Preview.Builder().apply {
-                                            if (testId == "CAMERA_MULTI" && selectedLens?.physicalId != null) {
-                                                androidx.camera.camera2.interop.Camera2Interop.Extender(this)
-                                                    .setPhysicalCameraId(selectedLens!!.physicalId!!)
-                                            }
-                                        }.build().apply {
-                                            surfaceProvider = viewFinder.surfaceProvider
-                                        }
-
-                                        val selector = if (testId == "CAMERA_FRONT") {
-                                            CameraSelector.DEFAULT_FRONT_CAMERA
-                                        } else if (testId == "CAMERA_MULTI" && selectedLens != null) {
-                                            CameraSelector.Builder()
-                                                .addCameraFilter { cameraInfos ->
-                                                    cameraInfos.filter { info ->
-                                                        val cid = androidx.camera.camera2.interop.Camera2CameraInfo.from(info).cameraId
-                                                        cid == selectedLens!!.logicalId
-                                                    }
+                                    cameraProviderFuture.addListener(object : Runnable {
+                                        @androidx.camera.camera2.interop.ExperimentalCamera2Interop
+                                        override fun run() {
+                                            val cameraProvider = cameraProviderFuture.get()
+                                            val preview = Preview.Builder().apply {
+                                                val physicalId = selectedLens?.physicalId
+                                                if (testId == "CAMERA_MULTI" && physicalId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                                    Camera2Interop.Extender(this)
+                                                        .setPhysicalCameraId(physicalId)
                                                 }
-                                                .build()
-                                        } else {
-                                            CameraSelector.DEFAULT_BACK_CAMERA
-                                        }
-
-                                        try {
-                                            cameraProvider.unbindAll()
-                                            val camera = cameraProvider.bindToLifecycle(lifecycleOwner, selector, preview)
-                                            
-                                            // Zoom stepping test logic binding
-                                            if (testId == "CAMERA_ZOOM") {
-                                                camera.cameraControl.setZoomRatio(zoomRatio)
+                                            }.build().apply {
+                                                surfaceProvider = viewFinder.surfaceProvider
                                             }
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
+
+                                            val selector = if (testId == "CAMERA_FRONT") {
+                                                CameraSelector.DEFAULT_FRONT_CAMERA
+                                            } else if (testId == "CAMERA_MULTI") {
+                                                val lens = selectedLens
+                                                if (lens != null) {
+                                                    val logicalId = lens.logicalId
+                                                    CameraSelector.Builder()
+                                                        .addCameraFilter { cameraInfos ->
+                                                            cameraInfos.filter { info ->
+                                                                val cid = Camera2CameraInfo.from(info).cameraId
+                                                                cid == logicalId
+                                                            }
+                                                        }
+                                                        .build()
+                                                } else {
+                                                    CameraSelector.DEFAULT_BACK_CAMERA
+                                                }
+                                            } else {
+                                                CameraSelector.DEFAULT_BACK_CAMERA
+                                            }
+
+                                            try {
+                                                cameraProvider.unbindAll()
+                                                val camera = cameraProvider.bindToLifecycle(lifecycleOwner, selector, preview)
+                                                
+                                                // Zoom stepping test logic binding
+                                                if (testId == "CAMERA_ZOOM") {
+                                                    camera.cameraControl.setZoomRatio(zoomRatio)
+                                                }
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                            }
                                         }
                                     }, ContextCompat.getMainExecutor(ctx))
                                     viewFinder

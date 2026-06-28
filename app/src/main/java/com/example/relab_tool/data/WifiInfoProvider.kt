@@ -11,6 +11,7 @@ import android.net.NetworkRequest
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import java.util.concurrent.atomic.AtomicReference
@@ -39,8 +40,7 @@ class WifiInfoProvider(private val context: Context) {
     } else {
         object : ConnectivityManager.NetworkCallback() {
             override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
-                val wifiInfo = networkCapabilities.transportInfo as? WifiInfo
-                latestWifiInfo.set(wifiInfo)
+                latestWifiInfo.set(null)
             }
             override fun onLost(network: Network) {
                 latestWifiInfo.set(null)
@@ -132,13 +132,19 @@ class WifiInfoProvider(private val context: Context) {
     }
 
     private fun getWifiInfoFromActiveNetwork(): WifiInfo? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
         return try {
-            val activeNetwork = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) cm.activeNetwork else null
+            val activeNetwork = cm.activeNetwork
             val caps = cm.getNetworkCapabilities(activeNetwork)
-            caps?.transportInfo as? WifiInfo
+            getWifiInfoFromCapabilities(caps)
         } catch (e: Exception) {
             null
         }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun getWifiInfoFromCapabilities(caps: NetworkCapabilities?): WifiInfo? {
+        return caps?.transportInfo as? WifiInfo
     }
 }
 
