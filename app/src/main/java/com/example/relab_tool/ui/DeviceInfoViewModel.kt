@@ -113,6 +113,9 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
     private val _deviceSummary = MutableStateFlow<DeviceSummary?>(null)
     val deviceSummary = _deviceSummary.asStateFlow()
 
+    private val _isInitialized = MutableStateFlow(false)
+    val isInitialized = _isInitialized.asStateFlow()
+
     private val _systemInfo = MutableStateFlow<SystemInfo?>(null)
     val systemInfo = _systemInfo.asStateFlow()
 
@@ -673,7 +676,10 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
             _lastStoppedChargingTs.value = stoppedChargingTs
         }
         // Parallelise: each loader is independent — no data dependency between them
-        viewModelScope.launch(Dispatchers.IO) { loadStaticInfo() }
+        viewModelScope.launch(Dispatchers.IO) {
+            loadStaticInfo()
+            _isInitialized.value = true
+        }
         
         // Register battery receiver for state changes
         ContextCompat.registerReceiver(
@@ -941,7 +947,7 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
         val nowNanos = System.nanoTime()
         val nanosSinceLastFrame = nowNanos - lastFrameTimeNanos
         val finalFps = if (nanosSinceLastFrame > 500_000_000L) {
-            if (nanosSinceLastFrame > 1_000_000_000L) 1f else 10f
+            0f
         } else {
             currentFpsValue
         }
@@ -1567,6 +1573,15 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                 supportedAbis = Build.SUPPORTED_ABIS.joinToString(", "),
                 cpuGovernor = getCpuGovernor()
             )
+
+            // Load clusters list early for CPU Core Frequency Dashboard Card fallback
+            val clustersList = getClustersList()
+            _socInfo.value = SocInfo(
+                cpuClusters = clustersList,
+                processor = SoCUtils.getCommercialName(context),
+                cores = Runtime.getRuntime().availableProcessors().toString()
+            )
+
 
             // Display Info — reuse displayManager declared above (already fetched via DisplayService)
             val display = displayManager.getDisplay(Display.DEFAULT_DISPLAY)
@@ -3696,7 +3711,17 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
 
             cpuFiles.forEach { file ->
                 try {
-                    val maxFreq = File(file, "cpufreq/cpuinfo_max_freq").readText().trim().toLong()
+                    val maxFreq = try {
+                        val f = File(file, "cpufreq/cpuinfo_max_freq")
+                        if (f.exists()) {
+                            f.readText().trim().toLong()
+                        } else {
+                            val f2 = File(file, "cpufreq/scaling_max_freq")
+                            if (f2.exists()) f2.readText().trim().toLong() else 2000000L
+                        }
+                    } catch (e: Exception) {
+                        2000000L
+                    }
                     
                     var implementer = ""
                     var part = ""
@@ -3709,34 +3734,52 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                         }
                     } catch (e: Exception) {}
 
-                    val cpuId = file.name.substring(3).toInt()
-                    RandomAccessFile("/proc/cpuinfo", "r").use { reader ->
-                        var line: String?
-                        var currentProc = -1
-                        while (reader.readLine().also { line = it } != null) {
-                            if (line?.startsWith("processor") == true) {
-                                currentProc = line!!.split(":")[1].trim().toInt()
+                    try {
+                        val cpuId = file.name.substring(3).toIntOrNull()
+                        if (cpuId != null) {
+                            RandomAccessFile("/proc/cpuinfo", "r").use { reader ->
+                                var line: String?
+                                var currentProc = -1
+                                while (reader.readLine().also { line = it } != null) {
+                                    if (line?.startsWith("processor") == true) {
+                                        val parts = line!!.split(":")
+                                        if (parts.size > 1) {
+                                            currentProc = parts[1].trim().toIntOrNull() ?: -1
+                                        }
+                                    }
+                                    if (currentProc == cpuId) {
+                                        if (line?.contains("CPU implementer") == true) {
+                                            val parts = line!!.split(":")
+                                            if (parts.size > 1) implementer = parts[1].trim()
+                                        }
+                                        if (line?.contains("CPU part") == true) {
+                                            val parts = line!!.split(":")
+                                            if (parts.size > 1) part = parts[1].trim()
+                                        }
+                                    }
+                                    if (implementer.isNotEmpty() && part.isNotEmpty() && currentProc == cpuId) break
+                                }
                             }
-                            if (currentProc == cpuId) {
-                                if (line?.contains("CPU implementer") == true) implementer = line!!.split(":")[1].trim()
-                                if (line?.contains("CPU part") == true) part = line!!.split(":")[1].trim()
-                            }
-                            if (implementer.isNotEmpty() && part.isNotEmpty() && currentProc == cpuId) break
                         }
-                    }
+                    } catch (e: Exception) {}
 
                     val identity = CoreIdentity(implementer, part, maxFreq, capacity)
                     groups.getOrPut(identity) { mutableListOf() }.add(file)
                 } catch (e: Exception) {}
             }
             
-            if (groups.isEmpty()) return emptyList()
-            
-            val sortedClusters = groups.entries.sortedWith(
-                compareByDescending<Map.Entry<CoreIdentity, MutableList<File>>> { it.key.maxFreq }
-                .thenByDescending { it.key.capacity }
-                .thenByDescending { it.value.size }
-            )
+            val sortedClusters = if (groups.isEmpty()) {
+                val coreCount = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+                val dummyFiles = (0 until coreCount).map { File(cpuDir, "cpu$it") }
+                val identity = CoreIdentity("", "", 2000000L, 0L)
+                listOf(java.util.AbstractMap.SimpleEntry(identity, dummyFiles.toMutableList()))
+            } else {
+                groups.entries.sortedWith(
+                    compareByDescending<Map.Entry<CoreIdentity, MutableList<File>>> { it.key.maxFreq }
+                    .thenByDescending { it.key.capacity }
+                    .thenByDescending { it.value.size }
+                )
+            }
 
             sortedClusters.mapIndexed { index, entry ->
                 val identity = entry.key
@@ -3744,7 +3787,16 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                 
                 var minFreq = getApplication<Application>().getString(R.string.unknown)
                 try {
-                    val min = File(cores.first(), "cpufreq/cpuinfo_min_freq").readText().trim().toLong() / 1000
+                    val min = try {
+                        val f = File(cores.first(), "cpufreq/cpuinfo_min_freq")
+                        if (f.exists()) f.readText().trim().toLong() / 1000
+                        else {
+                            val f2 = File(cores.first(), "cpufreq/scaling_min_freq")
+                            if (f2.exists()) f2.readText().trim().toLong() / 1000 else 300L
+                        }
+                    } catch (e: Exception) {
+                        300L
+                    }
                     minFreq = "$min MHz"
                 } catch (e: Exception) {}
 
@@ -3786,7 +3838,19 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
                 )
             }
         } catch (e: Exception) {
-            emptyList()
+            val coreCount = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+            val indices = (0 until coreCount).toList()
+            listOf(
+                CpuCluster(
+                    id = 0,
+                    name = "Core",
+                    architecture = "Cortex",
+                    coreCount = coreCount,
+                    minFreq = "N/A",
+                    maxFreq = "N/A",
+                    coreIndices = indices
+                )
+            )
         }
     }
 
@@ -4279,12 +4343,7 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
         }
         val hasStrongBox = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && pm.hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE)
         
-        val biometricClass = when {
-            hasStrongBox -> "StrongBox (Class 3)"
-            hasFingerprint -> "Hardware-backed (Class 3)"
-            hasFaceUnlock -> "Software-backed (Class 2)"
-            else -> "Weak / Software"
-        }
+        val biometricClass = context.getString(R.string.unknown)
 
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val activeNetwork = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) cm.activeNetwork else null
@@ -4423,7 +4482,7 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
         }
 
         val isBootloaderLocked = getSystemProperty("ro.boot.flash.locked") == "1"
-        val vbState = getSystemProperty("ro.boot.verifiedbootstate") ?: "green"
+        val vbState = getSystemProperty("ro.boot.verifiedbootstate") ?: context.getString(R.string.unknown)
 
         val slot = getSystemProperty("ro.boot.slot_suffix") ?: ""
         val activeSlot = if (slot.isNotEmpty()) slot.removePrefix("_").uppercase() else "A (Non-A/B)"
@@ -4447,7 +4506,7 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
             dynamicPartitions = isDynamic,
             seamlessUpdates = isSeamless,
             activeSlot = activeSlot,
-            avbVersion = getSystemProperty("ro.boot.vbmeta.avb_version") ?: "1.0",
+            avbVersion = getSystemProperty("ro.boot.vbmeta.avb_version") ?: context.getString(R.string.unknown),
             verifiedBootState = vbState.uppercase(),
             dmVerity = if (getSystemProperty("ro.boot.veritymode") == "enforcing") context.getString(R.string.status_enforcing) else context.getString(R.string.disabled),
             bootloaderStatus = if (isBootloaderLocked) context.getString(R.string.status_locked) else context.getString(R.string.status_unlocked),
@@ -4459,10 +4518,10 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
             hasIrisScanner = hasIrisScanner,
             biometricClass = biometricClass,
             hasStrongBox = hasStrongBox,
-            meetsBasicIntegrity = !isRooted,
-            meetsDeviceIntegrity = !isRooted && isBootloaderLocked,
-            meetsStrongIntegrity = !isRooted && isBootloaderLocked && hasStrongBox,
-            integrityFailureReason = if (isRooted) context.getString(R.string.status_device_is_rooted) else if (!isBootloaderLocked) context.getString(R.string.status_bootloader_unlocked) else null,
+            meetsBasicIntegrity = null,
+            meetsDeviceIntegrity = null,
+            meetsStrongIntegrity = null,
+            integrityFailureReason = context.getString(R.string.audit_integrity_unavailable),
             keystoreType = keystoreType,
             hardwareBackedKeystore = isHardwareBacked,
             encryptionAlgorithm = "AES, RSA, EC",

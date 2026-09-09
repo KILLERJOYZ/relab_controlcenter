@@ -13,8 +13,19 @@ android {
         applicationId = "com.relab.controlcenter"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.4.2"
+        versionCode = 11
+        versionName = "0.4.3.5"
+
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
+
+        externalNativeBuild {
+            cmake {
+                cFlags("-O3", "-fvisibility=hidden")
+                arguments("-DANDROID_STL=none")
+            }
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -27,6 +38,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
         debug {
             isMinifyEnabled = false
@@ -38,6 +50,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
 
     buildFeatures {
         compose = true
@@ -57,6 +70,13 @@ android {
         stabilityConfigurationFile = rootProject.file("stability_config.conf")
     }
 
+    externalNativeBuild {
+        cmake {
+            path("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
     packaging {
         jniLibs {
             useLegacyPackaging = false
@@ -74,6 +94,12 @@ android {
 
     lint {
         baseline = file("lint-baseline.xml")
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -110,6 +136,14 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.datastore.preferences)
+
+    // Room
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    // LiteRT (TensorFlow Lite Successor)
+    implementation("com.google.ai.edge.litert:litert:2.1.0")
 
     // Hybrid View support
     implementation("androidx.fragment:fragment-compose:1.8.6")
@@ -148,6 +182,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.junit5.api)
     testRuntimeOnly(libs.junit5.engine)
+    testRuntimeOnly("org.junit.vintage:junit-vintage-engine:5.10.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.3")
     testImplementation(libs.turbine)
     testImplementation(libs.kotlinx.coroutines.test)

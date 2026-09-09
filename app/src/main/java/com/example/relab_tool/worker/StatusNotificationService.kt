@@ -49,6 +49,8 @@ class StatusNotificationService : Service() {
     
     private var lastCpuTime = 0L
     private var lastIdleTime = 0L
+    
+    private val batteryRepo by lazy { com.example.relab_tool.data.BatteryHistoryRepository(applicationContext) }
 
     data class DeviceStats(
         val cpuPercent: Int,
@@ -137,7 +139,7 @@ class StatusNotificationService : Service() {
             cpuUsage = -1
         }
 
-        if (cpuUsage == -1 || cpuUsage == 0) {
+        if (cpuUsage == -1) {
             val cpuCount = Runtime.getRuntime().availableProcessors()
             var totalNormalized = 0f
             for (i in 0 until cpuCount) {
@@ -180,7 +182,7 @@ class StatusNotificationService : Service() {
         val status = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
         val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
 
-        val repository = com.example.relab_tool.data.BatteryHistoryRepository(applicationContext)
+        val repository = batteryRepo
         repository.recordBatteryPoint(batteryPct, isCharging)
 
         // Network

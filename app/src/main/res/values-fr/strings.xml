@@ -334,7 +334,7 @@
     <string name="fs_type">Type FS</string>
     <string name="block_size">Taille du bloc</string>
     <string name="partition">Partition</string>
-    <string name="total_label">PHTOK0FIN Total</string>
+    <string name="total_label">%1$s Total</string>
     <string name="used_label">%1$s Occasion</string>
     <string name="free_label">%1$s Gratuit</string>
     <string name="wifi_standard">Norme</string>

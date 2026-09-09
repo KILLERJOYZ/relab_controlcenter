@@ -912,7 +912,7 @@
     <string name="instruction_sets">指令集</string>
     <string name="internal_free">内部存储空闲</string>
     <string name="internal_used">内部存储已用</string>
-    <string name="last_charge_full">上次充满</string>
+    <string name="last_charge_full">上次充满100%%: %1$d小时 %2$d分钟前</string>
     <string name="level_label">Level: %1$d%%</string>
     <string name="location_specs">定位规格</string>
     <string name="mac_address">MAC 地址</string>

@@ -1,4 +1,4 @@
-# Relab Control Center (rlcc) - v0.4.2
+# Relab Control Center (rlcc) - v0.4.3.5-devbeta
 
 **Relab Control Center** is a professional-grade utility and diagnostic suite built for Android enthusiasts, developers, and power users. It combines deep hardware intelligence with real-time performance telemetry and a specialized installer hub to provide total transparency into the Android ecosystem.
 
@@ -62,6 +62,37 @@ A professional-grade **Common Interaction Toolkit** for verifying hardware funct
 
 ---
 
+## 🏁 v0.4.3.5 Release Highlights
+
+This release implements Google Play Store compliance, loading screen integration, and critical bug/resource leak fixes identified during our comprehensive v2 app audit:
+*   **Google Play Store Compliance**: Removed dangerous root shell execution (`su` commands) and the "Root Tools" settings card (charge limiter, governor switcher, etc.) to comply with Google Play security policies. Added detailed in-manifest justifications for the `QUERY_ALL_PACKAGES` and `READ_PHONE_STATE`/`READ_PHONE_NUMBERS` declarations.
+*   **Compose Branded Loading Screen**: Added a polished Compose-based loading screen with spring scale-in + pulsing icon animations and staggered subtitle fade-ins, ensuring a smooth transition during initialization.
+*   **EGL Context Resource Leaks**: Resolved critical graphics context leaks in both OpenGL and Vulkan GPU benchmark engines by wrapping test runs in strict `try/finally` blocks.
+*   **System & Memory Stability**: Fixed in-flight benchmark running score calculation inconsistencies, resolved memory leaks in the `AssistiveTouchService` `ViewModelStore` and `ApkCrawler` HTTP responses, and added connect/read/write timeouts to the telemetry OkHttpClient.
+
+---
+
+## 🏁 v0.4.3.4 Release Highlights
+
+This release implements comprehensive stability, precision, and crash-avoidance optimizations to the mobile hardware benchmark engine across all 7 active performance subsystems:
+*   **Prevented JVM Heap OutOfMemoryErrors**: Reduced STREAM array allocation sizes from 128MB to 32MB, maintaining heavy workload intensity to bypass system cache while staying safely within JVM heap growth limits.
+*   **Robust SQLite WAL Support**: Replaced query-level WAL configurations with Android's native `enableWriteAheadLogging()` API to bypass restrictions on strict OEM platforms.
+*   **Dynamic Decoder Stream Feeding**: Fixed video decoder hanging and returning 0.0 FPS by dynamically capturing valid NAL bitstreams from active encoder runs, adding driver-safe estimated fallback rates.
+*   **GC-Friendly Regex Backtracking**: Scaled down pattern-matching backtracking search string size from 2MB to 128KB to prevent heavy ART garbage collection loops.
+
+---
+
+## 🏁 v0.4.3.3 Release Highlights
+
+This release implements a comprehensive calibration audit of the hardware benchmark engine to deliver precise performance scoring and tier classification across Entry, Mid-Range, High-End, Flagship, and Elite Android devices:
+*   **Recalibrated Score Normalization**: Re-aligned base-cap limits for hardware-accelerated CPU cryptography (AES, SHA-256, CRC-32), storage write speeds (accounting for periodic fsync latency), and memory bandwidth to eliminate scores compression.
+*   **Hardware-Contended Memory Bandwidth**: Implemented high-fidelity memory bandwidth measurement under multi-threaded CPU stress to simulate realistic heavy memory contention.
+*   **Accurate Cache Hierarchy Detection**: Corrected cache size bounds (L1=8KB, L2=256KB, L3=4MB) for memory pointer chasing to target specific cache levels.
+*   **Thermal & Codec Reliability**: Replaced deterministic seed curves with timing-based dynamic thermal simulations, marked pre-Android 11 thermal headroom queries as partial fallbacks, and filled video codec buffers with randomized YUV payloads for realistic decompression complexity.
+*   **Device Reference Re-mapping**: Recalibrated the 24 reference devices mapping to reflect accurate, real-world tier distribution boundaries.
+
+---
+
 ## 🏁 v0.4.2 Release Highlights
 
 This release resolves performance stuttering and frame drops during startup and tab transitions by rewriting the telemetry engine to be lazy-loaded and cached:
@@ -77,6 +108,43 @@ This release focuses on detailed hardware spec explanations and deep internation
 *   **Spec-Specific Explanations**: Added 171 custom explanation entries for all 57 specs cards (Explanation, How it works, Why it matters) to replace generic templated text.
 *   **Global Localization (17 Languages)**: Full localization in English, Vietnamese, Simplified Chinese, Spanish, French, German, Russian, Portuguese, Italian, Japanese, Korean, Arabic, Hindi, Indonesian, Thai, Turkish, and Dutch.
 *   **Interactive Specs & Settings Navigation**: Top-right ⓘ buttons opening localized bottom sheets, and long-press shortcuts to relevant Android Settings categories with haptic feedback.
+
+---
+
+## 📊 Changelog: v0.4.3.5 vs v0.4.3.4
+
+| Feature | Version 0.4.3.4 | Version 0.4.3.5 (New) |
+| :--- | :--- | :--- |
+| **Play Compliance (su)** | Included `RootUtils.kt` with `Runtime.exec("su")` and Root Tools card. | **Play Policy Approved**: Completely removed root-level features and `su` execution. Added manifest justifications for package queries and phone access. |
+| **App Splash/Startup** | Immediate system splash dismiss, presenting empty screens during load. | **Animated Loading Screen**: Introduced Compose loading view with spring-pulsing icon and staggered fade-ins. |
+| **GPU Benchmark Contexts** | GL/Vulkan EGL contexts could leak on test failures. | **Robust Exception Handling**: Wrapped EGL context/surface initialization in strict `try/finally` blocks. |
+| **Telemetry & Services** | Leak potentials in `AssistiveTouchService` and unclosed `ApkCrawler` responses. | **Clean Resource Management**: Explicitly cleared ViewModelStore on service destruction, closed HTTP bodies, and added OkHttp timeouts. |
+| **Build Configuration** | Version Name: `0.4.3.4`, Code: `10`. | Version Name: `0.4.3.5`, Code: `11`. Release tag `v0.4.3.5` with `rlcc_devbeta_v0.4.3.5.apk`. |
+
+---
+
+## 📊 Changelog: v0.4.3.4 vs v0.4.3.3
+
+| Feature | Version 0.4.3.3 | Version 0.4.3.4 (New) |
+| :--- | :--- | :--- |
+| **CPU Multi-Core** | Allocated 128MB STREAM arrays per thread, causing JVM heap OOMs. | **Memory-Optimized STREAM**: Reduced array size to 32MB per thread, ensuring heap safety while retaining CPU cache-bypass capability. |
+| **SQLite WAL Queries** | Used `execSQL` for database WAL setup, triggering SQL exceptions on some ROMs. | **Safe Native APIs**: Migrated database WAL configuration to use native `enableWriteAheadLogging()` and `rawQuery`. |
+| **Video Codec Decoder** | Synthetic dummy NAL bitstreams rejected by modern drivers, returning 0.0 FPS. | **Dynamic Encoder Sourcing**: Feeds decoders dynamically captured valid packets from encoder runs, with safe driver-level fallbacks. |
+| **CPU Single-Core** | 2MB regex backtracking string triggered heavy ART GC allocation overhead. | **Tuned Pattern Matching**: Reduced regex string size to 128KB to eliminate GC pauses. |
+| **Build Configuration** | Version Name: `0.4.3.3`, Code: `9`. | Version Name: `0.4.3.4`, Code: `10`. Release tag `v0.4.3.4` with `rlcc_devbeta_v0.4.3.4.apk`. |
+
+---
+
+## 📊 Changelog: v0.4.3.3 vs v0.4.2
+
+| Feature | Version 0.4.2 | Version 0.4.3.3 (New) |
+| :--- | :--- | :--- |
+| **Benchmark Scoring** | Generic normalization ranges causing entry and mid-range devices to group together. | **Recalibrated Normalization**: Widened bounds to ensure linear differentiation across Entry, Mid-Range, High-End, Flagship, and Elite tiers. |
+| **Memory Bandwidth** | Measured bandwidth under idle CPU states. | **Contended Memory Bandwidth**: Measures bandwidth under active multi-threaded CPU workloads. |
+| **Cache Pointer Chasing** | Incorrect cache size boundaries for L1, L2, L3. | **Targeted Cache Testing**: Corrected cache sizing limits (L1=8KB, L2=256KB, L3=4MB) for precise bandwidth evaluation. |
+| **Crypto Workloads** | Heavy CPU cryptography tests deflating overall score. | **Balanced Crypto Normalization**: Widened ranges to account for modern hardware-accelerated ARM cryptography instructions. |
+| **Storage Testing** | Standard I/O ranges that did not account for periodic fsync. | **Realistic Storage Scoring**: Halved expected write IOPS and throughput to reflect true fsync-based system performance. |
+| **Build Configuration** | Version Name: `0.4.3.2`, Code: `7`. | Version Name: `0.4.3.3`, Code: `7`. Release tag `v0.4.3.3` with `rlcc_devbeta_v0.4.3.3.apk`. |
 
 ---
 
@@ -105,7 +173,7 @@ This release focuses on detailed hardware spec explanations and deep internation
 
 ## 📥 Getting Started
 
-1.  **Download**: Obtain the latest `rlcc_beta_v0.4.2.apk` from the [Releases](https://github.com/KILLERJOYZ/relab_controlcenter/releases) page.
+1.  **Download**: Obtain the latest `rlcc_devbeta_v0.4.3.5.apk` from the [Releases](https://github.com/KILLERJOYZ/relab_controlcenter/releases) page.
 2.  **Permissions**: Grant Camera, Location, and Phone permissions to enable physical sensor detection and network identification.
 3.  **Installation**: Enable "Install from Unknown Sources" for the App Hub to function as an alternative installer.
 

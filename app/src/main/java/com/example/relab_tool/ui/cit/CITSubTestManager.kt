@@ -88,9 +88,8 @@ object CITSubTestManager {
                     name = "Touch Response Latency",
                     instruction = "Measures draw frame response time upon hardware finger contacts.",
                     isAutomated = true,
-                    runAutomated = { _ ->
-                        // Standard benchmark average simulation for automated checking
-                        Pair(TestStatus.PASS, "12 ms (Excellent)")
+                    runAutomated = { context ->
+                        Pair(TestStatus.SKIPPED, context.getString(com.example.relab_tool.R.string.audit_not_measured))
                     }
                 )
             )
@@ -365,7 +364,7 @@ object CITSubTestManager {
                         if (results != null && results.isNotEmpty()) {
                             Pair(TestStatus.PASS, "${results.size} Networks Seen")
                         } else {
-                            Pair(TestStatus.PASS, "Scan Completed (0 seen)")
+                            Pair(TestStatus.SKIPPED, context.getString(com.example.relab_tool.R.string.audit_not_measured))
                         }
                     }
                 ),
@@ -395,7 +394,7 @@ object CITSubTestManager {
                         val bm = context.getSystemService(Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager
                         val adapter = bm?.adapter
                         if (adapter != null) {
-                            Pair(TestStatus.PASS, if (adapter.isEnabled) "Bluetooth Enabled" else "Bluetooth Disabled")
+                            Pair(TestStatus.SKIPPED, context.getString(com.example.relab_tool.R.string.audit_not_measured))
                         } else {
                             Pair(TestStatus.NOT_APPLICABLE, "No BT Radio")
                         }
@@ -426,7 +425,7 @@ object CITSubTestManager {
                             android.telephony.TelephonyManager.SIM_STATE_ABSENT -> "No SIM"
                             else -> "Inactive / Locked"
                         }
-                        Pair(TestStatus.PASS, status)
+                        Pair(if (state == android.telephony.TelephonyManager.SIM_STATE_READY) TestStatus.PASS else TestStatus.SKIPPED, status)
                     }
                 ),
                 SubTestDef(
@@ -469,7 +468,7 @@ object CITSubTestManager {
                     runAutomated = { context ->
                         val intent = context.registerReceiver(null, IntentFilter("android.hardware.usb.action.USB_STATE"))
                         val connected = intent?.getBooleanExtra("connected", false) == true
-                        Pair(TestStatus.PASS, if (connected) "Cable Attached" else "No Data Cable")
+                        Pair(TestStatus.SKIPPED, context.getString(com.example.relab_tool.R.string.audit_not_measured))
                     }
                 ),
                 SubTestDef(
@@ -481,7 +480,7 @@ object CITSubTestManager {
                         val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
                         val plugged = intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) ?: -1
                         val isUsb = plugged == BatteryManager.BATTERY_PLUGGED_USB
-                        Pair(TestStatus.PASS, if (isUsb) "USB Charging" else "Not USB Charging")
+                        Pair(if (isUsb) TestStatus.PASS else TestStatus.SKIPPED, if (isUsb) context.getString(com.example.relab_tool.R.string.audit_charging_detected) else context.getString(com.example.relab_tool.R.string.audit_not_measured))
                     }
                 ),
                 SubTestDef(
@@ -493,7 +492,7 @@ object CITSubTestManager {
                         val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
                         val plugged = intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) ?: -1
                         val isWireless = plugged == BatteryManager.BATTERY_PLUGGED_WIRELESS
-                        Pair(TestStatus.PASS, if (isWireless) "Wireless Charging" else "No Induction Charge")
+                        Pair(if (isWireless) TestStatus.PASS else TestStatus.SKIPPED, context.getString(if (isWireless) com.example.relab_tool.R.string.audit_charging_detected else com.example.relab_tool.R.string.audit_not_measured))
                     }
                 )
             )
@@ -522,7 +521,7 @@ object CITSubTestManager {
                     isAutomated = true,
                     runAutomated = { context ->
                         // Standard check for dedicated cameras shutter keys
-                        val hasCameraShutter = context.packageManager.hasSystemFeature("android.hardware.camera.external")
+                        val hasCameraShutter = android.view.KeyCharacterMap.deviceHasKey(android.view.KeyEvent.KEYCODE_CAMERA)
                         if (hasCameraShutter) {
                             Pair(TestStatus.PASS, "Supported")
                         } else {
@@ -643,9 +642,10 @@ object CITSubTestManager {
                             val t1 = System.currentTimeMillis()
                             val read = file.readBytes()
                             val t2 = System.currentTimeMillis()
+                            check(read.contentEquals(data)) { "Storage verification failed" }
                             file.delete()
-                            val writeSpeed = 2.0 / ((t1 - t0) / 1000.0)
-                            val readSpeed = 2.0 / ((t2 - t1) / 1000.0)
+                            val writeSpeed = 2.0 / ((t1 - t0).coerceAtLeast(1L) / 1000.0)
+                            val readSpeed = 2.0 / ((t2 - t1).coerceAtLeast(1L) / 1000.0)
                             Pair(TestStatus.PASS, "W: %.1fMB/s, R: %.1fMB/s".format(writeSpeed, readSpeed))
                         } catch (e: Exception) {
                             Pair(TestStatus.FAIL, "IO Error")
@@ -679,9 +679,21 @@ object CITSubTestManager {
                             BatteryManager.BATTERY_HEALTH_OVERHEAT -> "Overheated"
                             BatteryManager.BATTERY_HEALTH_DEAD -> "Dead"
                             BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "Over Voltage"
-                            else -> "Normal"
+                            else -> context.getString(com.example.relab_tool.R.string.unknown)
                         }
-                        Pair(TestStatus.PASS, healthStr)
+                        Pair(
+                            when (health) {
+                                BatteryManager.BATTERY_HEALTH_GOOD -> TestStatus.PASS
+                                BatteryManager.BATTERY_HEALTH_OVERHEAT,
+                                BatteryManager.BATTERY_HEALTH_DEAD,
+                                BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE,
+                                BatteryManager.BATTERY_HEALTH_COLD,
+                                BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE -> TestStatus.FAIL
+                                else -> TestStatus.SKIPPED
+                            },
+                            if (health == BatteryManager.BATTERY_HEALTH_UNKNOWN || health < 0)
+                                context.getString(com.example.relab_tool.R.string.unknown) else healthStr
+                        )
                     }
                 ),
                 SubTestDef(
@@ -711,7 +723,7 @@ object CITSubTestManager {
                     runAutomated = { context ->
                         val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? android.telephony.TelephonyManager
                         val state = tm?.simState ?: android.telephony.TelephonyManager.SIM_STATE_UNKNOWN
-                        Pair(TestStatus.PASS, if (state != android.telephony.TelephonyManager.SIM_STATE_ABSENT) "Tray Engaged" else "Tray Empty")
+                        Pair(TestStatus.SKIPPED, context.getString(com.example.relab_tool.R.string.audit_not_measured))
                     }
                 ),
                 SubTestDef(

@@ -1,5 +1,8 @@
 package com.example.relab_tool.utils
 
+import com.example.relab_tool.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -12,7 +15,7 @@ import java.io.FileOutputStream
 
 object CITReportJsonExporter {
 
-    fun exportAndShareJson(context: Context, session: DiagnosticSession) {
+    suspend fun exportAndShareJson(context: Context, session: DiagnosticSession) = withContext(Dispatchers.IO) {
         val json = JSONObject()
         
         val devJson = JSONObject()
@@ -52,20 +55,19 @@ object CITReportJsonExporter {
         if (docDir != null && !docDir.exists()) {
             docDir.mkdirs()
         }
-        val reportFile = File(docDir, "relab_diagnostic_report.json")
-
+        requireNotNull(docDir) { "Report directory unavailable" }
+        val reportFile = File.createTempFile(StabilizationConstants.JSON_REPORT_PREFIX, StabilizationConstants.JSON_EXTENSION, docDir)
         try {
-            val fos = FileOutputStream(reportFile)
-            fos.write(json.toString(4).toByteArray())
-            fos.close()
-        } catch (e: Exception) {
-            e.printStackTrace()
+            FileOutputStream(reportFile).use { it.write(json.toString(4).toByteArray(Charsets.UTF_8)) }
+        } catch (error: Exception) {
+            reportFile.delete()
+            throw error
         }
 
         // Share via FileProvider
         val uri: Uri = FileProvider.getUriForFile(
             context,
-            "com.relab.controlcenter.fileprovider",
+            context.packageName + StabilizationConstants.FILE_PROVIDER_SUFFIX,
             reportFile
         )
 
@@ -77,9 +79,9 @@ object CITReportJsonExporter {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
-        val chooserIntent = Intent.createChooser(shareIntent, "Share JSON Report").apply {
+        val chooserIntent = Intent.createChooser(shareIntent, context.getString(R.string.audit_share_report)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        context.startActivity(chooserIntent)
+        withContext(Dispatchers.Main) { context.startActivity(chooserIntent) }
     }
 }

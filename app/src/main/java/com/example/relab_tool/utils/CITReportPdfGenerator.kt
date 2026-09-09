@@ -1,5 +1,8 @@
 package com.example.relab_tool.utils
 
+import com.example.relab_tool.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.content.Context
 import android.content.Intent
 import android.graphics.Canvas
@@ -18,8 +21,9 @@ import java.util.Locale
 
 object CITReportPdfGenerator {
 
-    fun generateAndShareReport(context: Context, session: DiagnosticSession) {
+    suspend fun generateAndShareReport(context: Context, session: DiagnosticSession) = withContext(Dispatchers.IO) {
         val pdfDocument = PdfDocument()
+        try {
         val textPaint = Paint().apply { isAntiAlias = true }
         val paint = Paint()
 
@@ -273,22 +277,20 @@ object CITReportPdfGenerator {
         if (docDir != null && !docDir.exists()) {
             docDir.mkdirs()
         }
-        val reportFile = File(docDir, "relab_diagnostic_report.pdf")
+        requireNotNull(docDir) { "Report directory unavailable" }
+        val reportFile = File.createTempFile(StabilizationConstants.JSON_REPORT_PREFIX, StabilizationConstants.PDF_EXTENSION, docDir)
 
         try {
-            val fos = FileOutputStream(reportFile)
-            pdfDocument.writeTo(fos)
-            fos.close()
+            FileOutputStream(reportFile).use { pdfDocument.writeTo(it) }
         } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            pdfDocument.close()
+            reportFile.delete()
+            throw e
         }
 
         // Share via FileProvider
         val uri: Uri = FileProvider.getUriForFile(
             context,
-            "com.relab.controlcenter.fileprovider",
+            context.packageName + StabilizationConstants.FILE_PROVIDER_SUFFIX,
             reportFile
         )
 
@@ -300,9 +302,12 @@ object CITReportPdfGenerator {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
-        val chooserIntent = Intent.createChooser(shareIntent, "Share Diagnostics PDF").apply {
+        val chooserIntent = Intent.createChooser(shareIntent, context.getString(R.string.audit_share_report)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        context.startActivity(chooserIntent)
+        withContext(Dispatchers.Main) { context.startActivity(chooserIntent) }
+        } finally {
+            pdfDocument.close()
+        }
     }
 }

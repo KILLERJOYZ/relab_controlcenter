@@ -1078,7 +1078,7 @@
     <string name="instruction_sets">Bộ lệnh</string>
     <string name="internal_free">Bộ nhớ trong trống</string>
     <string name="internal_used">Bộ nhớ trong đã dùng</string>
-    <string name="last_charge_full">Sạc đầy lần cuối</string>
+    <string name="last_charge_full">Sạc đầy 100%%: %1$dh %2$dm trước</string>
     <string name="mac_address">Địa chỉ MAC</string>
     <string name="max_bandwidth">Băng thông tối đa</string>
     <string name="max_hdcp_level">Mức HDCP tối đa</string>

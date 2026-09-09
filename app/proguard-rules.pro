@@ -30,3 +30,37 @@
 # ── OkHttp ───────────────────────────────────────────────────────────────────
 -dontwarn okhttp3.**
 -dontwarn okio.**
+
+# ── Room & WorkManager Database ────────────────────────────────────────────────
+-keep class * extends androidx.room.RoomDatabase {
+    <init>(...);
+}
+-keep class * implements androidx.startup.Initializer {
+    <init>();
+}
+
+# ── JNI / Native code ──────────────────────────────────────────────────────────
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+-keep class com.example.relab_tool.benchmark.domain.engine.BenchmarkNativeBridge { *; }
+
+# ── AndroidX Tracing & Test Runner ────────────────────────────────────────────
+-keep class androidx.tracing.** { *; }
+-keep class androidx.test.** { *; }
+-dontwarn androidx.test.**
+
+# ── Kotlin Stdlib ─────────────────────────────────────────────────────────────
+-keep class kotlin.** { *; }
+-dontwarn kotlin.**
+
+# ── Kotlin Coroutines ─────────────────────────────────────────────────────────
+-keep class kotlinx.coroutines.** { *; }
+-dontwarn kotlinx.coroutines.**
+
+# ── Benchmark Engines & Scoring ───────────────────────────────────────────────
+-keep class com.example.relab_tool.benchmark.** { *; }
+
+
+
+

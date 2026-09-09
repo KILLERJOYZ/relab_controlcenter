@@ -16,9 +16,16 @@ abstract class BaseDashboardWidget : AppWidgetProvider() {
     abstract val layoutId: Int
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        val stats = WidgetStatsCollector.collect(context)
-        for (appWidgetId in appWidgetIds) {
-            updateWidget(context, appWidgetManager, appWidgetId, stats)
+        val pending = goAsync()
+        java.util.concurrent.CompletableFuture.runAsync {
+            try {
+                val stats = WidgetStatsCollector.collect(context.applicationContext)
+                for (appWidgetId in appWidgetIds) {
+                    updateWidget(context, appWidgetManager, appWidgetId, stats)
+                }
+            } finally {
+                pending.finish()
+            }
         }
     }
 

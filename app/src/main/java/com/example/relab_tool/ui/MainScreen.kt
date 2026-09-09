@@ -59,6 +59,7 @@ import com.example.relab_tool.R
 import com.example.relab_tool.model.AppInfo
 import com.example.relab_tool.model.InstallationStatus
 import com.example.relab_tool.model.SearchResult
+import com.example.relab_tool.benchmark.ui.BenchmarkScreen
 import kotlinx.coroutines.launch
 import java.util.Locale
 import android.content.Context
@@ -291,7 +292,7 @@ fun MainScreen(viewModel: AppInstallerViewModel, windowSizeClass: WindowSizeClas
                                 LaunchedEffect(Unit) { viewModel.ensureLoaded() }
                                 AppInstallerContent(apps = apps, viewModel = viewModel, windowSizeClass = windowSizeClass, isLoaded = isAppsLoaded)
                             }
-                            2 -> BenchmarksScreen(viewModel = performanceViewModel, windowSizeClass = windowSizeClass)
+                            2 -> BenchmarkScreen(viewModel = hiltViewModel(), windowSizeClass = windowSizeClass)
                             3 -> DeviceInfoScreen(viewModel = deviceInfoViewModel, windowSizeClass = windowSizeClass)
                             4 -> SettingsScreen(onLaunchCIT = onLaunchCIT)
                         }

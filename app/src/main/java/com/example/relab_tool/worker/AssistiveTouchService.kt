@@ -60,6 +60,7 @@ class AssistiveTouchService : Service(), LifecycleOwner, SavedStateRegistryOwner
     private var isMenuVisible = mutableStateOf(false)
     private var screenWidth = 0
     private var screenHeight = 0
+    private val composeViewModelStore = ViewModelStore()
 
     // ─── Lifecycle ───────────────────────────────────────────────────────────
 
@@ -145,6 +146,7 @@ class AssistiveTouchService : Service(), LifecycleOwner, SavedStateRegistryOwner
         serviceScope.cancel()
         removeMenu()
         removeFloatingButton()
+        composeViewModelStore.clear()
         try {
             lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         } catch (_: Throwable) { }
@@ -420,9 +422,8 @@ class AssistiveTouchService : Service(), LifecycleOwner, SavedStateRegistryOwner
     private fun setupViewTreeOwners(view: ComposeView) {
         view.setViewTreeLifecycleOwner(this)
         view.setViewTreeSavedStateRegistryOwner(this)
-        val store = ViewModelStore()
         view.setViewTreeViewModelStoreOwner(object : ViewModelStoreOwner {
-            override val viewModelStore: ViewModelStore = store
+            override val viewModelStore: ViewModelStore = composeViewModelStore
         })
     }
 

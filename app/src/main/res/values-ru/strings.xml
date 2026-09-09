@@ -893,7 +893,7 @@
     <string name="instruction_sets">Наборы инструкций</string>
     <string name="internal_free">Внутренняя свободная</string>
     <string name="internal_used">Внутренняя занятая</string>
-    <string name="last_charge_full">Последняя полная зарядка</string>
+    <string name="last_charge_full">Последняя зарядка до 100%%: %1$dч %2$dм назад</string>
     <string name="level_label">Уровень: %1$d%%</string>
     <string name="location_specs">Параметры позиционирования</string>
     <string name="mac_address">MAC-адрес</string>

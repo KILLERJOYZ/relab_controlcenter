@@ -110,7 +110,10 @@ class AppInstallerViewModel(application: Application) : AndroidViewModel(applica
                             } else app
                         }
                     }.awaitAll()
-                    _apps.value = updatedList
+                    val icons = updatedList.associateBy { it.packageName }
+                    _apps.update { latest ->
+                        latest.map { app -> app.copy(iconUrl = icons[app.packageName]?.iconUrl ?: app.iconUrl) }
+                    }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("AppInstaller", "Error fetching internet icons", e)
