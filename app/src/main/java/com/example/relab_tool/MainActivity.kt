@@ -139,7 +139,7 @@ class MainActivity : AppCompatActivity() {
             val windowSizeClass = calculateWindowSizeClass(this)
             var showCITScreen by remember { mutableStateOf(false) }
 
-            val darkMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
+            val darkMode by com.example.relab_tool.ui.theme.ThemeSettings.darkMode.collectAsStateWithLifecycle()
 
             val systemDark = isSystemInDarkTheme()
             val isDark = when (darkMode) {

@@ -139,7 +139,7 @@ class StatusNotificationService : Service() {
             cpuUsage = -1
         }
 
-        if (cpuUsage == -1 || cpuUsage == 0) {
+        if (cpuUsage == -1) {
             val cpuCount = Runtime.getRuntime().availableProcessors()
             var totalNormalized = 0f
             for (i in 0 until cpuCount) {

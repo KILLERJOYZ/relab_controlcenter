@@ -2,8 +2,8 @@ package com.example.relab_tool.utils
 
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 object NetworkUtils {
@@ -45,35 +45,44 @@ object NetworkUtils {
         }
     }
 
-    suspend fun performDownloadSpeedTest(url: String, onProgress: (Float) -> Unit): Double = withContext(Dispatchers.IO) {
-        val request = Request.Builder().url(url).build()
-        var speedMbps = 0.0
-        try {
-            client.newCall(request).execute().use { response ->
-                val body = response.body ?: return@withContext 0.0
-                val totalBytes = body.contentLength()
-                var downloadedBytes = 0L
-                val startTime = System.currentTimeMillis()
-                val source = body.source()
-                val buffer = ByteArray(8192)
-                var bytesRead: Int
-                
-                while (source.read(buffer).also { bytesRead = it } != -1) {
-                    downloadedBytes += bytesRead
-                    if (totalBytes > 0) {
-                        onProgress(downloadedBytes.toFloat() / totalBytes)
-                    }
-                    // Limit test to 10 seconds
-                    if (System.currentTimeMillis() - startTime > 10000) break
+    suspend fun performDownloadSpeedTest(url: String, onProgress: (Float) -> Unit): Double =
+        withContext(Dispatchers.IO) {
+            coroutineScope {
+                val call = client.newCall(Request.Builder().url(url).build())
+                call.timeout().timeout(10, TimeUnit.SECONDS)
+                val cancellationGuard = launch(start = CoroutineStart.UNDISPATCHED) {
+                    try { awaitCancellation() } finally { call.cancel() }
                 }
-                
-                val endTime = System.currentTimeMillis()
-                val durationSec = (endTime - startTime) / 1000.0
-                if (durationSec > 0) {
-                    speedMbps = (downloadedBytes * 8.0 / 1024 / 1024) / durationSec
+                try {
+                    call.execute().use { response ->
+                        if (!response.isSuccessful) throw IOException("Speed test HTTP failure: " + response.code)
+                        val body = response.body ?: throw IOException("Empty response body")
+                        val totalBytes = body.contentLength()
+                        val started = System.nanoTime()
+                        var downloaded = 0L
+                        var lastProgress = started
+                        val buffer = ByteArray(8192)
+                        val source = body.source()
+                        while (true) {
+                            ensureActive()
+                            val read = source.read(buffer)
+                            if (read == -1) break
+                            downloaded += read
+                            val now = System.nanoTime()
+                            if (totalBytes > 0 && now - lastProgress >= 100_000_000L) {
+                                lastProgress = now
+                                withContext(Dispatchers.Main) {
+                                    onProgress((downloaded.toFloat() / totalBytes).coerceIn(0f, 1f))
+                                }
+                            }
+                        }
+                        val seconds = (System.nanoTime() - started).coerceAtLeast(1L) / 1_000_000_000.0
+                        downloaded * 8.0 / 1_000_000 / seconds
+                    }
+                } finally {
+                    cancellationGuard.cancel()
+                    call.cancel()
                 }
             }
-        } catch (e: Exception) {}
-        speedMbps
-    }
+        }
 }

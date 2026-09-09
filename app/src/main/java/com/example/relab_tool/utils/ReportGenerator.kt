@@ -5,15 +5,9 @@ import android.os.Build
 import android.os.CancellationSignal
 import android.os.Environment
 import android.os.ParcelFileDescriptor
-import android.print.PageRange
-import android.print.PrintAttributes
-import android.print.PrintDocumentAdapter
-import android.print.PrintDocumentInfo
-import android.print.PrintResultCallbackBypass
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import com.example.relab_tool.model.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -37,119 +31,51 @@ object ReportGenerator {
         network: NetworkInfo?,
         audio: AudioInfo?,
         security: SecurityInfo?
-    ): File? = withContext(Dispatchers.Main) {
-        suspendCancellableCoroutine { continuation ->
-            val webView = WebView(context)
-            webView.settings.blockNetworkLoads = true
-            
-            // Find activity and its root view group to attach WebView to window hierarchy.
-            // This is required on Android 10+ so the layout pass resolves instantly instead of hanging/failing in headless mode.
-            val activity = findActivity(context)
-            val rootView = activity?.window?.decorView as? android.view.ViewGroup
-            
-            webView.visibility = android.view.View.INVISIBLE
-            rootView?.addView(webView, android.view.ViewGroup.LayoutParams(1, 1))
-
-            fun cleanup() {
-                rootView?.removeView(webView)
-                webView.destroy()
+    ): File? = withContext(Dispatchers.IO) {
+        val html = generateHtmlReport(
+            summary, system, cpu, battery, display, memory, soc, cameras,
+            bluetooth, network, audio, security
+        ).replace(Regex("(?is)<head>.*?</head>"), "")
+        val text = android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_LEGACY).toString().trim()
+        val paint = android.text.TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = 12f
+            color = android.graphics.Color.BLACK
+        }
+        val layout = android.text.StaticLayout.Builder.obtain(text, 0, text.length, paint, 515)
+            .setLineSpacing(3f, 1f).setIncludePad(false).build()
+        val directory = context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
+            ?: throw java.io.IOException("Report directory unavailable")
+        check(directory.exists() || directory.mkdirs()) { "Cannot create report directory" }
+        val file = File.createTempFile(
+            StabilizationConstants.JSON_REPORT_PREFIX, StabilizationConstants.PDF_EXTENSION, directory
+        )
+        val document = android.graphics.pdf.PdfDocument()
+        try {
+            var offset = 0
+            var pageNumber = 1
+            while (offset < layout.height) {
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                var end = (offset + 750).coerceAtMost(layout.height)
+                if (end < layout.height) end = layout.getLineTop(layout.getLineForVertical(end))
+                if (end <= offset) end = (offset + 750).coerceAtMost(layout.height)
+                val page = document.startPage(android.graphics.pdf.PdfDocument.PageInfo.Builder(595, 842, pageNumber++).create())
+                page.canvas.save()
+                page.canvas.clipRect(40, 40, 555, 40 + end - offset)
+                page.canvas.translate(40f, 40f - offset)
+                layout.draw(page.canvas)
+                page.canvas.restore()
+                document.finishPage(page)
+                offset = end
             }
-            
-            continuation.invokeOnCancellation {
-                cleanup()
-            }
-            
-            webView.webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    webView.post {
-                        val fileName = "Relab_Report_${System.currentTimeMillis()}.pdf"
-                        val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
-                        
-                        val printAdapter = webView.createPrintDocumentAdapter("Relab Hardware Report")
-                        val printAttributes = PrintAttributes.Builder()
-                            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                            .setResolution(PrintAttributes.Resolution("pdf", "pdf", 600, 600))
-                            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
-                            .build()
-
-                        val layoutCallback = PrintResultCallbackBypass.createLayoutCallback(object : PrintResultCallbackBypass.LayoutCallbackImpl {
-                            override fun onLayoutFinished(info: PrintDocumentInfo?, changed: Boolean) {
-                                val pfd: ParcelFileDescriptor
-                                try {
-                                    pfd = ParcelFileDescriptor.open(
-                                        file,
-                                        ParcelFileDescriptor.MODE_READ_WRITE or ParcelFileDescriptor.MODE_CREATE or ParcelFileDescriptor.MODE_TRUNCATE
-                                    )
-                                } catch (e: Exception) {
-                                    cleanup()
-                                    if (continuation.isActive) continuation.resume(null)
-                                    return
-                                }
-
-                                val writeCallback = PrintResultCallbackBypass.createWriteCallback(object : PrintResultCallbackBypass.WriteCallbackImpl {
-                                    override fun onWriteFinished(pages: Array<PageRange>?) {
-                                        try {
-                                            pfd.close()
-                                        } catch (e: Exception) {}
-                                        cleanup()
-                                        if (continuation.isActive) continuation.resume(file)
-                                    }
-
-                                    override fun onWriteFailed(error: CharSequence?) {
-                                        try {
-                                            pfd.close()
-                                        } catch (e: Exception) {}
-                                        cleanup()
-                                        if (continuation.isActive) continuation.resume(null)
-                                    }
-
-                                    override fun onWriteCancelled() {
-                                        try {
-                                            pfd.close()
-                                        } catch (e: Exception) {}
-                                        cleanup()
-                                        if (continuation.isActive) continuation.resume(null)
-                                    }
-                                })
-
-                                printAdapter.onWrite(
-                                    arrayOf(PageRange.ALL_PAGES),
-                                    pfd,
-                                    CancellationSignal(),
-                                    writeCallback
-                                )
-                            }
-
-                            override fun onLayoutFailed(error: CharSequence?) {
-                                cleanup()
-                                if (continuation.isActive) continuation.resume(null)
-                            }
-
-                            override fun onLayoutCancelled() {
-                                cleanup()
-                                if (continuation.isActive) continuation.resume(null)
-                            }
-                        })
-
-                        printAdapter.onLayout(
-                            null,
-                            printAttributes,
-                            null,
-                            layoutCallback,
-                            null
-                        )
-                    }
-                }
-            }
-            
-            val html = generateHtmlReport(
-                summary, system, cpu, battery, display, memory, soc, cameras, bluetooth, network, audio, security
-            )
-            webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+            java.io.FileOutputStream(file).use { document.writeTo(it) }
+            file
+        } catch (error: Exception) {
+            file.delete()
+            throw error
+        } finally {
+            document.close()
         }
     }
-
-
 
     private fun generateHtmlReport(
         summary: DeviceSummary?,
@@ -170,7 +96,7 @@ object ReportGenerator {
         val deviceManufacturer = summary?.manufacturer ?: system?.manufacturer ?: "Unknown"
 
         val isRooted = security?.rootAccess == "Yes" || security?.rootAccess == "true" || (system?.buildType ?: "").contains("test-keys")
-        val rootStatusText = if (isRooted) "Rooted (Warning)" else "Secured (No Root)"
+        val rootStatusText = if (isRooted) "Local root indicators detected" else "Root status not verified"
         val rootClass = if (isRooted) "badge warning" else "badge success"
 
         // Check storage percent
@@ -502,7 +428,7 @@ object ReportGenerator {
                     </div>
                     <div class="spec-item">
                         <div class="spec-label">Android ID</div>
-                        <div class="spec-value">${(summary?.androidId ?: "Unknown").escape()}</div>
+                        <div class="spec-value">[Excluded for privacy]</div>
                     </div>
                     <div class="spec-item">
                         <div class="spec-label">Google Play Services</div>
@@ -723,7 +649,7 @@ object ReportGenerator {
                     </div>
                     <div class="spec-item">
                         <div class="spec-label">Connected Wi-Fi SSID</div>
-                        <div class="spec-value">${(network?.wifiSsid ?: "Not Connected").escape()}</div>
+                        <div class="spec-value">[Excluded for privacy]</div>
                     </div>
                     <div class="spec-item">
                         <div class="spec-label">Wi-Fi Frequency</div>

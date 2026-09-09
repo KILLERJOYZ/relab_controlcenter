@@ -284,6 +284,14 @@ class PerformanceOverlayService : Service(), LifecycleOwner, SavedStateRegistryO
     @Composable
     private fun OverlayContent(onDrag: (Int, Int) -> Unit) {
         val telemetryData by com.example.relab_tool.data.TelemetryManager.data.collectAsState()
+        val clockNow by produceState(android.os.SystemClock.elapsedRealtime()) {
+            while (true) {
+                value = android.os.SystemClock.elapsedRealtime()
+                delay(1000)
+            }
+        }
+        val telemetryStale = telemetryData.updatedAtElapsedMs == 0L ||
+            clockNow - telemetryData.updatedAtElapsedMs > 5000L
         // Use the service's own FPS tracker so it works regardless of app foreground state
         val overlayFps by _overlayFps.asStateFlow().collectAsState()
 
@@ -460,7 +468,8 @@ class PerformanceOverlayService : Service(), LifecycleOwner, SavedStateRegistryO
                     ) {
                         val displayFps = if (overlayFps > 0f) overlayFps else telemetryData.fps
                         Text(
-                            text = "FPS: ${displayFps.toInt()}",
+                            text = if (telemetryStale) getString(R.string.audit_stale_telemetry)
+                            else getString(R.string.audit_app_fps) + ": ${displayFps.toInt()}",
                             color = Color(0xFF00E676),
                             fontSize = if (isMinimized) 15.sp else 18.sp,
                             fontWeight = FontWeight.Bold

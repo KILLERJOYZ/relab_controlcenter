@@ -164,6 +164,15 @@ fun SettingsMainPage(
             title = stringResource(R.string.settings_general),
             icon  = Icons.Outlined.Language
         ) {
+            SettingsRow(
+                title = stringResource(R.string.grant_permissions),
+                subtitle = stringResource(R.string.permission_desc),
+                onClick = {
+                    context.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        android.net.Uri.parse("package:" + context.packageName)))
+                }
+            )
+            SettingsDivider()
             // Language
             SettingsRow(
                 title    = stringResource(R.string.settings_language),
@@ -217,10 +226,11 @@ fun SettingsMainPage(
                 title    = stringResource(R.string.settings_privacy_policy),
                 subtitle = stringResource(R.string.settings_privacy_policy_desc),
                 onClick  = {
-                    val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/killerjoyz/relab_controlcenter/blob/main/PRIVACY_POLICY.md")).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(intent)
+                    android.app.AlertDialog.Builder(context)
+                        .setTitle(R.string.settings_privacy_policy)
+                        .setMessage(R.string.audit_privacy_body)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
                 }
             )
         }
@@ -341,13 +351,27 @@ fun SettingsMainPage(
                                 }
                                 context.startActivity(Intent.createChooser(intent, context.getString(R.string.settings_share_report_title)))
                             }
+                        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                            throw cancelled
                         } catch (e: Exception) {
-                            // Fail-safe logging
+                            android.widget.Toast.makeText(context, R.string.audit_export_error, android.widget.Toast.LENGTH_LONG).show()
                         } finally {
                             isGeneratingReport = false
                         }
                     }
                 }
+            )
+        }
+
+        // Root writes remain disabled until device-specific adapters are validated.
+        SettingsCard(
+            title = stringResource(R.string.settings_root_tools),
+            icon = Icons.Default.Security
+        ) {
+            Text(
+                text = stringResource(R.string.audit_root_disabled),
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.bodyMedium
             )
         }
 

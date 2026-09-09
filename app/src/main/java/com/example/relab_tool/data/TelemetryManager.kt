@@ -13,10 +13,10 @@ enum class PerformanceProfile(
     /** Balanced — default system behaviour. 1-second polling. */
     DEFAULT(pollIntervalMs = 1000L, label = "Default"),
 
-    /** High-performance gaming mode. 500 ms polling, CPU hints boosted. */
+    /** High-performance gaming mode. 500 ms polling for this app. */
     GAMING(pollIntervalMs = 500L, label = "Gaming"),
 
-    /** Power-saver mode. 2-second polling, CPU hints reduced. */
+    /** Power-saver mode. 2-second polling for this app. */
     SAVER(pollIntervalMs = 2000L, label = "Saver");
 
     companion object {
@@ -26,6 +26,7 @@ enum class PerformanceProfile(
 
 object TelemetryManager {
     data class TelemetryData(
+        val updatedAtElapsedMs: Long = 0L,
         val cpuUsage: Int = 0,
         val gpuUsage: Int = 0,
         val fps: Float = 0f,
@@ -42,7 +43,7 @@ object TelemetryManager {
     val activeProfile = _activeProfile.asStateFlow()
 
     fun updateData(newData: TelemetryData) {
-        _data.value = newData
+        _data.value = newData.copy(updatedAtElapsedMs = android.os.SystemClock.elapsedRealtime())
     }
 
     fun setProfile(profile: PerformanceProfile) {

@@ -77,11 +77,19 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.example.relab_tool.ui.theme.ShapeCard
+import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
+import androidx.compose.ui.res.stringResource
+import com.example.relab_tool.R
 import java.io.File
 import java.security.MessageDigest
 import java.util.Random
@@ -91,6 +99,19 @@ import androidx.biometric.BiometricPrompt
 import androidx.biometric.BiometricManager
 
 data class LensInfo(val logicalId: String, val physicalId: String?, val name: String)
+
+private class CameraTestBinding {
+    var disposed = false
+    var provider: ProcessCameraProvider? = null
+    var preview: Preview? = null
+
+    fun dispose() {
+        disposed = true
+        preview?.let { provider?.unbind(it) }
+        preview = null
+        provider = null
+    }
+}
 
 fun getPointerColor(id: Int): Color {
     val colors = listOf(
@@ -108,23 +129,27 @@ fun getPointerColor(id: Int): Color {
     return colors[abs(id) % colors.size]
 }
 
-fun playSineWave(streamType: Int): AudioTrack {
+fun playSineWave(streamType: Int, stereoChannel: Int = 0): AudioTrack {
     val sampleRate = 44100
     val freqOfTone = 440.0
     val numSamples = sampleRate * 3
-    val generatedSnd = ByteArray(2 * numSamples)
+    val generatedSnd = ByteArray(4 * numSamples)
 
     for (i in 0 until numSamples) {
         val sample = sin(2 * Math.PI * i / (sampleRate / freqOfTone))
         val valShort = (sample * 32767).toInt().toShort()
-        generatedSnd[i * 2] = (valShort.toInt() and 0x00ff).toByte()
-        generatedSnd[i * 2 + 1] = (valShort.toInt() and 0xff00).ushr(8).toByte()
+        for (channel in 0..1) {
+            val value = if ((stereoChannel == -1 && channel == 1) || (stereoChannel == 1 && channel == 0)) 0 else valShort.toInt()
+            val offset = i * 4 + channel * 2
+            generatedSnd[offset] = (value and 0x00ff).toByte()
+            generatedSnd[offset + 1] = (value and 0xff00).ushr(8).toByte()
+        }
     }
 
     val audioFormat = AudioFormat.Builder()
         .setSampleRate(sampleRate)
         .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+        .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
         .build()
 
     val audioAttributes = AudioAttributes.Builder()
@@ -140,7 +165,7 @@ fun playSineWave(streamType: Int): AudioTrack {
         .build()
 
     audioTrack.write(generatedSnd, 0, generatedSnd.size)
-    audioTrack.setLoopPoints(0, generatedSnd.size / 2, -1)
+    audioTrack.setLoopPoints(0, numSamples, -1)
     audioTrack.play()
     
     return audioTrack
@@ -211,7 +236,7 @@ fun CITCategoryWizardScreen(
     val categoryResult = session.categories.find { it.categoryId == categoryId }
     val testResults = categoryResult?.tests ?: emptyList()
 
-    var currentTestIndex by remember { mutableIntStateOf(0) }
+    var currentTestIndex by rememberSaveable(categoryId) { mutableIntStateOf(0) }
     val activeTestDef = categoryDef.subTests.getOrNull(currentTestIndex)
     val activeTestResult = testResults.find { it.id == activeTestDef?.id }
 
@@ -228,11 +253,21 @@ fun CITCategoryWizardScreen(
     LaunchedEffect(activeTestDef?.id) {
         val def = activeTestDef ?: return@LaunchedEffect
         if (def.isAutomated && def.runAutomated != null) {
-            val isSupported = def.checkSupport(context)
+            val isSupported = withContext(Dispatchers.IO) { runCatching { def.checkSupport(context) }.getOrDefault(false) }
             if (!isSupported) {
                 viewModel.updateSubTestResult(categoryId, def.id, TestStatus.NOT_APPLICABLE, "Not Supported")
             } else {
-                val outcome = def.runAutomated.invoke(context)
+                val outcome = try {
+                    withTimeout(30_000L) {
+                        withContext(Dispatchers.IO) { def.runAutomated.invoke(context) }
+                    }
+                } catch (cancelled: kotlinx.coroutines.TimeoutCancellationException) {
+                    TestStatus.SKIPPED to context.getString(R.string.audit_test_error)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    TestStatus.SKIPPED to context.getString(R.string.audit_test_error)
+                }
                 viewModel.updateSubTestResult(categoryId, def.id, outcome.first, outcome.second)
             }
         }
@@ -408,11 +443,13 @@ fun CITCategoryWizardScreen(
                                         }
                                     }
                                 } else {
-                                    InteractiveTestLayout(
-                                        testId = activeTestDef.id,
-                                        categoryId = categoryId,
-                                        viewModel = viewModel
-                                    )
+                                    key(activeTestDef.id) {
+                                        InteractiveTestLayout(
+                                            testId = activeTestDef.id,
+                                            categoryId = categoryId,
+                                            viewModel = viewModel
+                                        )
+                                    }
                                 }
                             }
 
@@ -839,8 +876,19 @@ fun InteractiveTestLayout(
 
         "BRIGHTNESS_RANGE" -> {
             var step by remember { mutableIntStateOf(50) }
+            val activity = context as? android.app.Activity
+            DisposableEffect(activity) {
+                val previous = activity?.window?.attributes?.screenBrightness
+                onDispose {
+                    if (previous != null) activity?.window?.let { window ->
+                        window.attributes = window.attributes.apply { screenBrightness = previous }
+                    }
+                }
+            }
             LaunchedEffect(step) {
-                // Mock layout representation of hardware step adjust
+                activity?.window?.let { window ->
+                    window.attributes = window.attributes.apply { screenBrightness = step / 100f }
+                }
             }
             Column(
                 modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -993,6 +1041,19 @@ fun InteractiveTestLayout(
                 ) {
                     Text(if (isPlaying) "STOP AUDIO TONE" else "PLAY TEST TONE")
                 }
+                if (testId == "STEREO_BALANCE") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(-1, 1).forEach { channel ->
+                            Button(onClick = {
+                                activeToneTrack?.release()
+                                activeToneTrack = playSineWave(AudioManager.STREAM_MUSIC, channel)
+                                isPlaying = true
+                            }) {
+                                Text(stringResource(if (channel == -1) R.string.audit_left_channel else R.string.audit_right_channel))
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -1041,8 +1102,7 @@ fun InteractiveTestLayout(
                                         setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
                                         setOutputFile(micFile.absolutePath)
                                         setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
-                                        prepare()
-                                        start()
+                                        withContext(Dispatchers.IO) { prepare(); start() }
                                     }
 
                                     val t0 = System.currentTimeMillis()
@@ -1050,7 +1110,9 @@ fun InteractiveTestLayout(
                                         progress = (System.currentTimeMillis() - t0) / 3000f
                                         delay(100)
                                     }
-                                    recorder.stop()
+                                    withContext(Dispatchers.IO) { recorder?.stop() }
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
                                 } catch (e: Exception) {
                                     e.printStackTrace()
                                 } finally {
@@ -1065,7 +1127,7 @@ fun InteractiveTestLayout(
                                     try {
                                         player = MediaPlayer()
                                         player.setDataSource(micFile.absolutePath)
-                                        player.prepare()
+                                        withContext(Dispatchers.IO) { player?.prepare() }
                                         player.start()
                                         delay(3000)
                                     } catch (e: Exception) {
@@ -1116,6 +1178,14 @@ fun InteractiveTestLayout(
 
             val lifecycleOwner = LocalLifecycleOwner.current
             var zoomRatio by remember { mutableFloatStateOf(1f) }
+            var activeCamera by remember { mutableStateOf<androidx.camera.core.Camera?>(null) }
+            var cameraError by remember { mutableStateOf(false) }
+            LaunchedEffect(activeCamera, zoomRatio) {
+                val camera = activeCamera ?: return@LaunchedEffect
+                val range = camera.cameraInfo.zoomState.value
+                val zoom = zoomRatio.coerceIn(range?.minZoomRatio ?: 1f, range?.maxZoomRatio ?: 1f)
+                camera.cameraControl.setZoomRatio(zoom)
+            }
 
             // Lenses querying for physical switching
             val lenses = remember(context) {
@@ -1160,6 +1230,10 @@ fun InteractiveTestLayout(
             }
 
             var selectedLens by remember { mutableStateOf(lenses.firstOrNull()) }
+            val binding = remember(testId, selectedLens) { CameraTestBinding() }
+            DisposableEffect(binding) {
+                onDispose { binding.dispose() }
+            }
 
             DisposableEffect(testId) {
                 if (!hasPermission) launcher.launch(Manifest.permission.CAMERA)
@@ -1216,7 +1290,13 @@ fun InteractiveTestLayout(
                                     val viewFinder = PreviewView(ctx)
                                     val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
                                     cameraProviderFuture.addListener({
-                                        val cameraProvider = cameraProviderFuture.get()
+                                        if (binding.disposed) return@addListener
+                                        val cameraProvider = try {
+                                            cameraProviderFuture.get()
+                                        } catch (error: Exception) {
+                                            cameraError = true
+                                            return@addListener
+                                        }
                                         val preview = Preview.Builder().apply {
                                             if (testId == "CAMERA_MULTI" && selectedLens?.physicalId != null) {
                                                 androidx.camera.camera2.interop.Camera2Interop.Extender(this)
@@ -1242,14 +1322,17 @@ fun InteractiveTestLayout(
                                         }
 
                                         try {
-                                            cameraProvider.unbindAll()
+                                            binding.provider = cameraProvider
+                                            binding.preview = preview
                                             val camera = cameraProvider.bindToLifecycle(lifecycleOwner, selector, preview)
+                                            activeCamera = camera
                                             
                                             // Zoom stepping test logic binding
                                             if (testId == "CAMERA_ZOOM") {
                                                 camera.cameraControl.setZoomRatio(zoomRatio)
                                             }
                                         } catch (e: Exception) {
+                                            cameraError = true
                                             e.printStackTrace()
                                         }
                                     }, ContextCompat.getMainExecutor(ctx))
@@ -1263,11 +1346,27 @@ fun InteractiveTestLayout(
                         }
                     }
 
+                    if (cameraError) Text(stringResource(R.string.audit_camera_error))
+                    if (testId == "AUTOFOCUS") {
+                        Button(onClick = {
+                            val camera = activeCamera ?: return@Button
+                            val point = androidx.camera.core.SurfaceOrientedMeteringPointFactory(1f, 1f).createPoint(0.5f, 0.5f)
+                            val future = camera.cameraControl.startFocusAndMetering(
+                                androidx.camera.core.FocusMeteringAction.Builder(point).build()
+                            )
+                            future.addListener({
+                                if (!binding.disposed) {
+                                    val result = runCatching { future.get().isFocusSuccessful }.getOrDefault(false)
+                                    viewModel.updateSubTestResult(categoryId, testId, if (result) TestStatus.PASS else TestStatus.SKIPPED)
+                                }
+                            }, ContextCompat.getMainExecutor(context))
+                        }) { Text(stringResource(R.string.audit_focus_camera)) }
+                    }
                     if (testId == "CAMERA_ZOOM") {
                         Slider(
                             value = zoomRatio,
                             onValueChange = { zoomRatio = it },
-                            valueRange = 1f..5f,
+                            valueRange = 1f..(activeCamera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 1f).coerceAtLeast(1f),
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                         )
                     }
@@ -1637,10 +1736,11 @@ fun InteractiveTestLayout(
 
             LaunchedEffect(activeStress) {
                 if (activeStress) {
+                    hashesCount = 0L
                     val t0 = System.currentTimeMillis()
                     val cores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
                     val jobs = List(cores) {
-                        launch(Dispatchers.Default) {
+                        async(Dispatchers.Default) {
                             val md = MessageDigest.getInstance("SHA-256")
                             var arr = "DiagnosticSuiteLoadTest".toByteArray()
                             var count = 0L
@@ -1649,7 +1749,7 @@ fun InteractiveTestLayout(
                                 count++
                                 if (count % 3000 == 0L) yield()
                             }
-                            hashesCount += count
+                            count
                         }
                     }
 
@@ -1657,7 +1757,7 @@ fun InteractiveTestLayout(
                         progress = (System.currentTimeMillis() - t0) / 5000f
                         delay(100)
                     }
-                    jobs.forEach { it.join() }
+                    hashesCount = jobs.awaitAll().sum()
                     activeStress = false
                     viewModel.updateSubTestResult(categoryId, testId, TestStatus.PASS, "%,d hashes".format(hashesCount))
                 }

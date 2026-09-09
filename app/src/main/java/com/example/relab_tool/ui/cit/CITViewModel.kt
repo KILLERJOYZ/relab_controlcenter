@@ -77,8 +77,8 @@ class CITViewModel @Inject constructor(
                     if (test.id == testId) {
                         test.copy(
                             status = status,
-                            value = value,
-                            notes = notes,
+                            value = value ?: test.value,
+                            notes = notes ?: test.notes,
                             timestamp = System.currentTimeMillis()
                         )
                     } else {
@@ -93,7 +93,7 @@ class CITViewModel @Inject constructor(
 
         // Check if all tests across all categories are completed (not pending)
         val allDone = updatedCategories.flatMap { it.tests }.none { it.status == TestStatus.PENDING }
-        val completedTime = if (allDone) System.currentTimeMillis() else null
+        val completedTime = if (allDone) currentSession.completedAt ?: System.currentTimeMillis() else null
 
         val updatedSession = currentSession.copy(
             categories = updatedCategories,

@@ -947,7 +947,7 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
         val nowNanos = System.nanoTime()
         val nanosSinceLastFrame = nowNanos - lastFrameTimeNanos
         val finalFps = if (nanosSinceLastFrame > 500_000_000L) {
-            if (nanosSinceLastFrame > 1_000_000_000L) 1f else 10f
+            0f
         } else {
             currentFpsValue
         }
@@ -4343,12 +4343,7 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
         }
         val hasStrongBox = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && pm.hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE)
         
-        val biometricClass = when {
-            hasStrongBox -> "StrongBox (Class 3)"
-            hasFingerprint -> "Hardware-backed (Class 3)"
-            hasFaceUnlock -> "Software-backed (Class 2)"
-            else -> "Weak / Software"
-        }
+        val biometricClass = context.getString(R.string.unknown)
 
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val activeNetwork = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) cm.activeNetwork else null
@@ -4487,7 +4482,7 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
         }
 
         val isBootloaderLocked = getSystemProperty("ro.boot.flash.locked") == "1"
-        val vbState = getSystemProperty("ro.boot.verifiedbootstate") ?: "green"
+        val vbState = getSystemProperty("ro.boot.verifiedbootstate") ?: context.getString(R.string.unknown)
 
         val slot = getSystemProperty("ro.boot.slot_suffix") ?: ""
         val activeSlot = if (slot.isNotEmpty()) slot.removePrefix("_").uppercase() else "A (Non-A/B)"
@@ -4511,7 +4506,7 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
             dynamicPartitions = isDynamic,
             seamlessUpdates = isSeamless,
             activeSlot = activeSlot,
-            avbVersion = getSystemProperty("ro.boot.vbmeta.avb_version") ?: "1.0",
+            avbVersion = getSystemProperty("ro.boot.vbmeta.avb_version") ?: context.getString(R.string.unknown),
             verifiedBootState = vbState.uppercase(),
             dmVerity = if (getSystemProperty("ro.boot.veritymode") == "enforcing") context.getString(R.string.status_enforcing) else context.getString(R.string.disabled),
             bootloaderStatus = if (isBootloaderLocked) context.getString(R.string.status_locked) else context.getString(R.string.status_unlocked),
@@ -4523,10 +4518,10 @@ class DeviceInfoViewModel(application: Application) : AndroidViewModel(applicati
             hasIrisScanner = hasIrisScanner,
             biometricClass = biometricClass,
             hasStrongBox = hasStrongBox,
-            meetsBasicIntegrity = !isRooted,
-            meetsDeviceIntegrity = !isRooted && isBootloaderLocked,
-            meetsStrongIntegrity = !isRooted && isBootloaderLocked && hasStrongBox,
-            integrityFailureReason = if (isRooted) context.getString(R.string.status_device_is_rooted) else if (!isBootloaderLocked) context.getString(R.string.status_bootloader_unlocked) else null,
+            meetsBasicIntegrity = null,
+            meetsDeviceIntegrity = null,
+            meetsStrongIntegrity = null,
+            integrityFailureReason = context.getString(R.string.audit_integrity_unavailable),
             keystoreType = keystoreType,
             hardwareBackedKeystore = isHardwareBacked,
             encryptionAlgorithm = "AES, RSA, EC",

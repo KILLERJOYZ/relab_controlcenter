@@ -4713,8 +4713,8 @@ enum class AppFilterType { ALL, INSTALLED, SYSTEM }
     val info by v.securityInfo.collectAsStateWithLifecycle()
     val drmInfos by v.drmInfos.collectAsStateWithLifecycle()
     info?.let { sec ->
-        val isSecure = !sec.rootAccess.contains("rooted", ignoreCase = true) && sec.selinuxStatus.equals("Enforcing", ignoreCase = true)
-        val scoreColor = if (isSecure) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+        // No verified overall security verdict is available.
+        val scoreColor = MaterialTheme.colorScheme.secondary
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             contentPadding = PaddingValues(16.dp),
@@ -4726,10 +4726,10 @@ enum class AppFilterType { ALL, INSTALLED, SYSTEM }
                     modifier = Modifier.fillMaxWidth().height(160.dp),
                     title = stringResource(R.string.sec_overview),
                     icon = Icons.Outlined.Security,
-                    value = if (isSecure) stringResource(R.string.sec_status_good) else stringResource(R.string.sec_status_warning),
+                    value = stringResource(R.string.audit_security_observations),
                     subtext = stringResource(R.string.security_patch) + ": " + sec.securityPatch,
                     containerColor = scoreColor,
-                    contentColor = if (isSecure) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onError,
+                    contentColor = MaterialTheme.colorScheme.onSecondary,
                     size = CardSize.SIZE_4x2,
                     cardId = "security_patch"
                 )
@@ -4807,29 +4807,10 @@ enum class AppFilterType { ALL, INSTALLED, SYSTEM }
                 )
             }
             
-            val integrityFeatures = listOf(
-                Triple(R.string.sec_meets_basic, Icons.Outlined.VerifiedUser, sec.meetsBasicIntegrity),
-                Triple(R.string.sec_meets_device, Icons.Outlined.VerifiedUser, sec.meetsDeviceIntegrity),
-                Triple(R.string.sec_meets_strong, Icons.Outlined.VerifiedUser, sec.meetsStrongIntegrity)
-            )
-            items(integrityFeatures) { (tRes, ic, s) ->
-                HardwareCapabilityCard(icon = ic, label = stringResource(tRes), isSupported = s, modifier = Modifier.fillMaxWidth())
+            item(span = { GridItemSpan(3) }) {
+                Text(stringResource(R.string.audit_integrity_unavailable))
             }
-            
-            sec.integrityFailureReason?.let { reason ->
-                item(span = { GridItemSpan(3) }) {
-                    InfoGroupCard(
-                        stringResource(R.string.sec_play_integrity) + " Details",
-                        Icons.Outlined.VerifiedUser,
-                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
-                        MaterialTheme.colorScheme.tertiary,
-                        cardId = "group_sec_play_integrity"
-                    ) {
-                        InfoRow(stringResource(R.string.sec_failure_reason), reason)
-                    }
-                }
-            }
-            
+
             // Section 4: Encryption & Storage
             item(span = { GridItemSpan(3) }) {
                 Text(

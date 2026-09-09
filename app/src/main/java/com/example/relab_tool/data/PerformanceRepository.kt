@@ -1,5 +1,6 @@
 package com.example.relab_tool.data
 
+import com.example.relab_tool.R
 import android.content.Context
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,52 +22,62 @@ class PerformanceRepository(private val context: Context) {
     private val _throttlingHistory = MutableStateFlow<List<Pair<Long, Int>>>(emptyList())
     val throttlingHistory = _throttlingHistory.asStateFlow()
 
-    suspend fun runCpuBenchmark() = withContext(Dispatchers.Default) {
-        _isBenchmarking.value = true
-        _benchmarkResult.value = "Running CPU Benchmark..."
-        
-        val size = 500
-        val matrixA = Array(size) { DoubleArray(size) { Math.random() } }
-        val matrixB = Array(size) { DoubleArray(size) { Math.random() } }
-        val result = Array(size) { DoubleArray(size) }
+    @Volatile private var cpuChecksum = 0.0
 
-        val time = measureTimeMillis {
-            for (i in 0 until size) {
-                ensureActive()
-                for (j in 0 until size) {
-                    for (k in 0 until size) {
-                        result[i][j] += matrixA[i][k] * matrixB[k][j]
-                    }
-                }
-            }
+    private suspend fun runBenchmark(label: Int, work: suspend () -> String) = withContext(Dispatchers.Default) {
+        if (!_isBenchmarking.compareAndSet(false, true)) return@withContext
+        try {
+            _benchmarkResult.value = context.getString(label)
+            _benchmarkResult.value = work()
+        } catch (cancelled: CancellationException) {
+            _benchmarkResult.value = context.getString(R.string.audit_benchmark_cancelled)
+            throw cancelled
+        } catch (error: Exception) {
+            _benchmarkResult.value = context.getString(R.string.audit_benchmark_error)
+        } catch (error: OutOfMemoryError) {
+            _benchmarkResult.value = context.getString(R.string.audit_benchmark_error)
+        } finally {
+            _isBenchmarking.value = false
         }
-
-        _benchmarkResult.value = "CPU Score: ${500000 / time.coerceAtLeast(1)} units (${time}ms)"
-        _isBenchmarking.value = false
     }
 
-    suspend fun runRamBenchmark() = withContext(Dispatchers.Default) {
-        _isBenchmarking.value = true
-        _benchmarkResult.value = "Running RAM Benchmark..."
-
-        val size = 50 * 1024 * 1024 // 50MB
-        val array = ByteArray(size)
-        
-        val time = measureTimeMillis {
-            for (i in 0 until size) {
-                if (i % 1_000_000 == 0) ensureActive()
-                array[i] = (i % 256).toByte()
-            }
-            var sum = 0L
-            for (i in 0 until size) {
-                if (i % 1_000_000 == 0) ensureActive()
-                sum += array[i].toLong()
+    suspend fun runCpuBenchmark() = runBenchmark(R.string.audit_cpu_running) {
+        val size = 500
+        val random = java.util.Random(0L)
+        val matrixA = Array(size) { DoubleArray(size) { random.nextDouble() } }
+        val matrixB = Array(size) { DoubleArray(size) { random.nextDouble() } }
+        var checksum = 0.0
+        val started = System.nanoTime()
+        for (i in 0 until size) {
+            currentCoroutineContext().ensureActive()
+            for (j in 0 until size) {
+                var cell = 0.0
+                for (k in 0 until size) cell += matrixA[i][k] * matrixB[k][j]
+                checksum += cell
             }
         }
+        val elapsedMs = ((System.nanoTime() - started) / 1_000_000L).coerceAtLeast(1L)
+        cpuChecksum = checksum
+        context.getString(R.string.audit_cpu_result, 500000L / elapsedMs, elapsedMs)
+    }
 
-        val speed = (size.toDouble() / 1024 / 1024) / (time.toDouble() / 1000)
-        _benchmarkResult.value = "RAM Speed: %.2f MB/s".format(speed)
-        _isBenchmarking.value = false
+    suspend fun runRamBenchmark() = runBenchmark(R.string.audit_ram_running) {
+        val size = 50 * 1024 * 1024
+        val array = ByteArray(size)
+        var checksum = 0L
+        val started = System.nanoTime()
+        for (i in array.indices) {
+            if (i % 1_000_000 == 0) currentCoroutineContext().ensureActive()
+            array[i] = (i % 256).toByte()
+        }
+        for (i in array.indices) {
+            if (i % 1_000_000 == 0) currentCoroutineContext().ensureActive()
+            checksum += array[i].toLong()
+        }
+        check(checksum == -size / 2L) { "Memory verification failed" }
+        val seconds = (System.nanoTime() - started).coerceAtLeast(1L) / 1_000_000_000.0
+        val speed = (2.0 * size / (1024 * 1024)) / seconds
+        context.getString(R.string.audit_ram_result, speed, checksum)
     }
 
     private var stabilityJob: Job? = null

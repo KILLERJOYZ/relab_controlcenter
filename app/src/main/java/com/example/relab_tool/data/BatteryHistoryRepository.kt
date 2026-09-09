@@ -1,5 +1,6 @@
 package com.example.relab_tool.data
 
+import com.example.relab_tool.utils.StabilizationConstants as C
 import android.content.Context
 import android.content.SharedPreferences
 import org.json.JSONArray
@@ -7,21 +8,14 @@ import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
 
-class BatteryHistoryRepository(context: Context) {
+class BatteryHistoryRepository(context: Context, private val clock: () -> Long = System::currentTimeMillis) {
+    companion object { private val historyLock = Any() }
     private val prefs: SharedPreferences by lazy { context.getSharedPreferences("battery_history", Context.MODE_PRIVATE) }
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
-    fun getBatteryHistory(): List<Triple<Long, Int, Boolean>> {
-        val today = dateFormat.format(Date())
-        val lastSavedDate = prefs.getString("last_date", "")
-        
-        if (today != lastSavedDate) {
-            clearHistory()
-            return emptyList()
-        }
 
+    fun getBatteryHistory(): List<Triple<Long, Int, Boolean>> = synchronized(historyLock) {
         val historyJson = prefs.getString("history", "[]") ?: "[]"
-        return try {
+        try {
             val jsonArray = JSONArray(historyJson)
             val history = mutableListOf<Triple<Long, Int, Boolean>>()
             for (i in 0 until jsonArray.length()) {
@@ -32,7 +26,7 @@ class BatteryHistoryRepository(context: Context) {
                     obj.optBoolean("isCharging", false)
                 ))
             }
-            history
+            BatteryHistoryPolicy.retained(history, clock())
         } catch (e: Exception) {
             emptyList()
         }
@@ -42,10 +36,10 @@ class BatteryHistoryRepository(context: Context) {
         return prefs.getString("last_date", "") ?: ""
     }
 
-    fun saveBatteryHistory(history: List<Triple<Long, Int, Boolean>>) {
-        val today = dateFormat.format(Date())
+    fun saveBatteryHistory(history: List<Triple<Long, Int, Boolean>>) = synchronized(historyLock) {
+        val today = SimpleDateFormat(C.DATE_FORMAT, Locale.US).format(Date(clock()))
         val jsonArray = JSONArray()
-        history.forEach { (timestamp, level, isCharging) ->
+        BatteryHistoryPolicy.retained(history, clock()).forEach { (timestamp, level, isCharging) ->
             val obj = JSONObject()
             obj.put("timestamp", timestamp)
             obj.put("level", level)
@@ -139,41 +133,22 @@ class BatteryHistoryRepository(context: Context) {
         prefs.edit().remove("charging_curve").apply()
     }
 
-    fun getDischargeRatePerHour(): Float {
-        val history = getBatteryHistory()
-        if (history.size < 2) return 0f
-        
-        val nonCharging = history.filter { !it.third }
-        if (nonCharging.size < 2) return 0f
-        
-        val first = nonCharging.first()
-        val last = nonCharging.last()
-        
-        val deltaPct = first.second - last.second
-        val deltaTimeMs = last.first - first.first
-        
-        if (deltaTimeMs <= 0 || deltaPct <= 0) return 0f
-        
-        return (deltaPct.toFloat() / (deltaTimeMs / 3600000f))
-    }
+    fun getDischargeRatePerHour(): Float = BatteryHistoryPolicy.dischargeRate(getBatteryHistory())
 
-    fun recordBatteryPoint(level: Int, isCharging: Boolean) {
-        val today = dateFormat.format(Date())
-        if (today != getLastSavedDate()) {
-            clearHistory()
-        }
-
-        if (level == 100) {
-            setLastFullChargeTs(System.currentTimeMillis())
-        }
-
+    fun recordBatteryPoint(level: Int, isCharging: Boolean) = synchronized(historyLock) {
+        if (level !in 0..100) return@synchronized
+        val now = clock()
         val history = getBatteryHistory().toMutableList()
-        val lastPoint = history.lastOrNull()
-
-        if (lastPoint == null || lastPoint.second != level || lastPoint.third != isCharging) {
-            val newPoint = Triple(System.currentTimeMillis(), level, isCharging)
-            history.add(newPoint)
+        val last = history.lastOrNull()
+        if (level == 100 && last?.second != 100 && (last != null || getLastFullChargeTs() == 0L)) {
+            setLastFullChargeTs(now)
+        }
+        if (last?.third == true && !isCharging) setLastStoppedChargingTs(now)
+        if (last == null || last.second != level || last.third != isCharging ||
+            now - last.first >= BatteryHistoryPolicy.SAMPLE_INTERVAL_MS) {
+            history.add(Triple(now, level, isCharging))
             saveBatteryHistory(history)
         }
     }
+
 }

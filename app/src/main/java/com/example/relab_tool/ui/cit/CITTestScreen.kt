@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import com.example.relab_tool.R
 import com.example.relab_tool.ui.theme.ShapeCard
 
@@ -151,6 +152,18 @@ fun CITDashboard(
     onStartBatch: () -> Unit
 ) {
     val context = LocalContext.current
+    val exportScope = rememberCoroutineScope()
+    var exportRunning by remember { mutableStateOf(false) }
+    val runExport: (suspend () -> Unit) -> Unit = { action ->
+        if (!exportRunning) exportScope.launch {
+            exportRunning = true
+            try { action() }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (error: Exception) {
+                android.widget.Toast.makeText(context, R.string.audit_export_error, android.widget.Toast.LENGTH_LONG).show()
+            } finally { exportRunning = false }
+        }
+    }
     
     val categoryItems = remember(session) {
         session.categories.map { cat ->
@@ -325,7 +338,7 @@ fun CITDashboard(
                     ) {
                         OutlinedButton(
                             onClick = {
-                                com.example.relab_tool.utils.CITReportPdfGenerator.generateAndShareReport(context, session)
+                                runExport { com.example.relab_tool.utils.CITReportPdfGenerator.generateAndShareReport(context, session) }
                             },
                             modifier = Modifier.weight(1f).height(48.dp),
                             shape = ShapeCard,
@@ -349,7 +362,7 @@ fun CITDashboard(
 
                         OutlinedButton(
                             onClick = {
-                                com.example.relab_tool.utils.CITReportJsonExporter.exportAndShareJson(context, session)
+                                runExport { com.example.relab_tool.utils.CITReportJsonExporter.exportAndShareJson(context, session) }
                             },
                             modifier = Modifier.weight(1f).height(48.dp),
                             shape = ShapeCard,

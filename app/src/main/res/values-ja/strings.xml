@@ -879,7 +879,7 @@
     <string name="instruction_sets">命令セット</string>
     <string name="internal_free">内部ストレージ空き</string>
     <string name="internal_used">内部ストレージ使用済み</string>
-    <string name="last_charge_full">前回の満充電</string>
+    <string name="last_charge_full">最後の100%%充電: %1$d時間%2$d分前</string>
     <string name="level_label">Level: %1$d%%</string>
     <string name="location_specs">測位仕様</string>
     <string name="mac_address">MACアドレス</string>

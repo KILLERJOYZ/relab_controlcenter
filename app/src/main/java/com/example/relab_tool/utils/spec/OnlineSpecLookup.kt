@@ -2,6 +2,9 @@ package com.example.relab_tool.utils.spec
 
 import android.content.Context
 import android.util.Log
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -33,8 +36,8 @@ object OnlineSpecLookup {
     @Volatile
     private var cachedArray: JSONArray? = null
 
-    @Volatile
-    private var fetchAttempted = false
+    private val fetchMutex = Mutex()
+    private var hasFreshCache = false
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -48,20 +51,20 @@ object OnlineSpecLookup {
      *
      * @return The parsed JSONArray, or null on failure
      */
-    suspend fun fetchAndCache(context: Context): JSONArray? {
-        if (fetchAttempted) return cachedArray
-        fetchAttempted = true
+    suspend fun fetchAndCache(context: Context): JSONArray? = fetchMutex.withLock {
+        if (hasFreshCache) cachedArray?.let { return@withLock it }
 
         // 1. Check local cache first
-        val cached = loadFromCache(context)
+        val cached = withContext(Dispatchers.IO) { loadFromCache(context) }
         if (cached != null) {
             cachedArray = cached
+            hasFreshCache = true
             Log.d(TAG, "Using cached online database (${cached.length()} devices)")
-            return cached
+            return@withLock cached
         }
 
         // 2. Fetch from GitHub
-        return withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
             try {
                 val request = Request.Builder()
                     .url(ONLINE_DB_URL)
@@ -77,6 +80,7 @@ object OnlineSpecLookup {
                         val array = JSONArray(body)
                         saveToCache(context, body)
                         cachedArray = array
+                        hasFreshCache = true
                         Log.i(TAG, "Fetched online database: ${array.length()} devices")
                         return@withContext array
                     }
@@ -84,10 +88,12 @@ object OnlineSpecLookup {
                     response.close()
                     Log.w(TAG, "Online fetch failed: HTTP ${response.code}")
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (e: Exception) {
                 Log.w(TAG, "Online fetch failed: ${e.message}")
             }
-            null
+            loadFromCache(context, allowExpired = true)?.also { cachedArray = it }
         }
     }
 
@@ -109,11 +115,11 @@ object OnlineSpecLookup {
      */
     fun isAvailable(): Boolean = cachedArray != null
 
-    private fun loadFromCache(context: Context): JSONArray? {
+    private fun loadFromCache(context: Context, allowExpired: Boolean = false): JSONArray? {
         try {
             val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
             val ts = prefs.getLong(CACHE_TS_KEY, 0)
-            if (System.currentTimeMillis() - ts > CACHE_TTL_MS) {
+            if (!allowExpired && System.currentTimeMillis() - ts > CACHE_TTL_MS) {
                 return null  // Cache expired
             }
             val json = prefs.getString(CACHE_KEY, null) ?: return null

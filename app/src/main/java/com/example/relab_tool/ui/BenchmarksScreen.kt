@@ -57,6 +57,7 @@ fun BenchmarksScreen(
     var downloadSpeed by remember { mutableStateOf(0.0) }
     var testProgress by remember { mutableStateOf(0f) }
     var isTesting by remember { mutableStateOf(false) }
+    var speedTestFailed by remember { mutableStateOf(false) }
     val towers by viewModel.towers.collectAsStateWithLifecycle()
 
     val bottomContentPadding = if (isWideScreen) 16.dp else 100.dp
@@ -165,7 +166,7 @@ fun BenchmarksScreen(
             Card(modifier = Modifier.fillMaxWidth(), shape = ShapeCard) {
                 Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = if (downloadSpeed > 0) "%.1f Mbps".format(downloadSpeed) else stringResource(R.string.ready),
+                        text = if (speedTestFailed) stringResource(R.string.audit_speed_error) else if (downloadSpeed > 0) stringResource(R.string.audit_speed_result, downloadSpeed) else stringResource(R.string.ready),
                         style = MaterialTheme.typography.displayMedium,
                         fontWeight = FontWeight.Black
                     )
@@ -176,10 +177,20 @@ fun BenchmarksScreen(
                         onClick = {
                             coroutineScope.launch {
                                 isTesting = true
-                                downloadSpeed = NetworkUtils.performDownloadSpeedTest("https://speed.cloudflare.com/__down?bytes=25000000") {
-                                    testProgress = it
+                                speedTestFailed = false
+                                testProgress = 0f
+                                try {
+                                    downloadSpeed = NetworkUtils.performDownloadSpeedTest(com.example.relab_tool.utils.StabilizationConstants.SPEED_TEST_URL) {
+                                        testProgress = it
+                                    }
+                                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                    throw cancelled
+                                } catch (error: Exception) {
+                                    speedTestFailed = true
+                                    downloadSpeed = 0.0
+                                } finally {
+                                    isTesting = false
                                 }
-                                isTesting = false
                             }
                         },
                         enabled = !isTesting
